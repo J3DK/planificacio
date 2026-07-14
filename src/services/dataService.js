@@ -108,6 +108,9 @@ export const DEFAULT_METRICAS = [
 
 // ─── READ ────────────────────────────────────────────────────────────────────
 
+function getLineasLocal() { try { const r = localStorage.getItem('mes_lineas'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setLineasLocal(d) { try { localStorage.setItem('mes_lineas', JSON.stringify(d)); } catch (_) {} }
+
 export async function fetchLineas() {
   if (isSupabaseConfigured()) {
     try {
@@ -115,6 +118,9 @@ export async function fetchLineas() {
       if (!error && data && data.length > 0) return { data: data.map(mapLinea), fromSupabase: true };
     } catch (e) { console.warn('Fallback a mockLineas:', e); }
   }
+  const local = getLineasLocal();
+  if (local) return { data: local, fromSupabase: false };
+  setLineasLocal(mockLineas);
   return { data: mockLineas, fromSupabase: false };
 }
 
@@ -138,6 +144,9 @@ export async function fetchParadas() {
   return { data: mockParadas, fromSupabase: false };
 }
 
+function getSecuenciaLocal() { try { const r = localStorage.getItem('mes_secuencia'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setSecuenciaLocal(d) { try { localStorage.setItem('mes_secuencia', JSON.stringify(d)); } catch (_) {} }
+
 export async function fetchSecuencia() {
   if (isSupabaseConfigured()) {
     try {
@@ -145,6 +154,9 @@ export async function fetchSecuencia() {
       if (!error && data && data.length > 0) return { data: data.map(mapSecuencia), fromSupabase: true };
     } catch (e) {}
   }
+  const local = getSecuenciaLocal();
+  if (local) return { data: local, fromSupabase: false };
+  setSecuenciaLocal(mockSecuencia);
   return { data: mockSecuencia, fromSupabase: false };
 }
 
@@ -195,21 +207,42 @@ export async function fetchMetricas() {
 // ─── WRITE — Lineas ──────────────────────────────────────────────────────────
 
 export async function insertLinea(linea) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { data, error } = await supabase.from('lineas').insert([lineaToDb(linea)]).select().single();
-  return { data: data ? mapLinea(data) : null, error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('lineas').insert([lineaToDb(linea)]).select().single();
+      if (!error && data) return { data: mapLinea(data), error: null };
+    } catch (e) {}
+  }
+  const current = getLineasLocal() || mockLineas;
+  const newItem = { ...linea, id: linea.id || `L${Date.now()}` };
+  const updated = [...current, newItem];
+  setLineasLocal(updated);
+  return { data: newItem, error: null };
 }
 
 export async function updateLinea(id, linea) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { data, error } = await supabase.from('lineas').update(lineaToDb(linea)).eq('id', id).select().single();
-  return { data: data ? mapLinea(data) : null, error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('lineas').update(lineaToDb(linea)).eq('id', id).select().single();
+      if (!error && data) return { data: mapLinea(data), error: null };
+    } catch (e) {}
+  }
+  const current = getLineasLocal() || mockLineas;
+  const updated = current.map(l => l.id === id ? { ...l, ...linea } : l);
+  setLineasLocal(updated);
+  return { data: updated.find(l => l.id === id), error: null };
 }
 
 export async function deleteLinea(id) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { error } = await supabase.from('lineas').delete().eq('id', id);
-  return { error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('lineas').delete().eq('id', id);
+      if (!error) return { error: null };
+    } catch (e) {}
+  }
+  const current = getLineasLocal() || mockLineas;
+  setLineasLocal(current.filter(l => l.id !== id));
+  return { error: null };
 }
 
 // ─── WRITE — Alertas ─────────────────────────────────────────────────────────
@@ -255,21 +288,42 @@ export async function deleteParada(id) {
 // ─── WRITE — Secuencia ───────────────────────────────────────────────────────
 
 export async function insertSecuencia(orden) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { data, error } = await supabase.from('secuencia').insert([secuenciaToDb(orden)]).select().single();
-  return { data: data ? mapSecuencia(data) : null, error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('secuencia').insert([secuenciaToDb(orden)]).select().single();
+      if (!error && data) return { data: mapSecuencia(data), error: null };
+    } catch (e) {}
+  }
+  const current = getSecuenciaLocal() || mockSecuencia;
+  const newItem = { ...orden, id: orden.id || Date.now(), secuencia: orden.secuencia || current.length + 1 };
+  const updated = [...current, newItem];
+  setSecuenciaLocal(updated);
+  return { data: newItem, error: null };
 }
 
 export async function updateSecuencia(id, orden) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { data, error } = await supabase.from('secuencia').update(secuenciaToDb(orden)).eq('id', id).select().single();
-  return { data: data ? mapSecuencia(data) : null, error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('secuencia').update(secuenciaToDb(orden)).eq('id', id).select().single();
+      if (!error && data) return { data: mapSecuencia(data), error: null };
+    } catch (e) {}
+  }
+  const current = getSecuenciaLocal() || mockSecuencia;
+  const updated = current.map(o => o.id === id ? { ...o, ...orden } : o);
+  setSecuenciaLocal(updated);
+  return { data: updated.find(o => o.id === id), error: null };
 }
 
 export async function deleteSecuencia(id) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { error } = await supabase.from('secuencia').delete().eq('id', id);
-  return { error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('secuencia').delete().eq('id', id);
+      if (!error) return { error: null };
+    } catch (e) {}
+  }
+  const current = getSecuenciaLocal() || mockSecuencia;
+  setSecuenciaLocal(current.filter(o => o.id !== id));
+  return { error: null };
 }
 
 // ─── WRITE — Materias Primas ─────────────────────────────────────────────────
@@ -524,3 +578,126 @@ export const fetchScraps         = scrapCRUD.fetchFn;
 export const insertScrap         = scrapCRUD.insertFn;
 export const updateScrap         = scrapCRUD.updateFn;
 export const deleteScrap         = scrapCRUD.deleteFn;
+
+// ─── PLANIFICACIÓN (GANTT) & SINCRONIZACIÓN CON EL RESTO DE LA APP ────────────
+
+const ordenesGanttDefault = [
+  { id: 'G1', linea: 'L1', dia: 0, horaInicio: 6, duracion: 4, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', color: '#2563eb' },
+  { id: 'G2', linea: 'L1', dia: 0, horaInicio: 10, duracion: 6, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', color: '#7c3aed' },
+  { id: 'G3', linea: 'L2', dia: 0, horaInicio: 6, duracion: 8, ref: 'BAT-24V-200Ah', cliente: 'Cliente B', color: '#0891b2' },
+  { id: 'G4', linea: 'L3', dia: 0, horaInicio: 8, duracion: 5, ref: 'BAT-12V-100Ah', cliente: 'Cliente C', color: '#dc2626' },
+  { id: 'G5', linea: 'L4', dia: 0, horaInicio: 6, duracion: 10, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', color: '#059669' },
+  { id: 'G6', linea: 'L5', dia: 0, horaInicio: 6, duracion: 8, ref: 'BAT-24V-100Ah', cliente: 'Cliente E', color: '#d97706' },
+  { id: 'G7', linea: 'L1', dia: 1, horaInicio: 6, duracion: 8, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', color: '#2563eb' },
+  { id: 'G8', linea: 'L2', dia: 1, horaInicio: 6, duracion: 6, ref: 'BAT-24V-100Ah', cliente: 'Cliente E', color: '#0891b2' },
+  { id: 'G9', linea: 'L3', dia: 1, horaInicio: 7, duracion: 9, ref: 'BAT-12V-200Ah', cliente: 'Cliente C', color: '#dc2626' },
+  { id: 'G10', linea: 'L4', dia: 1, horaInicio: 6, duracion: 8, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', color: '#059669' },
+  { id: 'G11', linea: 'L5', dia: 2, horaInicio: 6, duracion: 7, ref: 'BAT-24V-200Ah', cliente: 'Cliente B', color: '#d97706' },
+  { id: 'G12', linea: 'L1', dia: 2, horaInicio: 6, duracion: 6, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', color: '#2563eb' },
+];
+
+function getPlanificacionLocal() {
+  try {
+    const r = localStorage.getItem('mes_planificacion_gantt');
+    return r ? JSON.parse(r) : null;
+  } catch (_) { return null; }
+}
+
+function setPlanificacionLocal(d) {
+  try {
+    localStorage.setItem('mes_planificacion_gantt', JSON.stringify(d));
+    syncGanttToRestOfApp(d);
+  } catch (_) {}
+}
+
+function syncGanttToRestOfApp(ganttOrders) {
+  if (!Array.isArray(ganttOrders)) return;
+  
+  // 1. Sincronizar hacia las Líneas de producción (mes_lineas)
+  try {
+    const currentLineas = getLineasLocal() || mockLineas;
+    const updatedLineas = currentLineas.map(l => {
+      // Buscar orden activa en el día 0 (Hoy)
+      const ordenHoy = ganttOrders.find(o => o.linea === l.id && o.dia === 0) || ganttOrders.find(o => o.linea === l.id);
+      if (ordenHoy) {
+        return {
+          ...l,
+          producto: ordenHoy.ref,
+          cliente: ordenHoy.cliente,
+        };
+      }
+      return l;
+    });
+    localStorage.setItem('mes_lineas', JSON.stringify(updatedLineas));
+  } catch (_) {}
+
+  // 2. Sincronizar hacia Secuencia de Órdenes (mes_secuencia)
+  try {
+    const currentSecuencia = getSecuenciaLocal() || mockSecuencia;
+    let nextSeq = currentSecuencia.length + 1;
+    const updatedSecuencia = [...currentSecuencia];
+    
+    ganttOrders.forEach(go => {
+      const foundIdx = updatedSecuencia.findIndex(s => s.referencia === go.ref && s.cliente === go.cliente);
+      const diasStr = ['31/05/2024', '01/06/2024', '02/06/2024', '03/06/2024', '04/06/2024', '05/06/2024'];
+      const fechaComp = `${diasStr[go.dia] || '31/05/2024'} ${String(go.horaInicio).padStart(2, '0')}:00`;
+      
+      if (foundIdx >= 0) {
+        updatedSecuencia[foundIdx] = {
+          ...updatedSecuencia[foundIdx],
+          fechaCompromiso: fechaComp,
+        };
+      } else {
+        updatedSecuencia.push({
+          id: Date.now() + Math.floor(Math.random() * 10000),
+          secuencia: nextSeq++,
+          referencia: go.ref,
+          cliente: go.cliente,
+          fechaCompromiso: fechaComp,
+          progreso: 0,
+          cumplimiento: 100,
+          desvio: 0,
+          estado: 'a_tiempo'
+        });
+      }
+    });
+    localStorage.setItem('mes_secuencia', JSON.stringify(updatedSecuencia));
+  } catch (_) {}
+}
+
+export async function fetchPlanificacion() {
+  const local = getPlanificacionLocal();
+  if (local) return { data: local, error: null };
+  setPlanificacionLocal(ordenesGanttDefault);
+  return { data: ordenesGanttDefault, error: null };
+}
+
+export async function insertOrdenPlanificacion(orden) {
+  const current = getPlanificacionLocal() || ordenesGanttDefault;
+  const newItem = {
+    ...orden,
+    id: orden.id || `G_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+  };
+  const updated = [...current, newItem];
+  setPlanificacionLocal(updated);
+  return { data: newItem, error: null };
+}
+
+export async function updateOrdenPlanificacion(id, updates) {
+  const current = getPlanificacionLocal() || ordenesGanttDefault;
+  const updated = current.map(o => o.id === id ? { ...o, ...updates } : o);
+  setPlanificacionLocal(updated);
+  return { data: updated.find(o => o.id === id), error: null };
+}
+
+export async function deleteOrdenPlanificacion(id) {
+  const current = getPlanificacionLocal() || ordenesGanttDefault;
+  const updated = current.filter(o => o.id !== id);
+  setPlanificacionLocal(updated);
+  return { error: null };
+}
+
+export async function setAllPlanificacion(ordenes) {
+  setPlanificacionLocal(ordenes);
+  return { data: ordenes, error: null };
+}
