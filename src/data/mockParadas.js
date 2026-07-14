@@ -25,3 +25,15 @@ export const oeeWaterfall = [
   { nombre: 'Scrap', valor: -0.8, tipo: 'perdida' },
   { nombre: 'OEE Real', valor: 83.4, tipo: 'resultado' },
 ];
+
+export const paradasPredeterminadasIniciales = [
+  { id: 'PP1', codigo: 'ERR-MEC-01', causa: 'Avería soldadora automática / falla eléctrica', categoria: 'averia', tiempoEst: 30, impactoHora: 120 },
+  { id: 'PP2', codigo: 'ERR-MEC-02', causa: 'Atasco en cinta transportadora o transfer', categoria: 'averia', tiempoEst: 15, impactoHora: 120 },
+  { id: 'PP3', codigo: 'MAT-01', causa: 'Falta de componentes o material sin stock en línea', categoria: 'averia', tiempoEst: 20, impactoHora: 100 },
+  { id: 'PP4', codigo: 'MNT-PREV', causa: 'Mantenimiento preventivo programado cabezales', categoria: 'mantenimiento', tiempoEst: 60, impactoHora: 120 },
+  { id: 'PP5', codigo: 'MNT-LUB', causa: 'Lubricación, limpieza y calibración de estación', categoria: 'mantenimiento', tiempoEst: 15, impactoHora: 100 },
+  { id: 'PP6', codigo: 'CAM-REF', causa: 'Cambio de referencia y ajuste de utillajes técnicos', categoria: 'cambio', tiempoEst: 25, impactoHora: 120 },
+  { id: 'PP7', codigo: 'CAM-BOB', causa: 'Cambio de bobina / rollo de consumibles o film', categoria: 'cambio', tiempoEst: 10, bg: '#3b82f6', impactoHora: 100 },
+  { id: 'PP8', codigo: 'CAL-INSP', causa: 'Control de calidad — inspección de lote en proceso', categoria: 'calidad', tiempoEst: 15, impactoHora: 80 },
+  { id: 'PP9', codigo: 'CAL-RET', causa: 'Retrabo y separación por fallo de sellado o etiquetas', categoria: 'calidad', tiempoEst: 20, impactoHora: 80 },
+];

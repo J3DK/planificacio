@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { lineas as mockLineas } from '@/data/mockLineas';
 import { alertas as mockAlertas } from '@/data/mockAlertas';
-import { paradasTurno as mockParadas } from '@/data/mockParadas';
+import { paradasTurno as mockParadas, paradasPredeterminadasIniciales } from '@/data/mockParadas';
 import { ordenesSecuencia as mockSecuencia } from '@/data/mockSecuencia';
 import { defectosPorCausa as mockDefectos, retrabajos as mockRetrabajos, reclamaciones as mockReclamaciones, scraps as mockScraps } from '@/data/mockCalidad';
 import { produccionHistorica as mockProduccion } from '@/data/mockProduccion';
@@ -135,6 +135,12 @@ export async function fetchAlertas() {
   return { data: mockAlertas, fromSupabase: false };
 }
 
+function getParadasTurnoLocal() { try { const r = localStorage.getItem('mes_paradas_turno'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setParadasTurnoLocal(d) { try { localStorage.setItem('mes_paradas_turno', JSON.stringify(d)); } catch (_) {} }
+
+function getParadasPredeterminadasLocal() { try { const r = localStorage.getItem('mes_paradas_predeterminadas'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setParadasPredeterminadasLocal(d) { try { localStorage.setItem('mes_paradas_predeterminadas', JSON.stringify(d)); } catch (_) {} }
+
 export async function fetchParadas() {
   if (isSupabaseConfigured()) {
     try {
@@ -142,7 +148,23 @@ export async function fetchParadas() {
       if (!error && data && data.length > 0) return { data, fromSupabase: true };
     } catch (e) {}
   }
+  const local = getParadasTurnoLocal();
+  if (local && Array.isArray(local) && local.length > 0) return { data: local, fromSupabase: false };
+  setParadasTurnoLocal(mockParadas);
   return { data: mockParadas, fromSupabase: false };
+}
+
+export async function fetchParadasPredeterminadas() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('paradas_predeterminadas').select('*').order('codigo', { ascending: true });
+      if (!error && data && data.length > 0) return { data, fromSupabase: true };
+    } catch (e) {}
+  }
+  const local = getParadasPredeterminadasLocal();
+  if (local && Array.isArray(local) && local.length > 0) return { data: local, fromSupabase: false };
+  setParadasPredeterminadasLocal(paradasPredeterminadasIniciales);
+  return { data: paradasPredeterminadasIniciales, fromSupabase: false };
 }
 
 function getSecuenciaLocal() { try { const r = localStorage.getItem('mes_secuencia'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
@@ -269,21 +291,81 @@ export async function deleteAlerta(id) {
 // ─── WRITE — Paradas ─────────────────────────────────────────────────────────
 
 export async function insertParada(parada) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { data, error } = await supabase.from('paradas').insert([parada]).select().single();
-  return { data, error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('paradas').insert([parada]).select().single();
+      if (!error && data) return { data, error: null };
+    } catch (e) {}
+  }
+  const current = getParadasTurnoLocal() || mockParadas;
+  const newItem = { ...parada, id: parada.id || Date.now() };
+  const updated = [...current, newItem];
+  setParadasTurnoLocal(updated);
+  return { data: newItem, error: null };
 }
 
 export async function updateParada(id, parada) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { data, error } = await supabase.from('paradas').update(parada).eq('id', id).select().single();
-  return { data, error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('paradas').update(parada).eq('id', id).select().single();
+      if (!error && data) return { data, error: null };
+    } catch (e) {}
+  }
+  const current = getParadasTurnoLocal() || mockParadas;
+  const updated = current.map(p => p.id === id ? { ...p, ...parada } : p);
+  setParadasTurnoLocal(updated);
+  return { data: updated.find(p => p.id === id), error: null };
 }
 
 export async function deleteParada(id) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { error } = await supabase.from('paradas').delete().eq('id', id);
-  return { error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('paradas').delete().eq('id', id);
+      if (!error) return { error: null };
+    } catch (e) {}
+  }
+  const current = getParadasTurnoLocal() || mockParadas;
+  setParadasTurnoLocal(current.filter(p => p.id !== id));
+  return { error: null };
+}
+
+export async function insertParadaPredeterminada(item) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('paradas_predeterminadas').insert([item]).select().single();
+      if (!error && data) return { data, error: null };
+    } catch (e) {}
+  }
+  const current = getParadasPredeterminadasLocal() || paradasPredeterminadasIniciales;
+  const newItem = { ...item, id: item.id || `PP_${Date.now()}` };
+  const updated = [...current, newItem];
+  setParadasPredeterminadasLocal(updated);
+  return { data: newItem, error: null };
+}
+
+export async function updateParadaPredeterminada(id, item) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('paradas_predeterminadas').update(item).eq('id', id).select().single();
+      if (!error && data) return { data, error: null };
+    } catch (e) {}
+  }
+  const current = getParadasPredeterminadasLocal() || paradasPredeterminadasIniciales;
+  const updated = current.map(p => p.id === id ? { ...p, ...item } : p);
+  setParadasPredeterminadasLocal(updated);
+  return { data: updated.find(p => p.id === id), error: null };
+}
+
+export async function deleteParadaPredeterminada(id) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('paradas_predeterminadas').delete().eq('id', id);
+      if (!error) return { error: null };
+    } catch (e) {}
+  }
+  const current = getParadasPredeterminadasLocal() || paradasPredeterminadasIniciales;
+  setParadasPredeterminadasLocal(current.filter(p => p.id !== id));
+  return { error: null };
 }
 
 // ─── WRITE — Secuencia ───────────────────────────────────────────────────────
