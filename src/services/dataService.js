@@ -583,18 +583,23 @@ export const deleteScrap         = scrapCRUD.deleteFn;
 // ─── PLANIFICACIÓN (GANTT) & SINCRONIZACIÓN CON EL RESTO DE LA APP ────────────
 
 const ordenesGanttDefault = [
-  { id: 'G1', linea: 'L1', dia: 0, horaInicio: 6, duracion: 4, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', color: '#2563eb' },
-  { id: 'G2', linea: 'L1', dia: 0, horaInicio: 10, duracion: 6, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', color: '#7c3aed' },
-  { id: 'G3', linea: 'L2', dia: 0, horaInicio: 6, duracion: 8, ref: 'BAT-24V-200Ah', cliente: 'Cliente B', color: '#0891b2' },
-  { id: 'G4', linea: 'L3', dia: 0, horaInicio: 8, duracion: 5, ref: 'BAT-12V-100Ah', cliente: 'Cliente C', color: '#dc2626' },
-  { id: 'G5', linea: 'L4', dia: 0, horaInicio: 6, duracion: 10, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', color: '#059669' },
-  { id: 'G6', linea: 'L5', dia: 0, horaInicio: 6, duracion: 8, ref: 'BAT-24V-100Ah', cliente: 'Cliente E', color: '#d97706' },
-  { id: 'G7', linea: 'L1', dia: 1, horaInicio: 6, duracion: 8, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', color: '#2563eb' },
-  { id: 'G8', linea: 'L2', dia: 1, horaInicio: 6, duracion: 6, ref: 'BAT-24V-100Ah', cliente: 'Cliente E', color: '#0891b2' },
-  { id: 'G9', linea: 'L3', dia: 1, horaInicio: 7, duracion: 9, ref: 'BAT-12V-200Ah', cliente: 'Cliente C', color: '#dc2626' },
-  { id: 'G10', linea: 'L4', dia: 1, horaInicio: 6, duracion: 8, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', color: '#059669' },
-  { id: 'G11', linea: 'L5', dia: 2, horaInicio: 6, duracion: 7, ref: 'BAT-24V-200Ah', cliente: 'Cliente B', color: '#d97706' },
-  { id: 'G12', linea: 'L1', dia: 2, horaInicio: 6, duracion: 6, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', color: '#2563eb' },
+  { id: 'G1', codigo: 'OF-2024-001', linea: 'L1', dia: 0, horaInicio: 6, duracion: 4, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', cantidad: 500, materiales: 'Celdas LFP 100Ah (x16), BMS 48V (x1), Carcasa Metálica', fechaCompromiso: '31/05/2024', prioridad: 'normal', color: '#2563eb' },
+  { id: 'G2', codigo: 'OF-2024-002', linea: 'L1', dia: 0, horaInicio: 10, duracion: 6, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', cantidad: 800, materiales: 'Celdas LFP 200Ah (x16), BMS Smart 48V, Cableado de potencia', fechaCompromiso: '31/05/2024', prioridad: 'alta', color: '#7c3aed' },
+  { id: 'G3', codigo: 'OF-2024-003', linea: 'L2', dia: 0, horaInicio: 6, duracion: 8, ref: 'BAT-24V-200Ah', cliente: 'Cliente B', cantidad: 1200, materiales: 'Celdas NMC 200Ah (x8), BMS 24V, Aislante térmico', fechaCompromiso: '31/05/2024', prioridad: 'normal', color: '#0891b2' },
+  { id: 'G4', codigo: 'OF-2024-004', linea: 'L3', dia: 0, horaInicio: 8, duracion: 5, ref: 'BAT-12V-100Ah', cliente: 'Cliente C', cantidad: 600, materiales: 'Celdas LFP 100Ah (x4), BMS Compact 12V, Terminales cobre', fechaCompromiso: '31/05/2024', prioridad: 'normal', color: '#dc2626' },
+  { id: 'G5', codigo: 'OF-2024-005', linea: 'L4', dia: 0, horaInicio: 6, duracion: 10, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', cantidad: 1000, materiales: 'Celdas LFP 200Ah (x16), BMS Smart 48V, Carcasa estanca IP67', fechaCompromiso: '31/05/2024', prioridad: 'urgente', color: '#059669' },
+  { id: 'G6', codigo: 'OF-2024-006', linea: 'L5', dia: 0, horaInicio: 6, duracion: 8, ref: 'BAT-24V-100Ah', cliente: 'Cliente E', cantidad: 900, materiales: 'Celdas LFP 100Ah (x8), BMS 24V (x1), Conectores Anderson', fechaCompromiso: '31/05/2024', prioridad: 'normal', color: '#d97706' },
+  { id: 'G7', codigo: 'OF-2024-007', linea: 'L1', dia: 1, horaInicio: 6, duracion: 8, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', cantidad: 600, materiales: 'Celdas LFP 100Ah (x16), BMS 48V, Carcasa Metálica', fechaCompromiso: '01/06/2024', prioridad: 'normal', color: '#2563eb' },
+  { id: 'G8', codigo: 'OF-2024-008', linea: 'L2', dia: 1, horaInicio: 6, duracion: 6, ref: 'BAT-24V-100Ah', cliente: 'Cliente E', cantidad: 750, materiales: 'Celdas LFP 100Ah (x8), BMS 24V, Tornillería M6', fechaCompromiso: '01/06/2024', prioridad: 'alta', color: '#0891b2' },
+  { id: 'G9', codigo: 'OF-2024-009', linea: 'L3', dia: 1, horaInicio: 7, duracion: 9, ref: 'BAT-12V-200Ah', cliente: 'Cliente C', cantidad: 1100, materiales: 'Celdas NMC 200Ah (x4), BMS 12V High-Cur, Soporte celda', fechaCompromiso: '01/06/2024', prioridad: 'normal', color: '#dc2626' },
+  { id: 'G10', codigo: 'OF-2024-010', linea: 'L4', dia: 1, horaInicio: 6, duracion: 8, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', cantidad: 500, materiales: 'Celdas LFP 100Ah (x16), BMS 48V, Cable flexible 35mm2', fechaCompromiso: '01/06/2024', prioridad: 'normal', color: '#059669' },
+  { id: 'G11', codigo: 'OF-2024-011', linea: 'L5', dia: 2, horaInicio: 6, duracion: 7, ref: 'BAT-24V-200Ah', cliente: 'Cliente B', cantidad: 850, materiales: 'Celdas NMC 200Ah (x8), BMS 24V Smart, Aislante Nomex', fechaCompromiso: '02/06/2024', prioridad: 'normal', color: '#d97706' },
+  { id: 'G12', codigo: 'OF-2024-012', linea: 'L1', dia: 2, horaInicio: 6, duracion: 6, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', cantidad: 650, materiales: 'Celdas LFP 200Ah (x16), BMS Smart 48V, Chasis Rack 19"', fechaCompromiso: '02/06/2024', prioridad: 'normal', color: '#2563eb' },
+  // ── BACKLOG / SIN ASIGNAR A LÍNEA ──────────────────────────────────────────
+  { id: 'BK1', codigo: 'OF-2024-101', linea: null, dia: null, horaInicio: 6, duracion: 6, ref: 'BAT-48V-300Ah-PRO', cliente: 'Iberia Energy Corp', cantidad: 450, materiales: 'Celdas LFP 300Ah Prismatic (x16), BMS CAN-Bus 48V, Sensor térmico PT100 (x4), Carcasa Acero Inox', fechaCompromiso: '05/06/2024', prioridad: 'urgente', color: '#dc2626' },
+  { id: 'BK2', codigo: 'OF-2024-102', linea: null, dia: null, horaInicio: 6, duracion: 8, ref: 'BAT-24V-150Ah-MAR', cliente: 'Naval & Marine Systems', cantidad: 600, materiales: 'Celdas LFP 150Ah Grado Marino (x8), BMS IP68 Estanco, Bornes latón niquelado, Gel de silicona', fechaCompromiso: '06/06/2024', prioridad: 'alta', color: '#7c3aed' },
+  { id: 'BK3', codigo: 'OF-2024-103', linea: null, dia: null, horaInicio: 6, duracion: 5, ref: 'BAT-12V-50Ah-ULTRA', cliente: 'AgriTech Automation', cantidad: 1500, materiales: 'Celdas Cilindricas 21700 (x40), BMS 12V 50A, Carcasa ABS Ignífugo V0, Cableado AWG10', fechaCompromiso: '07/06/2024', prioridad: 'normal', color: '#0891b2' },
+  { id: 'BK4', codigo: 'OF-2024-104', linea: null, dia: null, horaInicio: 6, duracion: 7, ref: 'BAT-48V-100Ah-RACK', cliente: 'Telecom Networks S.A.', cantidad: 300, materiales: 'Celdas LFP 100Ah (x16), BMS 48V Telecom RS485, Chasis Rack 3U 19", Frontal con display LCD', fechaCompromiso: '08/06/2024', prioridad: 'normal', color: '#059669' },
 ];
 
 function getPlanificacionLocal() {
