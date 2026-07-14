@@ -16,6 +16,7 @@ import Metricas from '@/pages/Metricas';
 import PanelOperario from '@/pages/PanelOperario';
 import Historial from '@/pages/Historial';
 import Operarios from '@/pages/Operarios';
+import Configuracion from '@/pages/Configuracion';
 
 function Layout({ children }) {
   return (
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/alertas" element={<Layout><Alertas /></Layout>} />
         <Route path="/metricas" element={<Layout><Metricas /></Layout>} />
         <Route path="/historial" element={<Layout><Historial /></Layout>} />
+        <Route path="/configuracion" element={<Layout><Configuracion /></Layout>} />
       </Routes>
     </Router>
   );

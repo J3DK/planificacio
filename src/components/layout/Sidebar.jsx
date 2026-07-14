@@ -3,9 +3,10 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History
+  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings
 } from 'lucide-react';
 import { alertas } from '@/data/mockAlertas';
+import { useAppConfig } from '@/services/configService';
 
 const navItems = [
   { path: '/',                   label: 'Resumen',              icon: LayoutDashboard, exact: true },
@@ -22,12 +23,14 @@ const navItems = [
   { path: '/alertas',            label: 'Alertas',              icon: Bell },
   { path: '/metricas',           label: 'Métricas',             icon: SlidersHorizontal },
   { path: '/historial',          label: 'Historial',            icon: History },
+  { path: '/configuracion',      label: 'Configuración',        icon: Settings },
 ];
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const appConfig = useAppConfig();
 
   const alertasNoLeidas = alertas.filter(a => !a.leida).length;
 
@@ -65,13 +68,21 @@ export default function Sidebar() {
     <div className="flex flex-col h-full bg-slate-950 border-r border-slate-800">
       {/* Logo */}
       <div className={`flex items-center gap-3 p-4 border-b border-slate-800 ${collapsed ? 'justify-center' : ''}`}>
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-900/50">
-          <Zap className="w-4 h-4 text-white" />
-        </div>
+        {appConfig.logoUrl ? (
+          <img
+            src={appConfig.logoUrl}
+            alt="Logo Empresa"
+            className={`object-contain transition-all flex-shrink-0 ${collapsed ? 'w-8 h-8 rounded-lg' : 'h-8 max-w-[100px]'}`}
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-900/50">
+            <Zap className="w-4 h-4 text-white" />
+          </div>
+        )}
         {!collapsed && (
           <div className="min-w-0">
-            <p className="text-white font-black text-sm leading-none tracking-tight">MPS</p>
-            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.15em] mt-0.5">Producción</p>
+            <p className="text-white font-black text-sm leading-none tracking-tight truncate">{appConfig.nombreEmpresa || 'MPS'}</p>
+            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.15em] mt-0.5 truncate">{appConfig.subtituloEmpresa || 'Producción'}</p>
           </div>
         )}
         {!collapsed && (
@@ -100,7 +111,12 @@ export default function Sidebar() {
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-700 px-3 py-2">Módulos</p>
         )}
         {navItems.map(item => (
-          <NavItem key={item.path} item={item} />
+          <React.Fragment key={item.path}>
+            {item.path === '/configuracion' && !collapsed && (
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-700 px-3 pt-4 pb-1 mt-3 border-t border-slate-800/80">Sistema</p>
+            )}
+            <NavItem item={item} />
+          </React.Fragment>
         ))}
       </nav>
 

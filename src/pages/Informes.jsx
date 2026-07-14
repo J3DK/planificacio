@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileBarChart, Download, FileText, BarChart2, Calendar, Clock, CheckCircle2, Check, RefreshCw } from 'lucide-react';
+import { FileBarChart, Download, FileText, BarChart2, Calendar, Clock, CheckCircle2, Check, RefreshCw, Settings, Building2 } from 'lucide-react';
 import {
   generarInformeTurno,
   generarInformeDiario,
@@ -8,6 +9,7 @@ import {
   generarInformeCalidad,
   generarInformePersonalizado
 } from '@/services/reportService';
+import { useAppConfig } from '@/services/configService';
 
 const informesTipo = [
   {
@@ -64,6 +66,7 @@ const colorMap = {
 };
 
 export default function Informes() {
+  const appConfig = useAppConfig();
   const [generando, setGenerando] = useState(null); // inf.id + '-PDF' | '-XLS'
   const [historial, setHistorial] = useState(historialInicial);
   const [descargandoId, setDescargandoId] = useState(null);
@@ -156,10 +159,36 @@ export default function Informes() {
 
   return (
     <div className="space-y-6 max-w-[1250px] mx-auto">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-white">Informes de Producción y Calidad</h2>
           <p className="text-slate-500 text-sm">Exportación inmediata de documentos en PDF estructurado y hojas de cálculo EXCEL</p>
+        </div>
+
+        {/* Tarjeta Membrete Oficial */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex items-center gap-3.5 shadow-md">
+          {appConfig.logoUrl ? (
+            <img src={appConfig.logoUrl} alt="Logo Oficial" className="h-9 max-w-[100px] object-contain flex-shrink-0" />
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-xs flex-shrink-0">
+              MPS
+            </div>
+          )}
+          <div className="text-left min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-black uppercase text-blue-400">MEMBRETE OFICIAL</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            </div>
+            <p className="text-xs font-black text-white leading-none tracking-tight truncate">{appConfig.nombreEmpresa}</p>
+            <p className="text-[9px] text-slate-400 truncate">{appConfig.razonSocial || 'Industrial MES S.L.'}</p>
+          </div>
+          <Link
+            to="/configuracion"
+            className="ml-2 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1 text-xs font-bold"
+            title="Ajustar Logo e Identidad para reportes"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </motion.div>
 

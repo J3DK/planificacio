@@ -9,6 +9,7 @@ import {
   fetchMateriasPrimas,
   fetchCalidad
 } from './dataService';
+import { getAppConfig } from './configService';
 import { paradasPorTipo } from '@/data/mockParadas';
 import { produccionHistorica } from '@/data/mockProduccion';
 
@@ -23,6 +24,41 @@ const getFormattedDate = () => {
 const getFileDate = () => {
   const now = new Date();
   return `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
+};
+
+export const renderPdfHeaderAndFooter = (doc, title) => {
+  const config = getAppConfig();
+  
+  // Header background
+  doc.setFillColor(30, 41, 59); // slate-800
+  doc.rect(0, 0, 210, 32, 'F');
+  
+  // Si hay logo subido en Base64, lo incrustamos
+  let textStartX = 14;
+  if (config.logoUrl && config.logoUrl.startsWith('data:image/')) {
+    try {
+      doc.addImage(config.logoUrl, 'PNG', 14, 5, 22, 22);
+      textStartX = 40;
+    } catch (e) {
+      console.warn('Error al insertar logo en PDF:', e);
+    }
+  }
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${config.nombreEmpresa || 'MPS MES'} — ${title.toUpperCase()}`, textStartX, 15);
+  
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(203, 213, 225);
+  doc.text(`${config.razonSocial || 'Smart MES Industrial S.L.'} · Generado: ${getFormattedDate()}`, textStartX, 24);
+
+  // Footer
+  const pageHeight = doc.internal.pageSize.height || 297;
+  doc.setFontSize(7.5);
+  doc.setTextColor(140, 140, 140);
+  doc.text(config.pieReportes || 'Documento oficial generado por el Sistema MES de Producción & Calidad.', 14, pageHeight - 8);
 };
 
 // ==========================================
@@ -85,17 +121,7 @@ export const generarInformeTurno = async (format = 'PDF') => {
 
   // Generar PDF
   const doc = new jsPDF();
-  
-  // Header
-  doc.setFillColor(30, 41, 59); // slate-800
-  doc.rect(0, 0, 210, 28, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('MES — INFORME DE TURNO (MAÑANA)', 14, 16);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Generado: ${getFormattedDate()}`, 14, 23);
+  renderPdfHeaderAndFooter(doc, 'INFORME DE TURNO (MAÑANA)');
 
   // Resumen KPIs
   const oeeAvg = lineas.length ? (lineas.reduce((acc, l) => acc + Number(l.oee || 0), 0) / lineas.length).toFixed(1) : '0';
@@ -221,15 +247,7 @@ export const generarInformeDiario = async (format = 'PDF') => {
   }
 
   const doc = new jsPDF();
-  doc.setFillColor(16, 185, 129); // emerald-600
-  doc.rect(0, 0, 210, 28, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('MES — INFORME DIARIO DE PRODUCCIÓN', 14, 16);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Fecha consolidado: ${getFormattedDate()}`, 14, 23);
+  renderPdfHeaderAndFooter(doc, 'INFORME DIARIO DE PRODUCCIÓN');
 
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(12);
@@ -332,15 +350,7 @@ export const generarInformeSemanal = async (format = 'PDF') => {
   }
 
   const doc = new jsPDF();
-  doc.setFillColor(139, 92, 246); // purple-500
-  doc.rect(0, 0, 210, 28, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('MES — INFORME SEMANAL DE RENDIMIENTO', 14, 16);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Semana en curso — ${getFormattedDate()}`, 14, 23);
+  renderPdfHeaderAndFooter(doc, 'INFORME SEMANAL DE RENDIMIENTO');
 
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(12);
@@ -423,15 +433,7 @@ export const generarInformeCalidad = async (format = 'PDF') => {
   }
 
   const doc = new jsPDF();
-  doc.setFillColor(245, 158, 11); // amber-500
-  doc.rect(0, 0, 210, 28, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('MES — INFORME DE CALIDAD Y DEFECTUOSIDAD', 14, 16);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Generado: ${getFormattedDate()}`, 14, 23);
+  renderPdfHeaderAndFooter(doc, 'INFORME DE CALIDAD Y DEFECTUOSIDAD');
 
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(12);
@@ -505,15 +507,7 @@ export const generarInformePersonalizado = async (desde, hasta, lineaSeleccionad
   }
 
   const doc = new jsPDF();
-  doc.setFillColor(59, 130, 246);
-  doc.rect(0, 0, 210, 28, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('MES — INFORME PERSONALIZADO DE PLANTA', 14, 16);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Período: ${desde} hasta ${hasta} | Filtro: ${lineaSeleccionada}`, 14, 23);
+  renderPdfHeaderAndFooter(doc, `INFORME PERSONALIZADO (${desde} - ${hasta})`);
 
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(12);
