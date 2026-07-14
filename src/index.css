@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --sidebar-width: 240px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-slate-950 text-slate-100 font-sans antialiased;
+    margin: 0;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-700 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-500;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-slate-900 border border-slate-800 rounded-2xl;
+  }
+
+  .card-glass {
+    @apply bg-slate-900/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl;
+  }
+
+  .stat-up {
+    @apply text-emerald-400;
+  }
+  .stat-down {
+    @apply text-red-400;
+  }
+  .stat-neutral {
+    @apply text-slate-400;
+  }
+
+  .badge-ok {
+    @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30;
+  }
+  .badge-warn {
+    @apply bg-amber-500/20 text-amber-400 border border-amber-500/30;
+  }
+  .badge-danger {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+  .badge-info {
+    @apply bg-blue-500/20 text-blue-400 border border-blue-500/30;
+  }
+  .badge-neutral {
+    @apply bg-slate-700/50 text-slate-400 border border-slate-600/30;
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl transition-all duration-200 active:scale-95;
+  }
+
+  .section-title {
+    @apply text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-3;
+  }
+
+  .table-header {
+    @apply text-[10px] font-black uppercase tracking-widest text-slate-500 px-3 py-2;
+  }
+
+  .table-cell {
+    @apply text-sm text-slate-300 px-3 py-3 border-b border-slate-800/50;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .glow-blue {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+  .glow-green {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+  }
+  .glow-red {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+  }
+}

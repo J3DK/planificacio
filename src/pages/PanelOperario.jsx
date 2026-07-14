@@ -1,0 +1,1527 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Factory, Play, Pause, AlertTriangle, CheckCircle2, Package,
+  Wrench, Clock, Plus, Minus, Send, RefreshCw, Cpu, UserCheck,
+  ShieldAlert, Sparkles, Check, X, AlertOctagon, ArrowRight,
+  ClipboardList, HelpCircle, LogOut, Maximize2, Lock,
+  History, BoxesIcon, Edit2, Trash2, Save, XCircle, TrendingUp,
+  BarChart2, Activity, Filter, ChevronDown, CheckSquare
+} from 'lucide-react';
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer, ReferenceLine
+} from 'recharts';
+import {
+  fetchLineas, updateLinea,
+  fetchParadas, insertParada, updateParada,
+  fetchMateriasPrimas, updateMaterial,
+  fetchCalidad, insertCalidad,
+  fetchSecuencia, updateSecuencia,
+  insertAlerta,
+  fetchHistorial,
+  fetchProductos, insertProducto, updateProducto, deleteProducto
+} from '@/services/dataService';
+
+export default function PanelOperario() {
+  const navigate = useNavigate();
+  // Configuración del Puesto / Operario
+  const [lineaSelId, setLineaSelId] = useState('L1');
+  const [turnoSel, setTurnoSel] = useState('Mañana');
+  const [operarioNombre, setOperarioNombre] = useState('Operario Puesto 1');
+  const [activeTab, setActiveTab] = useState('produccion'); // produccion | paradas | materiales | secuencia | historial | productos
+
+  // Datos en vivo de Supabase / Local
+  const [lineas, setLineas] = useState([]);
+  const [paradas, setParadas] = useState([]);
+  const [materiales, setMateriales] = useState([]);
+  const [secuencia, setSecuencia] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Estados modales o acciones temporales
+  const [numCustomProd, setNumCustomProd] = useState('');
+  const [scrapCausa, setScrapCausa] = useState('Soldadura defectuosa');
+  const [scrapCantidad, setScrapCantidad] = useState(1);
+  const [scrapSuccess, setScrapSuccess] = useState(false);
+
+  // Estado para Parada de Línea
+  const [paradaTipo, setParadaTipo] = useState('averia');
+  const [paradaCausa, setParadaCausa] = useState('');
+  const [paradaSuccess, setParadaSuccess] = useState(false);
+
+  // Estado para Solicitud de Material
+  const [matConsumoSel, setMatConsumoSel] = useState(null);
+  const [matCantidadConsumo, setMatCantidadConsumo] = useState(1);
+  const [matAvisoUrgente, setMatAvisoUrgente] = useState(false);
+
+  // ─── HISTORIAL ──────────────────────────────────────────────────────────────
+  const [historial, setHistorial] = useState([]);
+  const [histFiltroLinea, setHistFiltroLinea] = useState('todas');
+  const [histFiltroProducto, setHistFiltroProducto] = useState('todos');
+  const [histFiltroTurno, setHistFiltroTurno] = useState('todos');
+  const [histFiltroPeriodo, setHistFiltroPeriodo] = useState('semana'); // hoy | semana | mes
+
+  // ─── PRODUCTOS ──────────────────────────────────────────────────────────────
+  const [productos, setProductos] = useState([]);
+  const [prodModal, setProdModal] = useState(false);         // modal nuevo/editar
+  const [prodEditing, setProdEditing] = useState(null);      // producto en edición (null = nuevo)
+  const [prodConfirmDel, setProdConfirmDel] = useState(null); // id a borrar
+  const [prodForm, setProdForm] = useState({
+    codigo: '', descripcion: '', cliente: '', familia: '',
+    tiempoCiclo: '', objetivoHora: '', peso: '', activo: true, notas: ''
+  });
+  const [prodSaving, setProdSaving] = useState(false);
+  const [prodSuccess, setProdSuccess] = useState(false);
+
+  const loadAllData = async () => {
+    setLoading(true);
+    const [resL, resP, resM, resS, resH, resProd] = await Promise.all([
+      fetchLineas(),
+      fetchParadas(),
+      fetchMateriasPrimas(),
+      fetchSecuencia(),
+      fetchHistorial(),
+      fetchProductos(),
+    ]);
+    if (resL.data) setLineas(resL.data);
+    if (resP.data) setParadas(resP.data);
+    if (resM.data) setMateriales(resM.data);
+    if (resS.data) setSecuencia(resS.data);
+    if (resH.data) setHistorial(resH.data);
+    if (resProd.data) setProductos(resProd.data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadAllData();
+  }, []);
+
+  // ─── FILTROS DE HISTORIAL ────────────────────────────────────────────────────
+  const historialFiltrado = useMemo(() => {
+    const hoy = '2026-07-14'; // fecha de demo
+    const hace7 = '2026-07-07';
+    const hace30 = '2026-06-14';
+    return historial.filter(r => {
+      if (histFiltroLinea !== 'todas' && r.linea !== histFiltroLinea) return false;
+      if (histFiltroProducto !== 'todos' && r.producto !== histFiltroProducto) return false;
+      if (histFiltroTurno !== 'todos' && r.turno !== histFiltroTurno) return false;
+      if (histFiltroPeriodo === 'hoy'   && r.fecha !== hoy)    return false;
+      if (histFiltroPeriodo === 'semana' && r.fecha < hace7)   return false;
+      if (histFiltroPeriodo === 'mes'    && r.fecha < hace30)  return false;
+      return true;
+    });
+  }, [historial, histFiltroLinea, histFiltroProducto, histFiltroTurno, histFiltroPeriodo]);
+
+  const histKpis = useMemo(() => {
+    if (!historialFiltrado.length) return { producido: 0, oee: 0, calidad: 0, paradas: 0 };
+    const producido = historialFiltrado.reduce((s, r) => s + r.producido, 0);
+    const oee = historialFiltrado.reduce((s, r) => s + r.oee, 0) / historialFiltrado.length;
+    const calidad = historialFiltrado.reduce((s, r) => s + r.calidad, 0) / historialFiltrado.length;
+    const paradas = historialFiltrado.reduce((s, r) => s + r.paradas, 0);
+    return { producido, oee: oee.toFixed(1), calidad: calidad.toFixed(1), paradas };
+  }, [historialFiltrado]);
+
+  // Datos agrupados por fecha para gráfico de barras
+  const histGrafico = useMemo(() => {
+    const byDate = {};
+    historialFiltrado.forEach(r => {
+      if (!byDate[r.fecha]) byDate[r.fecha] = { fecha: r.fecha, dia: r.dia, producido: 0, objetivo: 0, oeeSum: 0, count: 0 };
+      byDate[r.fecha].producido += r.producido;
+      byDate[r.fecha].objetivo  += r.objetivo;
+      byDate[r.fecha].oeeSum    += r.oee;
+      byDate[r.fecha].count     += 1;
+    });
+    return Object.values(byDate)
+      .sort((a, b) => a.fecha.localeCompare(b.fecha))
+      .map(d => ({ ...d, oee: parseFloat((d.oeeSum / d.count).toFixed(1)), label: `${d.dia} ${d.fecha.slice(5)}` }));
+  }, [historialFiltrado]);
+
+  // Productos únicos para el filtro de historial
+  const productosUnicos = useMemo(() => [...new Set(historial.map(r => r.producto))], [historial]);
+
+  // ─── ACCIONES PRODUCTOS ──────────────────────────────────────────────────────
+  const abrirNuevoProducto = () => {
+    setProdEditing(null);
+    setProdForm({ codigo: '', descripcion: '', cliente: '', familia: '', tiempoCiclo: '', objetivoHora: '', peso: '', activo: true, notas: '' });
+    setProdModal(true);
+  };
+
+  const abrirEditarProducto = (p) => {
+    setProdEditing(p.id);
+    setProdForm({ ...p });
+    setProdModal(true);
+  };
+
+  const guardarProducto = async () => {
+    if (!prodForm.codigo.trim() || !prodForm.descripcion.trim()) {
+      alert('El código y la descripción son obligatorios.');
+      return;
+    }
+    setProdSaving(true);
+    if (prodEditing) {
+      const { data } = await updateProducto(prodEditing, prodForm);
+      if (data) setProductos(prev => prev.map(p => p.id === prodEditing ? data : p));
+    } else {
+      const { data } = await insertProducto(prodForm);
+      if (data) setProductos(prev => [...prev, data]);
+    }
+    setProdSaving(false);
+    setProdModal(false);
+    setProdSuccess(true);
+    setTimeout(() => setProdSuccess(false), 2500);
+  };
+
+  const confirmarBorrarProducto = async (id) => {
+    await deleteProducto(id);
+    setProductos(prev => prev.filter(p => p.id !== id));
+    setProdConfirmDel(null);
+  };
+
+  // Línea actualmente seleccionada
+  const lineaActiva = lineas.find(l => l.id === lineaSelId) || {
+    id: lineaSelId,
+    nombre: `Línea ${lineaSelId.replace('L','')}`,
+    estado: 'en_marcha',
+    produccionHoy: 0,
+    objetivoHoy: 240,
+    oee: 85,
+    calidad: 98,
+    producto: 'BAT-48V-100Ah',
+    cliente: 'Cliente General'
+  };
+
+  // Parada abierta actual en esta línea (si existe)
+  const paradaAbierta = paradas.find(
+    p => p.linea.toLowerCase().includes(lineaActiva.nombre.toLowerCase()) && p.estado === 'abierta'
+  );
+
+  // ─── 1. ACCIONES DE PRODUCCIÓN ──────────────────────────────────────────────
+
+  const sumarProduccion = async (cantidad) => {
+    const nuevaProd = Number(lineaActiva.produccionHoy || 0) + Number(cantidad);
+    const newOEE = Math.min(100, Math.round((nuevaProd / (lineaActiva.objetivoHoy || 240)) * 95));
+    
+    // Actualización local inmediata (Optimistic UI)
+    setLineas(prev => prev.map(l => l.id === lineaSelId ? { ...l, produccionHoy: nuevaProd, oee: newOEE } : l));
+
+    // Guardar en Supabase
+    await updateLinea(lineaSelId, { ...lineaActiva, produccionHoy: nuevaProd, oee: newOEE });
+  };
+
+  const declararScrap = async () => {
+    if (!scrapCantidad || scrapCantidad <= 0) return;
+    
+    // Insertar defecto en calidad
+    await insertCalidad({
+      causa: `${scrapCausa} (${lineaActiva.nombre} - ${operarioNombre})`,
+      cantidad: Number(scrapCantidad),
+      pct: 5
+    });
+
+    // Bajar ligeramente el % de calidad en la línea
+    const nuevaCalidad = Math.max(70, Number(lineaActiva.calidad || 98) - 0.5);
+    setLineas(prev => prev.map(l => l.id === lineaSelId ? { ...l, calidad: Number(nuevaCalidad.toFixed(1)) } : l));
+    await updateLinea(lineaSelId, { ...lineaActiva, calidad: Number(nuevaCalidad.toFixed(1)) });
+
+    setScrapSuccess(true);
+    setTimeout(() => setScrapSuccess(false), 2500);
+    setScrapCantidad(1);
+  };
+
+  // ─── 2. ACCIONES DE PARADAS & REANUDACIÓN ───────────────────────────────────
+
+  const declararParadaLinea = async () => {
+    if (!paradaCausa.trim()) {
+      alert('Por favor especifica el motivo o descripción rápida de la parada');
+      return;
+    }
+
+    const horaInicio = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    const nuevaParada = {
+      linea: lineaActiva.nombre,
+      inicio: horaInicio,
+      fin: null,
+      duracion: 0,
+      tipo: paradaTipo,
+      causa: `${paradaCausa} (Declarado por ${operarioNombre})`,
+      impacto: 25,
+      estado: 'abierta',
+      id: Date.now()
+    };
+
+    // Crear parada en BD
+    await insertParada(nuevaParada);
+    setParadas(prev => [nuevaParada, ...prev]);
+
+    // Poner la línea en estado 'parada' o 'averia'
+    const nuevoEstado = paradaTipo === 'averia' ? 'parada' : paradaTipo === 'mantenimiento' ? 'mantenimiento' : 'parada';
+    setLineas(prev => prev.map(l => l.id === lineaSelId ? { ...l, estado: nuevoEstado, motivoParada: paradaCausa } : l));
+    await updateLinea(lineaSelId, { ...lineaActiva, estado: nuevoEstado, motivoParada: paradaCausa });
+
+    // Enviar alerta crítica si es avería o falta material
+    if (paradaTipo === 'averia' || paradaCausa.toLowerCase().includes('material')) {
+      await insertAlerta({
+        tipo: 'critica',
+        icono: 'Wrench',
+        titulo: `Línea Detenida: ${lineaActiva.nombre}`,
+        descripcion: `Motivo: ${paradaCausa}. Operario: ${operarioNombre}`,
+        modulo: 'paradas',
+        linea: lineaActiva.nombre,
+        timestamp: new Date().toISOString(),
+        leida: false
+      });
+    }
+
+    setParadaSuccess(true);
+    setTimeout(() => setParadaSuccess(false), 2500);
+    setParadaCausa('');
+  };
+
+  const reanudarLinea = async () => {
+    if (!paradaAbierta) return;
+
+    // Calcular duración estimada (15 min si no se puede calcular)
+    const horaActual = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    const dur = 20; // estimado rapido
+
+    const paradaCerrada = { ...paradaAbierta, fin: horaActual, duracion: dur, estado: 'cerrada' };
+    
+    // Cerrar en BD
+    await updateParada(paradaAbierta.id, paradaCerrada);
+    setParadas(prev => prev.map(p => p.id === paradaAbierta.id ? paradaCerrada : p));
+
+    // Devolver línea a estado 'en_marcha'
+    setLineas(prev => prev.map(l => l.id === lineaSelId ? { ...l, estado: 'en_marcha', motivoParada: null } : l));
+    await updateLinea(lineaSelId, { ...lineaActiva, estado: 'en_marcha', motivoParada: null });
+  };
+
+  // ─── 3. ACCIONES DE ALMACÉN / CONSUMO ───────────────────────────────────────
+
+  const consumirMaterial = async (mat, cantidad) => {
+    const qty = Number(cantidad) || 1;
+    const stockActual = Number(mat.stockActual || mat.stock_actual || 0);
+    const nuevoStock = Math.max(0, stockActual - qty);
+
+    setMateriales(prev => prev.map(m => m.id === mat.id ? { ...m, stockActual: nuevoStock } : m));
+    await updateMaterial(mat.id, { ...mat, stockActual: nuevoStock });
+
+    // Si baja del stock mínimo, crear alerta
+    const stockMin = Number(mat.stockMinimo || mat.stock_minimo || 0);
+    if (nuevoStock < stockMin) {
+      await insertAlerta({
+        tipo: 'critica',
+        icono: 'Package',
+        titulo: `Ruptura de Stock en Línea — ${mat.codigo}`,
+        descripcion: `El stock actual de "${mat.descripcion}" es de ${nuevoStock} ${mat.unidad} (Mínimo: ${stockMin}). Consumido en ${lineaActiva.nombre}.`,
+        modulo: 'materias_primas',
+        linea: lineaActiva.nombre,
+        timestamp: new Date().toISOString(),
+        leida: false
+      });
+    }
+  };
+
+  const solicitarMaterialUrgente = async (mat) => {
+    await insertAlerta({
+      tipo: 'critica',
+      icono: 'AlertTriangle',
+      titulo: `🚨 SOLICITUD URGENTE DE ALMACÉN`,
+      descripcion: `${operarioNombre} solicita reposición INMEDIATA de: ${mat.codigo} — ${mat.descripcion} para la ${lineaActiva.nombre}.`,
+      modulo: 'materias_primas',
+      linea: lineaActiva.nombre,
+      timestamp: new Date().toISOString(),
+      leida: false
+    });
+    setMatAvisoUrgente(true);
+    setTimeout(() => setMatAvisoUrgente(false), 3000);
+  };
+
+  // ─── 4. ACCIONES DE SECUENCIA ───────────────────────────────────────────────
+
+  const avanzarOrdenSecuencia = async (orden, extraProgreso) => {
+    const nuevoProgreso = Math.min(100, Number(orden.progreso || 0) + extraProgreso);
+    const nuevoEstado = nuevoProgreso >= 100 ? 'a_tiempo' : orden.estado;
+    
+    setSecuencia(prev => prev.map(o => o.id === orden.id ? { ...o, progreso: nuevoProgreso, estado: nuevoEstado } : o));
+    await updateSecuencia(orden.id, { ...orden, progreso: nuevoProgreso, estado: nuevoEstado });
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white p-4 lg:p-6 select-none space-y-6">
+      {/* ── BARRA SUPERIOR DEL PUESTO / OPERARIO (MODO KIOSKO INDEPENDIENTE) ── */}
+      <div className="bg-slate-900 border-2 border-blue-500/40 rounded-3xl p-5 shadow-2xl flex flex-col xl:flex-row items-center justify-between gap-4">
+        <div className="flex items-center justify-between w-full xl:w-auto gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-blue-600/20 border-2 border-blue-500/50 flex items-center justify-center text-blue-400 flex-shrink-0 shadow-lg shadow-blue-900/30">
+              <Cpu className="w-8 h-8 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="bg-blue-600 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider shadow-sm">
+                  ⚡ MODO PLANTA — TERMINAL INDEPENDIENTE
+                </span>
+                <span className="text-xs text-slate-400 font-mono">v2.5 Fullscreen</span>
+              </div>
+              <h2 className="text-2xl font-black text-white tracking-tight mt-0.5">Panel de Operario & Captura Manual</h2>
+            </div>
+          </div>
+
+          {/* Botón Salir para móvil */}
+          <button
+            onClick={() => navigate('/')}
+            className="xl:hidden px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all"
+            title="Volver a la gestión general MES Admin"
+          >
+            <LogOut className="w-3.5 h-3.5 text-amber-400" />
+            Admin MES
+          </button>
+        </div>
+
+        {/* Selectores rápidos de puesto */}
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
+          {/* Línea */}
+          <div className="bg-slate-800/80 border border-slate-700 rounded-2xl px-3 py-1.5 flex items-center gap-2">
+            <Factory className="w-4 h-4 text-blue-400" />
+            <span className="text-xs font-bold text-slate-400 uppercase">Puesto:</span>
+            <select
+              value={lineaSelId}
+              onChange={e => setLineaSelId(e.target.value)}
+              className="bg-transparent text-white font-black text-sm focus:outline-none cursor-pointer"
+            >
+              {lineas.map(l => (
+                <option key={l.id} value={l.id} className="bg-slate-900 text-white font-bold">
+                  {l.nombre} ({l.estado ? l.estado.toUpperCase() : 'OK'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Turno */}
+          <div className="bg-slate-800/80 border border-slate-700 rounded-2xl px-3 py-1.5 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-bold text-slate-400 uppercase">Turno:</span>
+            <select
+              value={turnoSel}
+              onChange={e => setTurnoSel(e.target.value)}
+              className="bg-transparent text-white font-black text-sm focus:outline-none cursor-pointer"
+            >
+              <option value="Mañana" className="bg-slate-900 text-white">Mañana (06:00 - 14:00)</option>
+              <option value="Tarde" className="bg-slate-900 text-white">Tarde (14:00 - 22:00)</option>
+              <option value="Noche" className="bg-slate-900 text-white">Noche (22:00 - 06:00)</option>
+            </select>
+          </div>
+
+          {/* Operario */}
+          <div className="bg-slate-800/80 border border-slate-700 rounded-2xl px-3 py-1.5 flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-amber-400" />
+            <input
+              type="text"
+              value={operarioNombre}
+              onChange={e => setOperarioNombre(e.target.value)}
+              placeholder="Nombre operario..."
+              className="bg-transparent text-white font-bold text-xs w-36 focus:outline-none"
+            />
+          </div>
+
+          {/* Refrescar */}
+          <button
+            onClick={loadAllData}
+            disabled={loading}
+            className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl border border-slate-700 transition-all active:scale-95"
+            title="Refrescar datos del sistema"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+
+          {/* Botón Volver a Portal Admin MES (Para PC/Desktop) */}
+          <button
+            onClick={() => navigate('/')}
+            className="hidden xl:flex px-4 py-2.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 hover:text-amber-200 text-xs font-black items-center gap-2 transition-all active:scale-95 shadow-lg shadow-amber-950/30"
+            title="Salir del Modo Planta y volver a la administración general MES"
+          >
+            <Lock className="w-4 h-4 text-amber-400" />
+            <span>Volver a Admin MES</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── BANNER SI LA LÍNEA ESTÁ DETENIDA / EN PARADA ── */}
+      {lineaActiva.estado === 'parada' || lineaActiva.estado === 'averia' || paradaAbierta ? (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-red-500/15 border-2 border-red-500 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl shadow-red-950/40 animate-pulse"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-500 flex items-center justify-center text-white flex-shrink-0 shadow-lg">
+              <AlertOctagon className="w-7 h-7 animate-bounce" />
+            </div>
+            <div>
+              <span className="badge-danger px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider">
+                🛑 LÍNEA DETENIDA ACTUALMENTE
+              </span>
+              <h3 className="text-xl font-black text-white mt-1">
+                {paradaAbierta ? paradaAbierta.causa : (lineaActiva.motivoParada || 'Avería o Incidencia Reportada en Planta')}
+              </h3>
+              <p className="text-xs text-red-300 font-mono mt-0.5">
+                Hora Inicio Parada: {paradaAbierta ? paradaAbierta.inicio : 'Reciente'} · Estado: Esperando solución / técnico
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={reanudarLinea}
+            className="w-full md:w-auto px-6 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-2xl shadow-lg shadow-emerald-900/50 flex items-center justify-center gap-2 transition-all active:scale-95 flex-shrink-0"
+          >
+            <Play className="w-6 h-6 fill-white" />
+            REANUDAR LÍNEA (CERRAR PARADA)
+          </button>
+        </motion.div>
+      ) : null}
+
+      {/* ── SELECTOR DE TABS / PESTAÑAS GIGANTES TÁCTILES ── */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+        {[
+          { id: 'produccion', label: '1. Producción', sub: 'Declarar Fabricación', icon: Factory, color: 'blue' },
+          { id: 'paradas',    label: '2. Paradas', sub: 'Reportar Avería', icon: AlertTriangle, color: 'red' },
+          { id: 'materiales', label: '3. Materiales', sub: 'Registrar Consumo', icon: Package, color: 'amber' },
+          { id: 'secuencia',  label: '4. Secuencia', sub: 'Cambio Referencia', icon: ClipboardList, color: 'emerald' },
+          { id: 'historial',  label: '5. Historial', sub: 'Métricas pasadas', icon: History, color: 'violet' },
+          { id: 'productos',  label: '6. Productos', sub: 'Catálogo de Refs.', icon: BoxesIcon, color: 'cyan' },
+        ].map(t => {
+          const isAct = activeTab === t.id;
+          const activeColors = {
+            blue:    'bg-blue-600/15 border-blue-500 shadow-xl shadow-blue-900/30',
+            red:     'bg-red-600/15 border-red-500 shadow-xl shadow-red-900/30',
+            amber:   'bg-amber-600/15 border-amber-500 shadow-xl shadow-amber-900/30',
+            emerald: 'bg-emerald-600/15 border-emerald-500 shadow-xl shadow-emerald-900/30',
+            violet:  'bg-violet-600/15 border-violet-500 shadow-xl shadow-violet-900/30',
+            cyan:    'bg-cyan-600/15 border-cyan-500 shadow-xl shadow-cyan-900/30',
+          };
+          const iconColors = {
+            blue: 'bg-blue-600 text-white', red: 'bg-red-600 text-white',
+            amber: 'bg-amber-600 text-white', emerald: 'bg-emerald-600 text-white',
+            violet: 'bg-violet-600 text-white', cyan: 'bg-cyan-600 text-white',
+          };
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`p-3 md:p-4 rounded-3xl border-2 transition-all text-left flex flex-col md:flex-row items-center gap-2 md:gap-4 ${
+                isAct ? activeColors[t.color] : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 text-slate-400'
+              }`}
+            >
+              <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                isAct ? iconColors[t.color] : 'bg-slate-800 text-slate-400'
+              }`}>
+                <t.icon className="w-5 h-5 md:w-6 md:h-6" />
+              </div>
+              <div className="text-center md:text-left">
+                <h4 className={`font-black text-sm md:text-base ${isAct ? 'text-white' : 'text-slate-300'}`}>{t.label}</h4>
+                <p className="text-[10px] md:text-xs text-slate-500 hidden md:block">{t.sub}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── CONTENIDO PRINCIPAL POR PESTAÑA ── */}
+      <AnimatePresence mode="wait">
+        {/* TAB 1: PRODUCCIÓN Y PIEZAS */}
+        {activeTab === 'produccion' && (
+          <motion.div
+            key="tab-produccion"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+          >
+            {/* MARCADOR ACTUAL DE LA LÍNEA */}
+            <div className="card p-6 lg:col-span-1 flex flex-col justify-between border-blue-500/30 bg-gradient-to-br from-blue-900/20 to-slate-900">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="badge-info px-2.5 py-1 rounded-xl text-xs font-black uppercase">Puesto Seleccionado</span>
+                  <span className="text-xs font-mono text-emerald-400 font-bold">● En Conexión</span>
+                </div>
+                <h3 className="text-3xl font-black text-white">{lineaActiva.nombre}</h3>
+                <p className="text-sm text-slate-400 mt-1 font-medium">Producto: <strong className="text-white font-mono">{lineaActiva.producto || 'BAT-48V-100Ah'}</strong></p>
+                <p className="text-xs text-slate-500 mt-0.5">Cliente: {lineaActiva.cliente || 'Industrial A'}</p>
+              </div>
+
+              <div className="my-6 space-y-4 border-y border-slate-800/80 py-6">
+                <div>
+                  <div className="flex justify-between text-xs font-bold text-slate-400 uppercase mb-1">
+                    <span>Producción Hoy / Objetivo</span>
+                    <span className="text-blue-400 font-black">{Math.round(((lineaActiva.produccionHoy || 0)/(lineaActiva.objetivoHoy || 240))*100)}%</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-5xl font-black text-white font-mono tracking-tight">{lineaActiva.produccionHoy || 0}</span>
+                    <span className="text-xl font-bold text-slate-500">/ {lineaActiva.objetivoHoy || 240} uds</span>
+                  </div>
+                  <div className="h-3 bg-slate-800 rounded-full overflow-hidden mt-2">
+                    <div
+                      className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, Math.round(((lineaActiva.produccionHoy || 0)/(lineaActiva.objetivoHoy || 240))*100))}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="bg-slate-800/60 rounded-2xl p-3 border border-slate-700/50 text-center">
+                    <span className="text-[10px] text-slate-500 font-black uppercase block">OEE Planta</span>
+                    <span className="text-2xl font-black text-emerald-400 font-mono">{lineaActiva.oee || 85}%</span>
+                  </div>
+                  <div className="bg-slate-800/60 rounded-2xl p-3 border border-slate-700/50 text-center">
+                    <span className="text-[10px] text-slate-500 font-black uppercase block">Calidad FPY</span>
+                    <span className="text-2xl font-black text-blue-400 font-mono">{lineaActiva.calidad || 98}%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <span className="text-xs text-slate-500">Los datos sumados en esta pantalla sincronizan al instante con las gráficas de toda la fábrica en el Dashboard</span>
+              </div>
+            </div>
+
+            {/* BOTONES GIGANTES DE DECLARACIÓN DE PRODUCCIÓN & SCRAP */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* SUMAR PIEZAS BUENAS */}
+              <div className="card p-6 border-emerald-500/30 bg-gradient-to-br from-emerald-950/10 to-slate-900">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <Plus className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white">Declarar Fabricación (Piezas Buenas OK)</h3>
+                    <p className="text-xs text-slate-400">Pulsa los botones grandes cada vez que salga un palet o lote completado</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  {[1, 5, 10, 25].map(qty => (
+                    <button
+                      key={qty}
+                      onClick={() => sumarProduccion(qty)}
+                      className="py-6 rounded-3xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-3xl shadow-xl shadow-emerald-900/40 border-2 border-emerald-400/40 flex flex-col items-center justify-center transition-all active:scale-90"
+                    >
+                      <span>+{qty}</span>
+                      <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-widest mt-0.5">Unidades OK</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Ingreso manual libre */}
+                <div className="flex items-center gap-3 pt-3 border-t border-slate-800">
+                  <span className="text-xs font-bold text-slate-400 uppercase flex-shrink-0">Ingreso Manual:</span>
+                  <input
+                    type="number"
+                    value={numCustomProd}
+                    onChange={e => setNumCustomProd(e.target.value)}
+                    placeholder="Ej: 42 uds..."
+                    className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white font-bold w-full focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    onClick={() => {
+                      if (numCustomProd && Number(numCustomProd) > 0) {
+                        sumarProduccion(Number(numCustomProd));
+                        setNumCustomProd('');
+                      }
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 font-black text-sm transition-all active:scale-95 flex-shrink-0"
+                  >
+                    + Sumar Lote
+                  </button>
+                </div>
+              </div>
+
+              {/* DECLARAR PIEZAS DEFECTUOSAS (SCRAP) */}
+              <div className="card p-6 border-amber-500/30 bg-gradient-to-br from-amber-950/10 to-slate-900">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                      <AlertTriangle className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-white">Declarar Pieza Defectuosa / Scrap (Rechazo)</h3>
+                      <p className="text-xs text-slate-400">Registra el defecto de calidad para trazabilidad y Pareto de rechazos</p>
+                    </div>
+                  </div>
+                  {scrapSuccess && (
+                    <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-xl text-xs font-black animate-bounce">
+                      ✓ Defecto Guardado en BD
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                  <div className="sm:col-span-2">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Causa Raíz del Rechazo</label>
+                    <select
+                      value={scrapCausa}
+                      onChange={e => setScrapCausa(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-white focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="Soldadura defectuosa / fría">🔥 Soldadura defectuosa / fría</option>
+                      <option value="Aislamiento incorrecto / cortocircuito">⚡ Aislamiento incorrecto / cortocircuito</option>
+                      <option value="Mal montaje de conector MC4/BMS">🔌 Mal montaje de conector MC4 / BMS</option>
+                      <option value="Celda LFP con voltaje anormal / dañada">🔋 Celda LFP con voltaje anormal / dañada</option>
+                      <option value="Carcasa abollada o rasguñada en línea">📦 Carcasa abollada o rasguñada en línea</option>
+                      <option value="Etiquetado incorrecto o ilegible">🏷️ Etiquetado incorrecto o ilegible</option>
+                      <option value="Otro defecto detectado en prueba de fin de línea">❓ Otro defecto en prueba fin de línea</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Cantidad Rechazada</label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setScrapCantidad(Math.max(1, scrapCantidad - 1))}
+                        className="p-3 rounded-2xl bg-slate-800 text-slate-300 font-black hover:bg-slate-700"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        value={scrapCantidad}
+                        onChange={e => setScrapCantidad(Number(e.target.value))}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-2.5 text-center text-lg font-black text-white focus:outline-none"
+                      />
+                      <button
+                        onClick={() => setScrapCantidad(scrapCantidad + 1)}
+                        className="p-3 rounded-2xl bg-slate-800 text-slate-300 font-black hover:bg-slate-700"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={declararScrap}
+                  className="w-full mt-4 py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-black text-sm shadow-lg shadow-amber-900/30 flex items-center justify-center gap-2 transition-all active:scale-98"
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                  REGISTRAR DEFECTO / SCRAP EN CALIDAD
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* TAB 2: INCIDENCIAS & PARADAS DE LÍNEA */}
+        {activeTab === 'paradas' && (
+          <motion.div
+            key="tab-paradas"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
+            <div className="card p-6 border-red-500/40 bg-gradient-to-br from-red-950/20 to-slate-900">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-red-600/20 text-red-400 flex items-center justify-center border border-red-500/30">
+                    <AlertOctagon className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-white">Declarar Parada de Línea o Alarma de Planta</h3>
+                    <p className="text-xs text-slate-400">Si la línea se detiene por avería, falta de material o calidad, repórtalo aquí para parar el cronómetro OEE</p>
+                  </div>
+                </div>
+                {paradaSuccess && (
+                  <span className="bg-red-500 text-white px-4 py-1.5 rounded-xl text-xs font-black animate-bounce shadow-lg">
+                    🚨 ¡Parada y Alarma Reportada en Sistema!
+                  </span>
+                )}
+              </div>
+
+              {/* SELECCIÓN RÁPIDA DE TIPO DE INCIDENCIA */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+                {[
+                  { id: 'averia',        label: 'Avería / Falla',        icon: Wrench,        color: 'border-red-500/40 bg-red-500/10 text-red-400' },
+                  { id: 'mantenimiento', label: 'Mantenimiento',         icon: Cpu,           color: 'border-amber-500/40 bg-amber-500/10 text-amber-400' },
+                  { id: 'cambio',        label: 'Cambio Referencia',     icon: RefreshCw,     color: 'border-blue-500/40 bg-blue-500/10 text-blue-400' },
+                  { id: 'calidad',       label: 'Freno por Calidad',     icon: ShieldAlert,   color: 'border-purple-500/40 bg-purple-500/10 text-purple-400' },
+                  { id: 'material',      label: 'Falta de Material',     icon: Package,       color: 'border-orange-500/40 bg-orange-500/10 text-orange-400' },
+                ].map(tipo => (
+                  <button
+                    key={tipo.id}
+                    onClick={() => setParadaTipo(tipo.id)}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${
+                      paradaTipo === tipo.id ? `${tipo.color} scale-105 shadow-lg border-opacity-100` : 'bg-slate-900/60 border-slate-800 text-slate-500'
+                    }`}
+                  >
+                    <tipo.icon className="w-6 h-6" />
+                    <span className="text-xs font-black text-center">{tipo.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* BOTONES PREDEFINIDOS DE CAUSAS TÍPICAS */}
+              <div className="mb-4">
+                <span className="text-xs font-bold text-slate-400 uppercase block mb-2">Causas Frecuentes Rápidas (Pulsar para rellenar):</span>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    'Atasco en soldadora de celdas',
+                    'Fallo en robot pick & place',
+                    'Falta suministro Cable 6mm² en puesto',
+                    'Revisión preventiva por calentamiento',
+                    'Espera verificación control calidad FPY',
+                    'Cambio de utillaje para batería 200Ah',
+                    'Fallo eléctrico en cinta de salida'
+                  ].map(mot => (
+                    <button
+                      key={mot}
+                      onClick={() => setParadaCausa(mot)}
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-300 transition-all active:scale-95"
+                    >
+                      {mot}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* INPUT DE MOTIVO DETALLADO */}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Descripción y Detalles de la Incidencia</label>
+                  <textarea
+                    rows="3"
+                    value={paradaCausa}
+                    onChange={e => setParadaCausa(e.target.value)}
+                    placeholder="Describe exactamente qué ha pasado, qué máquina falla o qué material se necesita en la línea..."
+                    className="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl p-4 text-sm font-bold text-white focus:outline-none focus:border-red-500"
+                  />
+                </div>
+
+                <button
+                  onClick={declararParadaLinea}
+                  className="w-full py-5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-lg shadow-2xl shadow-red-950/60 flex items-center justify-center gap-3 transition-all active:scale-95 border-2 border-red-400/40"
+                >
+                  <AlertOctagon className="w-6 h-6 animate-pulse" />
+                  🚨 DECLARAR PARADA INMEDIATA EN {lineaActiva.nombre.toUpperCase()}
+                </button>
+              </div>
+            </div>
+
+            {/* TABLA DE PARADAS RECIENTES EN ESTA LÍNEA */}
+            <div className="card overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-800 flex justify-between items-center">
+                <h4 className="font-black text-white text-sm">Historial de Paradas y Avisos en Puesto ({lineaActiva.nombre})</h4>
+                <span className="text-xs text-slate-500 font-mono">Turno Actual</span>
+              </div>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[11px] text-slate-400 uppercase">
+                    <th className="p-3 text-left">Hora Inicio</th>
+                    <th className="p-3 text-left">Tipo</th>
+                    <th className="p-3 text-left">Motivo / Causa</th>
+                    <th className="p-3 text-left">Duración</th>
+                    <th className="p-3 text-left">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 text-xs font-bold">
+                  {paradas
+                    .filter(p => p.linea.toLowerCase().includes(lineaActiva.nombre.toLowerCase()))
+                    .map(p => (
+                      <tr key={p.id} className={p.estado === 'abierta' ? 'bg-red-500/10' : ''}>
+                        <td className="p-3 font-mono text-slate-300">{p.inicio}</td>
+                        <td className="p-3 uppercase text-red-400">{p.tipo}</td>
+                        <td className="p-3 text-white max-w-sm">{p.causa}</td>
+                        <td className="p-3 font-mono text-slate-300">{p.duracion ? `${p.duracion} min` : '⏱️ En curso'}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${p.estado === 'abierta' ? 'badge-danger animate-pulse' : 'badge-neutral'}`}>
+                            {p.estado}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+
+        {/* TAB 3: CONSUMO DE MATERIALES & ALMACÉN */}
+        {activeTab === 'materiales' && (
+          <motion.div
+            key="tab-materiales"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
+            {/* AVISO URGENTE ENVIADO */}
+            {matAvisoUrgente && (
+              <div className="bg-amber-500/20 border-2 border-amber-500 rounded-3xl p-4 text-center text-amber-300 font-black text-sm animate-bounce">
+                🚨 ¡SOLICITUD URGENTE ENVIADA A ALMACÉN Y CARRETILLERO PARA TRAER MATERIAL!
+              </div>
+            )}
+
+            <div className="card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-black text-white">Consumo Rápido de Componentes en Línea</h3>
+                  <p className="text-xs text-slate-400">Descuenta las piezas gastadas en este lote para mantener el stock de planta cuadrado en tiempo real</p>
+                </div>
+              </div>
+
+              {/* GRID DE MATERIAS PRIMAS TÁCTILES */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {materiales.map(mat => {
+                  const stock = Number(mat.stockActual || mat.stock_actual || 0);
+                  const stockMin = Number(mat.stockMinimo || mat.stock_minimo || 0);
+                  const isCritico = stock < stockMin;
+
+                  return (
+                    <div
+                      key={mat.id}
+                      className={`rounded-3xl border-2 p-5 flex flex-col justify-between transition-all ${
+                        isCritico
+                          ? 'border-red-500/50 bg-red-500/5 shadow-lg shadow-red-950/20'
+                          : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="font-mono text-xs font-bold text-blue-400">{mat.codigo}</span>
+                          {isCritico ? (
+                            <span className="badge-danger px-2 py-0.5 rounded-md text-[10px] font-black uppercase">
+                              ¡Stock Bajo!
+                            </span>
+                          ) : (
+                            <span className="badge-neutral px-2 py-0.5 rounded-md text-[10px] font-black uppercase">
+                              OK
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="font-black text-white text-sm line-clamp-1">{mat.descripcion}</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">Unidad de medida: <strong>{mat.unidad}</strong></p>
+
+                        <div className="my-4 pt-3 border-t border-slate-800 flex items-baseline justify-between">
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Stock en Puesto</span>
+                            <span className={`text-3xl font-black font-mono ${isCritico ? 'text-red-400' : 'text-emerald-400'}`}>
+                              {stock}
+                            </span>
+                            <span className="text-xs text-slate-500 ml-1 font-bold">{mat.unidad}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] font-bold text-slate-600 block">Mínimo: {stockMin}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Botones de Consumo / Pedir */}
+                      <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => consumirMaterial(mat, 1)}
+                            disabled={stock <= 0}
+                            className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-black text-xs transition-all active:scale-95 disabled:opacity-30 border border-slate-700"
+                          >
+                            Consumir 1 {mat.unidad}
+                          </button>
+                          <button
+                            onClick={() => consumirMaterial(mat, 5)}
+                            disabled={stock < 5}
+                            className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-black text-xs transition-all active:scale-95 disabled:opacity-30 border border-slate-700"
+                          >
+                            Consumir 5 {mat.unidad}s
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => solicitarMaterialUrgente(mat)}
+                          className="w-full py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Pedir Urgente a Almacén
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* TAB 4: SECUENCIA & ÓRDENES MTO */}
+        {activeTab === 'secuencia' && (
+          <motion.div
+            key="tab-secuencia"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
+            <div className="card p-6">
+              <div className="mb-4">
+                <h3 className="text-xl font-black text-white">Cola de Fabricación en Secuencia MTO</h3>
+                <p className="text-xs text-slate-400">Visualiza las órdenes asignadas a este turno en orden de prioridad y avanza su porcentaje según completes lotes</p>
+              </div>
+
+              <div className="space-y-4">
+                {secuencia.map((orden, idx) => {
+                  const isPrimera = idx === 0;
+                  return (
+                    <div
+                      key={orden.id}
+                      className={`rounded-3xl border-2 p-5 flex flex-col md:flex-row items-center justify-between gap-6 transition-all ${
+                        isPrimera
+                          ? 'border-blue-500 bg-gradient-to-r from-blue-950/30 to-slate-900 shadow-xl shadow-blue-950/30'
+                          : 'border-slate-800 bg-slate-900/50 opacity-80'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4 w-full md:w-auto">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg flex-shrink-0 ${
+                          isPrimera ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'bg-slate-800 text-slate-400'
+                        }`}>
+                          #{orden.secuencia || idx + 1}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            {isPrimera && (
+                              <span className="bg-emerald-500 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-md">
+                                ORDEN EN CURSO ACTUAL
+                              </span>
+                            )}
+                            <span className="text-xs font-mono text-slate-400">Compromiso: {orden.fechaCompromiso || orden.fecha_compromiso}</span>
+                          </div>
+                          <h4 className="text-xl font-black text-white font-mono mt-0.5">{orden.referencia}</h4>
+                          <p className="text-xs text-slate-400 font-medium">Cliente Asignado: <strong className="text-white">{orden.cliente}</strong></p>
+                        </div>
+                      </div>
+
+                      {/* Avance */}
+                      <div className="w-full md:w-64 space-y-2">
+                        <div className="flex justify-between text-xs font-bold text-slate-400 uppercase">
+                          <span>Progreso Fabricación</span>
+                          <span className="text-white font-black">{orden.progreso || 0}%</span>
+                        </div>
+                        <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              orden.progreso >= 100 ? 'bg-emerald-500' : 'bg-blue-500'
+                            }`}
+                            style={{ width: `${orden.progreso || 0}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Botones de Avance */}
+                      <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-shrink-0">
+                        <button
+                          onClick={() => avanzarOrdenSecuencia(orden, 25)}
+                          disabled={orden.progreso >= 100}
+                          className="px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-blue-400 font-black text-xs border border-slate-700 transition-all active:scale-95 disabled:opacity-30"
+                        >
+                          +25% Avance
+                        </button>
+                        <button
+                          onClick={() => avanzarOrdenSecuencia(orden, 100 - (orden.progreso || 0))}
+                          disabled={orden.progreso >= 100}
+                          className="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-lg shadow-emerald-900/30 transition-all active:scale-95 disabled:opacity-30 flex items-center gap-1.5"
+                        >
+                          <Check className="w-4 h-4" />
+                          Finalizar Orden
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* TAB 5: HISTORIAL */}
+        {activeTab === 'historial' && (
+          <motion.div
+            key="tab-historial"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
+            {/* PANEL DE FILTROS */}
+            <div className="card p-5 border-violet-500/30 bg-gradient-to-br from-violet-950/15 to-slate-900">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-violet-500/20 text-violet-400 flex items-center justify-center">
+                  <Filter className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">Filtros del Historial</h3>
+                  <p className="text-xs text-slate-400">Selecciona línea, producto, turno y período para ver las métricas históricas</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {/* Filtro Línea */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Línea</label>
+                  <select
+                    value={histFiltroLinea}
+                    onChange={e => setHistFiltroLinea(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="todas">Todas las líneas</option>
+                    {lineas.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+                  </select>
+                </div>
+                {/* Filtro Producto */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Producto</label>
+                  <select
+                    value={histFiltroProducto}
+                    onChange={e => setHistFiltroProducto(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="todos">Todos los productos</option>
+                    {productosUnicos.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+                {/* Filtro Turno */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Turno</label>
+                  <select
+                    value={histFiltroTurno}
+                    onChange={e => setHistFiltroTurno(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="todos">Todos los turnos</option>
+                    <option value="Mañana">Mañana (06-14h)</option>
+                    <option value="Tarde">Tarde (14-22h)</option>
+                    <option value="Noche">Noche (22-06h)</option>
+                  </select>
+                </div>
+                {/* Filtro Período */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Período</label>
+                  <div className="flex gap-1">
+                    {['hoy','semana','mes'].map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setHistFiltroPeriodo(p)}
+                        className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${
+                          histFiltroPeriodo === p
+                            ? 'bg-violet-600 text-white'
+                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                        }`}
+                      >
+                        {p === 'hoy' ? 'Hoy' : p === 'semana' ? '7d' : '30d'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* KPI CARDS */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Total Producido', value: histKpis.producido.toLocaleString(), unit: 'uds', icon: Factory, color: 'violet', glow: 'shadow-violet-900/30' },
+                { label: 'OEE Medio', value: `${histKpis.oee}`, unit: '%', icon: Activity, color: 'emerald', glow: 'shadow-emerald-900/30' },
+                { label: 'Calidad Media', value: `${histKpis.calidad}`, unit: '%', icon: CheckSquare, color: 'blue', glow: 'shadow-blue-900/30' },
+                { label: 'Paradas Totales', value: histKpis.paradas, unit: 'eventos', icon: AlertTriangle, color: 'amber', glow: 'shadow-amber-900/30' },
+              ].map(k => (
+                <div key={k.label} className={`card p-5 border-${k.color}-500/30 bg-gradient-to-br from-${k.color}-950/15 to-slate-900 shadow-lg ${k.glow}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase">{k.label}</span>
+                    <k.icon className={`w-4 h-4 text-${k.color}-400`} />
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-3xl font-black font-mono text-${k.color}-400`}>{k.value}</span>
+                    <span className="text-xs text-slate-500 font-bold">{k.unit}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* GRÁFICOS */}
+            {histGrafico.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Gráfico Barras: Producción Real vs Objetivo */}
+                <div className="card p-5">
+                  <h4 className="font-black text-white text-sm mb-4 flex items-center gap-2">
+                    <BarChart2 className="w-4 h-4 text-violet-400" />
+                    Producción Real vs Objetivo por Día
+                  </h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={histGrafico} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, color: '#fff', fontSize: 12 }}
+                        cursor={{ fill: 'rgba(139,92,246,0.08)' }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
+                      <Bar dataKey="objetivo" name="Objetivo" fill="#334155" radius={[4,4,0,0]} />
+                      <Bar dataKey="producido" name="Producido" fill="#7c3aed" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Gráfico Líneas: Evolución OEE */}
+                <div className="card p-5">
+                  <h4 className="font-black text-white text-sm mb-4 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-400" />
+                    Evolución OEE (%) en el Período
+                  </h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={histGrafico} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                      <YAxis domain={[60, 100]} tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, color: '#fff', fontSize: 12 }}
+                      />
+                      <ReferenceLine y={85} stroke="#f59e0b" strokeDasharray="5 5" label={{ value: 'Obj. 85%', fill: '#f59e0b', fontSize: 10, position: 'right' }} />
+                      <Line type="monotone" dataKey="oee" name="OEE %" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', r: 4 }} activeDot={{ r: 6 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <div className="card p-8 text-center text-slate-500">
+                <History className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="font-bold">No hay registros para los filtros seleccionados</p>
+                <p className="text-xs mt-1">Prueba a ampliar el período o cambiar los filtros</p>
+              </div>
+            )}
+
+            {/* TABLA DETALLADA */}
+            {historialFiltrado.length > 0 && (
+              <div className="card overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-800 flex justify-between items-center">
+                  <h4 className="font-black text-white text-sm">Detalle por Turno — {historialFiltrado.length} registros</h4>
+                  <span className="text-xs text-slate-500 font-mono">Filtrado</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-[11px] text-slate-400 uppercase">
+                        <th className="p-3 text-left">Fecha</th>
+                        <th className="p-3 text-left">Línea</th>
+                        <th className="p-3 text-left">Turno</th>
+                        <th className="p-3 text-left">Producto</th>
+                        <th className="p-3 text-right">Producido</th>
+                        <th className="p-3 text-right">Objetivo</th>
+                        <th className="p-3 text-right">OEE%</th>
+                        <th className="p-3 text-right">Calidad%</th>
+                        <th className="p-3 text-right">Paradas</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-xs font-bold">
+                      {historialFiltrado.map(r => {
+                        const cumple = r.producido >= r.objetivo;
+                        return (
+                          <tr key={r.id} className="hover:bg-slate-800/30 transition-colors">
+                            <td className="p-3 font-mono text-slate-300">{r.fecha}</td>
+                            <td className="p-3 text-white">{r.lineaNombre}</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                                r.turno === 'Mañana' ? 'bg-amber-500/20 text-amber-300' :
+                                r.turno === 'Tarde'  ? 'bg-blue-500/20 text-blue-300' :
+                                                       'bg-slate-700 text-slate-300'
+                              }`}>{r.turno}</span>
+                            </td>
+                            <td className="p-3 font-mono text-cyan-400">{r.producto}</td>
+                            <td className={`p-3 text-right font-mono ${cumple ? 'text-emerald-400' : 'text-amber-400'}`}>{r.producido}</td>
+                            <td className="p-3 text-right font-mono text-slate-400">{r.objetivo}</td>
+                            <td className={`p-3 text-right font-mono ${r.oee >= 85 ? 'text-emerald-400' : r.oee >= 75 ? 'text-amber-400' : 'text-red-400'}`}>{r.oee}%</td>
+                            <td className={`p-3 text-right font-mono ${r.calidad >= 97 ? 'text-emerald-400' : 'text-amber-400'}`}>{r.calidad}%</td>
+                            <td className={`p-3 text-right font-mono ${r.paradas > 2 ? 'text-red-400' : r.paradas > 0 ? 'text-amber-400' : 'text-slate-500'}`}>{r.paradas}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* TAB 6: PRODUCTOS / REFERENCIAS DE FABRICACIÓN */}
+        {activeTab === 'productos' && (
+          <motion.div
+            key="tab-productos"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
+            {/* CABECERA Y BOTÓN NUEVO */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-black text-white flex items-center gap-3">
+                  <BoxesIcon className="w-6 h-6 text-cyan-400" />
+                  Catálogo de Referencias de Fabricación
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Gestiona los productos fabricados en las líneas — alta, modificación y baja de referencias</p>
+              </div>
+              <div className="flex items-center gap-3">
+                {prodSuccess && (
+                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-black animate-bounce">
+                    ✓ Referencia guardada
+                  </span>
+                )}
+                <button
+                  onClick={abrirNuevoProducto}
+                  className="px-5 py-3 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-black text-sm shadow-lg shadow-cyan-900/30 flex items-center gap-2 transition-all active:scale-95"
+                >
+                  <Plus className="w-5 h-5" />
+                  Nueva Referencia
+                </button>
+              </div>
+            </div>
+
+            {/* MODAL FORMULARIO PRODUCTO */}
+            <AnimatePresence>
+              {prodModal && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  className="card p-6 border-cyan-500/40 bg-gradient-to-br from-cyan-950/20 to-slate-900"
+                >
+                  <div className="flex items-center justify-between mb-5">
+                    <h4 className="text-lg font-black text-white flex items-center gap-2">
+                      {prodEditing ? <Edit2 className="w-5 h-5 text-cyan-400" /> : <Plus className="w-5 h-5 text-cyan-400" />}
+                      {prodEditing ? 'Editar Referencia' : 'Nueva Referencia de Fabricación'}
+                    </h4>
+                    <button onClick={() => setProdModal(false)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-all">
+                      <XCircle className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Código *</label>
+                      <input
+                        type="text"
+                        value={prodForm.codigo}
+                        onChange={e => setProdForm(f => ({ ...f, codigo: e.target.value }))}
+                        placeholder="Ej: BAT-48V-100Ah"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-mono font-bold text-white focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Descripción *</label>
+                      <input
+                        type="text"
+                        value={prodForm.descripcion}
+                        onChange={e => setProdForm(f => ({ ...f, descripcion: e.target.value }))}
+                        placeholder="Ej: Batería LFP 48V 100Ah — Estándar Industrial"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Cliente</label>
+                      <input
+                        type="text"
+                        value={prodForm.cliente}
+                        onChange={e => setProdForm(f => ({ ...f, cliente: e.target.value }))}
+                        placeholder="Ej: Cliente A"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Familia</label>
+                      <input
+                        type="text"
+                        value={prodForm.familia}
+                        onChange={e => setProdForm(f => ({ ...f, familia: e.target.value }))}
+                        placeholder="Ej: Baterías 48V"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Tiempo de Ciclo (seg)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={prodForm.tiempoCiclo}
+                        onChange={e => setProdForm(f => ({ ...f, tiempoCiclo: e.target.value }))}
+                        placeholder="Ej: 120"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Objetivo / Hora (uds)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={prodForm.objetivoHora}
+                        onChange={e => setProdForm(f => ({ ...f, objetivoHora: e.target.value }))}
+                        placeholder="Ej: 30"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Peso (kg)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={prodForm.peso}
+                        onChange={e => setProdForm(f => ({ ...f, peso: e.target.value }))}
+                        placeholder="Ej: 28.5"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3 pt-5">
+                      <button
+                        onClick={() => setProdForm(f => ({ ...f, activo: !f.activo }))}
+                        className={`w-12 h-6 rounded-full transition-all ${
+                          prodForm.activo ? 'bg-emerald-500' : 'bg-slate-700'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white transition-all mx-0.5 ${
+                          prodForm.activo ? 'translate-x-6' : 'translate-x-0'
+                        }`} />
+                      </button>
+                      <span className={`text-sm font-black ${prodForm.activo ? 'text-emerald-400' : 'text-slate-500'}`}>
+                        {prodForm.activo ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Notas internas</label>
+                      <textarea
+                        rows="2"
+                        value={prodForm.notas}
+                        onChange={e => setProdForm(f => ({ ...f, notas: e.target.value }))}
+                        placeholder="Observaciones, utillajes requeridos, certificaciones..."
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500 resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 mt-5 pt-5 border-t border-slate-800">
+                    <button
+                      onClick={guardarProducto}
+                      disabled={prodSaving}
+                      className="px-6 py-3 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-black text-sm shadow-lg shadow-cyan-900/30 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      {prodSaving ? 'Guardando...' : (prodEditing ? 'Guardar Cambios' : 'Crear Referencia')}
+                    </button>
+                    <button
+                      onClick={() => setProdModal(false)}
+                      className="px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-black text-sm transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* GRID DE PRODUCTOS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {productos.map(p => (
+                <div
+                  key={p.id}
+                  className={`rounded-3xl border-2 p-5 flex flex-col justify-between transition-all ${
+                    !p.activo
+                      ? 'border-slate-800 bg-slate-900/40 opacity-60'
+                      : 'border-slate-800 bg-slate-900/70 hover:border-cyan-500/50'
+                  }`}
+                >
+                  {/* Cabecera */}
+                  <div>
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <span className="font-mono text-xs font-bold text-cyan-400">{p.codigo}</span>
+                        {p.familia && (
+                          <span className="ml-2 text-[10px] text-slate-500 font-bold bg-slate-800 px-2 py-0.5 rounded-md">{p.familia}</span>
+                        )}
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                        p.activo ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'
+                      }`}>
+                        {p.activo ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </div>
+                    <h4 className="font-black text-white text-sm leading-snug">{p.descripcion}</h4>
+                    {p.cliente && (
+                      <p className="text-xs text-slate-500 mt-0.5">Cliente: <strong className="text-slate-300">{p.cliente}</strong></p>
+                    )}
+
+                    {/* Métricas del producto */}
+                    <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800">
+                      <div className="text-center">
+                        <span className="text-[10px] font-bold text-slate-500 block uppercase">Ciclo</span>
+                        <span className="text-base font-black font-mono text-white">{p.tiempoCiclo || '—'}</span>
+                        <span className="text-[9px] text-slate-600">seg</span>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[10px] font-bold text-slate-500 block uppercase">Obj/h</span>
+                        <span className="text-base font-black font-mono text-emerald-400">{p.objetivoHora || '—'}</span>
+                        <span className="text-[9px] text-slate-600">uds</span>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[10px] font-bold text-slate-500 block uppercase">Peso</span>
+                        <span className="text-base font-black font-mono text-blue-400">{p.peso || '—'}</span>
+                        <span className="text-[9px] text-slate-600">kg</span>
+                      </div>
+                    </div>
+
+                    {p.notas && (
+                      <p className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-800 italic line-clamp-2">{p.notas}</p>
+                    )}
+                  </div>
+
+                  {/* Acciones */}
+                  <div className="flex gap-2 mt-4 pt-3 border-t border-slate-800">
+                    <button
+                      onClick={() => abrirEditarProducto(p)}
+                      className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-cyan-900/40 text-cyan-400 border border-slate-700 hover:border-cyan-500/40 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      Editar
+                    </button>
+                    {prodConfirmDel === p.id ? (
+                      <div className="flex gap-1 flex-1">
+                        <button
+                          onClick={() => confirmarBorrarProducto(p.id)}
+                          className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs transition-all active:scale-95"
+                        >
+                          ¡Borrar!
+                        </button>
+                        <button
+                          onClick={() => setProdConfirmDel(null)}
+                          className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 font-black text-xs transition-all"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setProdConfirmDel(p.id)}
+                        className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-red-900/30 text-red-400 border border-slate-700 hover:border-red-500/40 font-black text-xs flex items-center gap-1.5 transition-all active:scale-95"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {productos.length === 0 && (
+                <div className="col-span-3 card p-10 text-center text-slate-500">
+                  <BoxesIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="font-bold">No hay referencias registradas</p>
+                  <p className="text-xs mt-1">Pulsa «Nueva Referencia» para añadir la primera</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

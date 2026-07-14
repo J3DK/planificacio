@@ -1,0 +1,27 @@
+// Mock data — Paradas
+export const paradasTurno = [
+  { id: 1, linea: 'Línea 3', inicio: '07:15', fin: '07:42', duracion: 27, tipo: 'averia',    causa: 'Avería soldadora automática', impacto: 85, estado: 'cerrada' },
+  { id: 2, linea: 'Línea 5', inicio: '06:00', fin: null,    duracion: 315,tipo: 'mantenimiento', causa: 'Mantenimiento preventivo P5-M12', impacto: 315, estado: 'abierta' },
+  { id: 3, linea: 'Línea 2', inicio: '08:30', fin: '08:45', duracion: 15, tipo: 'cambio',    causa: 'Cambio de referencia BAT-24V-100Ah → 200Ah', impacto: 28, estado: 'cerrada' },
+  { id: 4, linea: 'Línea 1', inicio: '09:55', fin: '10:05', duracion: 10, tipo: 'calidad',   causa: 'Control de calidad — muestra inspección', impacto: 20, estado: 'cerrada' },
+  { id: 5, linea: 'Línea 3', inicio: '10:30', fin: null,    duracion: 45, tipo: 'averia',    causa: 'Falta material — cables 6mm² sin stock', impacto: 45, estado: 'abierta' },
+  { id: 6, linea: 'Línea 4', inicio: '11:20', fin: '11:28', duracion: 8,  tipo: 'calidad',   causa: 'Retrabo por fallo de etiquetado', impacto: 12, estado: 'cerrada' },
+];
+
+export const paradasPorTipo = [
+  { tipo: 'Avería',          minutos: 72,  pct: 38, color: '#ef4444' },
+  { tipo: 'Mantenimiento',   minutos: 315, pct: 42, color: '#f59e0b' },
+  { tipo: 'Cambio ref.',     minutos: 28,  pct: 11, color: '#3b82f6' },
+  { tipo: 'Calidad',         minutos: 32,  pct: 9,  color: '#8b5cf6' },
+];
+
+export const oeeWaterfall = [
+  { nombre: 'Disponibilidad', valor: 92.5, tipo: 'kpi' },
+  { nombre: 'Av. Soldadora L3', valor: -2.8, tipo: 'perdida' },
+  { nombre: 'Mant. L5', valor: -4.2, tipo: 'perdida' },
+  { nombre: 'Rendimiento', valor: 97.4, tipo: 'kpi' },
+  { nombre: 'Velocidad reducida', valor: -2.6, tipo: 'perdida' },
+  { nombre: 'Calidad', valor: 98.8, tipo: 'kpi' },
+  { nombre: 'Scrap', valor: -0.8, tipo: 'perdida' },
+  { nombre: 'OEE Real', valor: 83.4, tipo: 'resultado' },
+];
