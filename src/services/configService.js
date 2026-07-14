@@ -2,6 +2,25 @@ import { useState, useEffect } from 'react';
 
 const LS_KEY_APP_CONFIG = 'mes_global_app_config';
 
+export const DEFAULT_MENU_ITEMS = [
+  { path: '/',                   label: 'Resumen',              iconName: 'LayoutDashboard', exact: true, visible: true },
+  { path: '/panel-operario',     label: 'Terminal Operario',    iconName: 'Cpu',             visible: true },
+  { path: '/planificacion',      label: 'Planificación',        iconName: 'CalendarDays',    visible: true },
+  { path: '/secuencia',          label: 'Secuencia',            iconName: 'ListOrdered',     visible: true },
+  { path: '/lineas',             label: 'Líneas',               iconName: 'Factory',         visible: true },
+  { path: '/operarios',          label: 'Operarios',            iconName: 'Users',           visible: true },
+  { path: '/productos',          label: 'Productos',            iconName: 'Boxes',           visible: true },
+  { path: '/produccion',         label: 'Producción',           iconName: 'BarChart2',       visible: true },
+  { path: '/calidad',            label: 'Calidad',              iconName: 'CheckSquare',     visible: true },
+  { path: '/paradas',            label: 'Paradas',              iconName: 'StopCircle',      visible: true },
+  { path: '/materias-primas',    label: 'Materias Primas',      iconName: 'Package',         visible: true },
+  { path: '/informes',           label: 'Informes',             iconName: 'FileBarChart',    visible: true },
+  { path: '/alertas',            label: 'Alertas',              iconName: 'Bell',            visible: true },
+  { path: '/metricas',           label: 'Métricas',             iconName: 'SlidersHorizontal', visible: true },
+  { path: '/historial',          label: 'Historial',            iconName: 'History',         visible: true },
+  { path: '/configuracion',      label: 'Configuración',        iconName: 'Settings',        visible: true },
+];
+
 export const DEFAULT_APP_CONFIG = {
   nombreEmpresa: 'MPS Producción',
   subtituloEmpresa: 'Smart MES Factory',
@@ -14,6 +33,7 @@ export const DEFAULT_APP_CONFIG = {
   pieReportes: 'Documento oficial generado por el Sistema MES de Producción & Calidad — Trazabilidad Industrial Certificada.',
   moneda: 'EUR',
   objetivoOEEPlanta: 85,
+  menuOrder: DEFAULT_MENU_ITEMS,
 };
 
 export function getAppConfig() {
@@ -21,7 +41,23 @@ export function getAppConfig() {
     const raw = localStorage.getItem(LS_KEY_APP_CONFIG);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...DEFAULT_APP_CONFIG, ...parsed };
+      // Asegurar que menuOrder contenga una lista válida o reconciliar si se agregaron nuevas rutas
+      let currentMenu = Array.isArray(parsed.menuOrder) && parsed.menuOrder.length > 0
+        ? parsed.menuOrder
+        : DEFAULT_MENU_ITEMS;
+
+      // Reconciliación por si el usuario guardó el menú antes de la creación del módulo de Productos
+      if (!currentMenu.some(item => item.path === '/productos')) {
+        const opIdx = currentMenu.findIndex(item => item.path === '/operarios');
+        const prodItem = { path: '/productos', label: 'Productos', iconName: 'Boxes', visible: true };
+        if (opIdx >= 0) {
+          currentMenu.splice(opIdx + 1, 0, prodItem);
+        } else {
+          currentMenu.push(prodItem);
+        }
+      }
+
+      return { ...DEFAULT_APP_CONFIG, ...parsed, menuOrder: currentMenu };
     }
   } catch (_) {}
   return DEFAULT_APP_CONFIG;

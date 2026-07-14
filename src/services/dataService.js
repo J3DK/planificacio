@@ -780,3 +780,4 @@ export async function deleteOperario(id) {
   setOperariosLocal(updated);
   return { error: null };
 }
+

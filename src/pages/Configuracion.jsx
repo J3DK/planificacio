@@ -2,16 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Settings, Upload, Image as ImageIcon, CheckCircle2, Sparkles,
-  Building2, FileText, Sliders, RefreshCw, Zap, Trash2, Eye,
-  SlidersHorizontal, Check, AlertCircle, Laptop, Printer
+  Building2, FileText, Sliders, RefreshCw, Zap, Trash2, Eye, EyeOff,
+  SlidersHorizontal, Check, AlertCircle, Laptop, Printer, ArrowUp, ArrowDown,
+  LayoutDashboard, CalendarDays, ListOrdered, Factory, Users, Boxes,
+  BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
+  Bell, Cpu, History, Menu
 } from 'lucide-react';
-import { getAppConfig, updateAppConfig, DEFAULT_APP_CONFIG } from '@/services/configService';
+import { getAppConfig, updateAppConfig, DEFAULT_APP_CONFIG, DEFAULT_MENU_ITEMS } from '@/services/configService';
 
 export default function Configuracion() {
   const [config, setConfig] = useState(getAppConfig());
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
-  const [activeTab, setActiveTab] = useState('branding'); // branding | empresa | sistema
+  const [activeTab, setActiveTab] = useState('branding'); // branding | empresa | sistema | navegacion
 
   useEffect(() => {
     setConfig(getAppConfig());
@@ -19,6 +22,43 @@ export default function Configuracion() {
 
   const handleChange = (key, value) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleUpdateMenuOrder = (newList) => {
+    const updated = { ...config, menuOrder: newList };
+    setConfig(updated);
+    updateAppConfig(updated);
+    setSuccessMsg('Orden del menú lateral actualizado al instante.');
+    setTimeout(() => setSuccessMsg(''), 2500);
+  };
+
+  const moveMenuItemUp = (idx) => {
+    if (idx <= 0) return;
+    const list = Array.isArray(config.menuOrder) ? [...config.menuOrder] : [...DEFAULT_MENU_ITEMS];
+    const temp = list[idx];
+    list[idx] = list[idx - 1];
+    list[idx - 1] = temp;
+    handleUpdateMenuOrder(list);
+  };
+
+  const moveMenuItemDown = (idx) => {
+    const list = Array.isArray(config.menuOrder) ? [...config.menuOrder] : [...DEFAULT_MENU_ITEMS];
+    if (idx >= list.length - 1) return;
+    const temp = list[idx];
+    list[idx] = list[idx + 1];
+    list[idx + 1] = temp;
+    handleUpdateMenuOrder(list);
+  };
+
+  const toggleMenuVisibility = (idx) => {
+    const list = Array.isArray(config.menuOrder) ? [...config.menuOrder] : [...DEFAULT_MENU_ITEMS];
+    if (!list[idx]) return;
+    list[idx] = { ...list[idx], visible: list[idx].visible === false ? true : false };
+    handleUpdateMenuOrder(list);
+  };
+
+  const resetMenuOrder = () => {
+    handleUpdateMenuOrder(DEFAULT_MENU_ITEMS);
   };
 
   const handleLogoUpload = (e) => {
@@ -179,6 +219,18 @@ export default function Configuracion() {
         >
           <Sliders className="w-4 h-4" />
           <span>Parámetros & KPIs Planta</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('navegacion')}
+          className={`px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2.5 transition-all whitespace-nowrap ${
+            activeTab === 'navegacion'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          <span>Orden del Menú & Navegación</span>
         </button>
       </div>
 
@@ -483,6 +535,92 @@ export default function Configuracion() {
                   <option value="MXN">Pesos Mexicanos ($ - MXN)</option>
                   <option value="GBP">Libras Esterlinas (£ - GBP)</option>
                 </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── PESTAÑA 4: ORDEN DE LA BARRA DE NAVEGACIÓN LATERAL ── */}
+        {activeTab === 'navegacion' && (
+          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl space-y-6 animate-fade-in">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                  <SlidersHorizontal className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-white text-lg">Personalizar Orden y Visibilidad del Menú Lateral</h3>
+                  <p className="text-xs text-slate-400">Desplaza los módulos hacia arriba o hacia abajo para priorizar lo más importante en tu fábrica. Los cambios se aplican inmediatamente.</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={resetMenuOrder}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-2 transition-all active:scale-95 self-start md:self-auto"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Restaurar Orden por Defecto</span>
+              </button>
+            </div>
+
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 md:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {(Array.isArray(config.menuOrder) ? config.menuOrder : DEFAULT_MENU_ITEMS).map((item, idx, arr) => (
+                  <motion.div
+                    key={item.path}
+                    layout
+                    transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                    className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
+                      item.visible === false
+                        ? 'bg-slate-950/40 border-slate-800/50 opacity-50'
+                        : 'bg-slate-900 border-slate-700/80 hover:border-indigo-500/60 shadow-md'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-7 h-7 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-[11px] font-black font-mono text-indigo-300 flex-shrink-0">
+                        #{String(idx + 1).padStart(2, '0')}
+                      </span>
+                      <div className="min-w-0 truncate">
+                        <span className="text-sm font-black text-white block truncate">{item.label}</span>
+                        <span className="text-[10px] text-slate-400 font-mono block truncate">{item.path}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleMenuVisibility(idx)}
+                        title={item.visible === false ? 'Mostrar sección en el menú' : 'Ocultar sección del menú'}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          item.visible === false ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+                        }`}
+                      >
+                        {item.visible === false ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => moveMenuItemUp(idx)}
+                        disabled={idx === 0}
+                        title="Subir posición"
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white disabled:opacity-20 disabled:hover:bg-slate-800 transition-all active:scale-90"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => moveMenuItemDown(idx)}
+                        disabled={idx === arr.length - 1}
+                        title="Bajar posición"
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white disabled:opacity-20 disabled:hover:bg-slate-800 transition-all active:scale-90"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             </div>
           </div>

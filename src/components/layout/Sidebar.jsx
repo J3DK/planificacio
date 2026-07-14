@@ -3,27 +3,34 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings
+  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings, Boxes
 } from 'lucide-react';
 import { alertas } from '@/data/mockAlertas';
 import { useAppConfig } from '@/services/configService';
 
+const ICON_MAP = {
+  LayoutDashboard, CalendarDays, ListOrdered, Factory, Users, Boxes,
+  BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
+  Bell, SlidersHorizontal, Cpu, History, Settings
+};
+
 const navItems = [
-  { path: '/',                   label: 'Resumen',              icon: LayoutDashboard, exact: true },
-  { path: '/panel-operario',     label: 'Terminal Operario',    icon: Cpu },
-  { path: '/planificacion',      label: 'Planificación',        icon: CalendarDays },
-  { path: '/secuencia',          label: 'Secuencia',            icon: ListOrdered },
-  { path: '/lineas',             label: 'Líneas',               icon: Factory },
-  { path: '/operarios',          label: 'Operarios',            icon: Users },
-  { path: '/produccion',         label: 'Producción',           icon: BarChart2 },
-  { path: '/calidad',            label: 'Calidad',              icon: CheckSquare },
-  { path: '/paradas',            label: 'Paradas',              icon: StopCircle },
-  { path: '/materias-primas',    label: 'Materias Primas',      icon: Package },
-  { path: '/informes',           label: 'Informes',             icon: FileBarChart },
-  { path: '/alertas',            label: 'Alertas',              icon: Bell },
-  { path: '/metricas',           label: 'Métricas',             icon: SlidersHorizontal },
-  { path: '/historial',          label: 'Historial',            icon: History },
-  { path: '/configuracion',      label: 'Configuración',        icon: Settings },
+  { path: '/',                   label: 'Resumen',              iconName: 'LayoutDashboard', exact: true },
+  { path: '/panel-operario',     label: 'Terminal Operario',    iconName: 'Cpu' },
+  { path: '/planificacion',      label: 'Planificación',        iconName: 'CalendarDays' },
+  { path: '/secuencia',          label: 'Secuencia',            iconName: 'ListOrdered' },
+  { path: '/lineas',             label: 'Líneas',               iconName: 'Factory' },
+  { path: '/operarios',          label: 'Operarios',            iconName: 'Users' },
+  { path: '/productos',          label: 'Productos',            iconName: 'Boxes' },
+  { path: '/produccion',         label: 'Producción',           iconName: 'BarChart2' },
+  { path: '/calidad',            label: 'Calidad',              iconName: 'CheckSquare' },
+  { path: '/paradas',            label: 'Paradas',              iconName: 'StopCircle' },
+  { path: '/materias-primas',    label: 'Materias Primas',      iconName: 'Package' },
+  { path: '/informes',           label: 'Informes',             iconName: 'FileBarChart' },
+  { path: '/alertas',            label: 'Alertas',              iconName: 'Bell' },
+  { path: '/metricas',           label: 'Métricas',             iconName: 'SlidersHorizontal' },
+  { path: '/historial',          label: 'Historial',            iconName: 'History' },
+  { path: '/configuracion',      label: 'Configuración',        iconName: 'Settings' },
 ];
 
 export default function Sidebar() {
@@ -32,12 +39,18 @@ export default function Sidebar() {
   const location = useLocation();
   const appConfig = useAppConfig();
 
+  const activeNavList = (appConfig.menuOrder && Array.isArray(appConfig.menuOrder) && appConfig.menuOrder.length > 0)
+    ? appConfig.menuOrder.filter(i => i.visible !== false)
+    : navItems;
+
   const alertasNoLeidas = alertas.filter(a => !a.leida).length;
 
   const NavItem = ({ item }) => {
     const isActive = item.exact
       ? location.pathname === item.path
       : location.pathname.startsWith(item.path);
+
+    const IconComponent = item.icon || ICON_MAP[item.iconName] || Zap;
 
     return (
       <NavLink
@@ -49,7 +62,7 @@ export default function Sidebar() {
             : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/70'
         }`}
       >
-        <item.icon className={`flex-shrink-0 ${collapsed ? 'w-5 h-5' : 'w-4 h-4'}`} />
+        <IconComponent className={`flex-shrink-0 ${collapsed ? 'w-5 h-5' : 'w-4 h-4'}`} />
         {!collapsed && (
           <span className="text-sm font-semibold truncate">{item.label}</span>
         )}
@@ -110,7 +123,7 @@ export default function Sidebar() {
         {!collapsed && (
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-700 px-3 py-2">Módulos</p>
         )}
-        {navItems.map(item => (
+        {activeNavList.map(item => (
           <React.Fragment key={item.path}>
             {item.path === '/configuracion' && !collapsed && (
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-700 px-3 pt-4 pb-1 mt-3 border-t border-slate-800/80">Sistema</p>
