@@ -14,6 +14,18 @@ export default function PlanificacionLineas() {
   const [diaSeleccionado, setDiaSeleccionado] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // Reloj de tiempo real para la línea roja/ámbar de "Tiempo Actual" en el Gantt
+  const [nowDate, setNowDate] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNowDate(new Date()), 15000); // actualizar cada 15s
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentHourFloat = nowDate.getHours() + nowDate.getMinutes() / 60;
+  const isTimeInRange = currentHourFloat >= 6 && currentHourFloat <= 22;
+  const currentTimeX = (currentHourFloat - 6) * 60; // CELL_W es 60
+  const currentTimeFormatted = nowDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   // Drag & Drop state
   const [draggedOrden, setDraggedOrden] = useState(null);
   const [dropTarget, setDropTarget] = useState(null); // { lineaId, horaInicio }
@@ -579,7 +591,23 @@ export default function PlanificacionLineas() {
             </span>
           </div>
           <div className="overflow-x-auto no-scrollbar">
-            <div style={{ minWidth: CELL_W * 16 + 120 }}>
+            <div className="relative" style={{ minWidth: CELL_W * 16 + 120 }}>
+              {/* Indicador Global de Hora Actual — Cruza todo el diagrama de Gantt */}
+              {diaSeleccionado === 0 && isTimeInRange && (
+                <div
+                  className="absolute top-0 bottom-0 z-30 pointer-events-none flex flex-col items-center transition-all duration-1000"
+                  style={{ left: 112 + currentTimeX }} // 112px es el ancho de la columna izquierda ("w-28")
+                >
+                  {/* Etiqueta flotante con la hora del sistema en el header */}
+                  <div className="bg-red-600 text-white font-black text-[11px] font-mono px-2 py-0.5 rounded-full shadow-lg shadow-red-600/60 -translate-y-1.5 flex items-center gap-1.5 border border-red-300">
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                    <span>{currentTimeFormatted}</span>
+                  </div>
+                  {/* Línea vertical roja/ámbar continua */}
+                  <div className="w-0.5 flex-1 bg-gradient-to-b from-red-500 via-amber-400 to-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
+                </div>
+              )}
+
               {/* Horas header */}
               <div className="flex border-b border-slate-800 bg-slate-900/60">
                 <div className="w-28 flex-shrink-0 bg-slate-900/90 px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center">
@@ -624,9 +652,9 @@ export default function PlanificacionLineas() {
                         );
                       })}
 
-                      {/* Línea de tiempo actual (si es HOY) */}
-                      {diaSeleccionado === 0 && (
-                        <div className="absolute top-0 bottom-0 w-0.5 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)] z-10 pointer-events-none" style={{ left: 5.25 * CELL_W }} />
+                      {/* Línea de tiempo actual dentro de la fila (si es HOY y está en rango) */}
+                      {diaSeleccionado === 0 && isTimeInRange && (
+                        <div className="absolute top-0 bottom-0 w-0.5 bg-red-500/80 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 pointer-events-none transition-all duration-1000" style={{ left: currentTimeX }} />
                       )}
 
                       {/* Barras de Órdenes */}
