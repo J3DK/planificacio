@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   fetchParadas, insertParada, updateParada, deleteParada,
-  fetchParadasPredeterminadas, insertParadaPredeterminada, updateParadaPredeterminada, deleteParadaPredeterminada
+  fetchParadasPredeterminadas, insertParadaPredeterminada, updateParadaPredeterminada, deleteParadaPredeterminada,
+  generarOtDesdeParada
 } from '@/services/dataService';
 import { paradasPorTipo, oeeWaterfall } from '@/data/mockParadas';
 import {
@@ -98,11 +99,25 @@ export default function Paradas() {
   const openEdit = (parada) => { setEditItem(parada); setModalMode('edit'); setModalOpen(true); };
   const openDelete = (parada) => { setDeleteTarget(parada); setConfirmOpen(true); };
 
+  const handleGenerarOt = async (parada) => {
+    const { data: newOt } = await generarOtDesdeParada(parada);
+    alert(`✅ Orden de Trabajo (${newOt?.codigo || 'OT'}) generada y vinculada en Mantenimiento para la parada #${parada.id}.`);
+  };
+
   const handleSave = async (data) => {
     setSaving(true);
+    let targetId = editItem.id || Date.now();
     if (modalMode === 'create') {
       const { data: newItem, error } = await insertParada(data);
-      if (!error) setParadas(prev => [...prev, newItem || { ...data, id: Date.now() }]);
+      if (!error) {
+        const created = newItem || { ...data, id: targetId };
+        setParadas(prev => [...prev, created]);
+        targetId = created.id;
+        // Si la categoría es Avería, preguntar o generar OT en mantenimiento opcionalmente o avisar
+        if (data.tipo === 'averia' && window.confirm('Esta parada se ha clasificado como "Avería". ¿Deseas generar automáticamente una Orden de Trabajo (OT) vinculada en el módulo de Mantenimiento?')) {
+          await generarOtDesdeParada(created);
+        }
+      }
     } else {
       const { data: updated, error } = await updateParada(editItem.id, data);
       if (!error) setParadas(prev => prev.map(p => p.id === editItem.id ? (updated || { ...p, ...data }) : p));
@@ -360,6 +375,9 @@ export default function Paradas() {
                         </td>
                         <td className="table-cell px-4">
                           <div className="flex items-center gap-1">
+                            <button onClick={() => handleGenerarOt(p)} className="p-2 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 transition-all" title="Vincular / Generar OT en Mantenimiento">
+                              <Wrench className="w-3.5 h-3.5" />
+                            </button>
                             <button onClick={() => openEdit(p)} className="p-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 transition-all" title="Editar parada">
                               <Pencil className="w-3.5 h-3.5" />
                             </button>

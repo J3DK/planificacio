@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings, Boxes
+  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings, Boxes, Wrench
 } from 'lucide-react';
 import { alertas } from '@/data/mockAlertas';
 import { useAppConfig } from '@/services/configService';
@@ -11,7 +11,7 @@ import { useAppConfig } from '@/services/configService';
 const ICON_MAP = {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users, Boxes,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, SlidersHorizontal, Cpu, History, Settings
+  Bell, SlidersHorizontal, Cpu, History, Settings, Wrench
 };
 
 const navItems = [
@@ -25,6 +25,7 @@ const navItems = [
   { path: '/produccion',         label: 'Producción',           iconName: 'BarChart2' },
   { path: '/calidad',            label: 'Calidad',              iconName: 'CheckSquare' },
   { path: '/paradas',            label: 'Paradas',              iconName: 'StopCircle' },
+  { path: '/mantenimiento',      label: 'Mantenimiento',        iconName: 'Wrench' },
   { path: '/materias-primas',    label: 'Materias Primas',      iconName: 'Package' },
   { path: '/informes',           label: 'Informes',             iconName: 'FileBarChart' },
   { path: '/alertas',            label: 'Alertas',              iconName: 'Bell' },

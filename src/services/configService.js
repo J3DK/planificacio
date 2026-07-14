@@ -13,6 +13,7 @@ export const DEFAULT_MENU_ITEMS = [
   { path: '/produccion',         label: 'Producción',           iconName: 'BarChart2',       visible: true },
   { path: '/calidad',            label: 'Calidad',              iconName: 'CheckSquare',     visible: true },
   { path: '/paradas',            label: 'Paradas',              iconName: 'StopCircle',      visible: true },
+  { path: '/mantenimiento',      label: 'Mantenimiento',        iconName: 'Wrench',          visible: true },
   { path: '/materias-primas',    label: 'Materias Primas',      iconName: 'Package',         visible: true },
   { path: '/informes',           label: 'Informes',             iconName: 'FileBarChart',    visible: true },
   { path: '/alertas',            label: 'Alertas',              iconName: 'Bell',            visible: true },
@@ -54,6 +55,17 @@ export function getAppConfig() {
           currentMenu.splice(opIdx + 1, 0, prodItem);
         } else {
           currentMenu.push(prodItem);
+        }
+      }
+
+      // Reconciliación para el módulo de Mantenimiento
+      if (!currentMenu.some(item => item.path === '/mantenimiento')) {
+        const parIdx = currentMenu.findIndex(item => item.path === '/paradas');
+        const mtoItem = { path: '/mantenimiento', label: 'Mantenimiento', iconName: 'Wrench', visible: true };
+        if (parIdx >= 0) {
+          currentMenu.splice(parIdx + 1, 0, mtoItem);
+        } else {
+          currentMenu.push(mtoItem);
         }
       }
 

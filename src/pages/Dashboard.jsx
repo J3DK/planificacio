@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -6,12 +7,13 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Clock, ClipboardList,
-  MessageSquare, AlertTriangle, CheckCircle2, ArrowUp, ArrowDown
+  MessageSquare, AlertTriangle, CheckCircle2, ArrowUp, ArrowDown, Wrench
 } from 'lucide-react';
 import {
   kpis, cumplimientoAcumulado, produccionPorHora,
   cumplimientoPorLinea, causasDesviacion, objetivoVsCumplimientoLinea, mensajeClave
 } from '@/data/mockDashboard';
+import { alertas as mockAlertas } from '@/data/mockAlertas';
 import KPICard from '@/components/shared/KPICard';
 
 const fadeUp = (delay = 0) => ({
@@ -35,8 +37,31 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function Dashboard() {
+  const alertasMtoCriticas = mockAlertas.filter(a => a.modulo === 'mantenimiento' && a.tipo === 'critica' && !a.leida);
+
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
+      {/* Banner de alerta de OTs críticas si existen en Mantenimiento */}
+      {alertasMtoCriticas.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+          className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse flex-shrink-0">
+              <Wrench className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-red-400 uppercase tracking-wider">Alerta de Mantenimiento / OEE</span>
+                <span className="px-2 py-0.2 rounded-full bg-red-500 text-slate-950 text-[10px] font-black">{alertasMtoCriticas.length} CRÍTICAS</span>
+              </div>
+              <p className="text-sm font-bold text-white mt-0.5">{alertasMtoCriticas[0].titulo} · <span className="text-slate-300 font-normal">{alertasMtoCriticas[0].descripcion}</span></p>
+            </div>
+          </div>
+          <Link to="/mantenimiento" className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-400 text-slate-950 text-xs font-black transition-all whitespace-nowrap self-start md:self-auto flex items-center gap-1.5 shadow-md">
+            <span>Ver Mantenimiento y OTs</span> <TrendingUp className="w-3.5 h-3.5" />
+          </Link>
+        </motion.div>
+      )}
 
       {/* ── ROW 1: KPIs principales ─────────────────────────── */}
       <motion.div {...fadeUp(0)} className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">

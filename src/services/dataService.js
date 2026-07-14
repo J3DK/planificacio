@@ -10,6 +10,7 @@ import { kpis as mockKpis } from '@/data/mockDashboard';
 import { historialProduccion as mockHistorial } from '@/data/mockHistorial';
 import { productos as mockProductos } from '@/data/mockProductos';
 import { operarios as mockOperarios } from '@/data/mockOperarios';
+import { ordenesTrabajoIniciales, activosJerarquia as mockActivos, planesPreventivosIniciales, sensoresPredictivosIniciales, repuestosAlmacenIniciales } from '@/data/mockMantenimiento';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -862,4 +863,154 @@ export async function deleteOperario(id) {
   setOperariosLocal(updated);
   return { error: null };
 }
+
+// ─── MANTENIMIENTO INTEGRAL (GMAO / OTs / Activos / Repuestos) ───────────────
+
+function getOrdenesTrabajoLocal() { try { const r = localStorage.getItem('mes_ordenes_trabajo'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setOrdenesTrabajoLocal(d) { try { localStorage.setItem('mes_ordenes_trabajo', JSON.stringify(d)); } catch (_) {} }
+
+export async function fetchOrdenesTrabajo() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('ordenes_trabajo').select('*').order('id', { ascending: false });
+      if (!error && data && data.length > 0) return { data, fromSupabase: true };
+    } catch (e) {}
+  }
+  const local = getOrdenesTrabajoLocal();
+  if (local && Array.isArray(local) && local.length > 0) return { data: local, fromSupabase: false };
+  setOrdenesTrabajoLocal(ordenesTrabajoIniciales);
+  return { data: ordenesTrabajoIniciales, fromSupabase: false };
+}
+
+export async function insertOrdenTrabajo(ot) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('ordenes_trabajo').insert([ot]).select().single();
+      if (!error && data) return { data, error: null };
+    } catch (e) {}
+  }
+  const current = getOrdenesTrabajoLocal() || ordenesTrabajoIniciales;
+  const newItem = {
+    ...ot,
+    id: ot.id || `OT-2026-${Math.floor(100 + Math.random() * 900)}`,
+    codigo: ot.codigo || `OT-${Math.floor(100 + Math.random() * 900)}`,
+    fechaApertura: ot.fechaApertura || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  };
+  const updated = [newItem, ...current];
+  setOrdenesTrabajoLocal(updated);
+  return { data: newItem, error: null };
+}
+
+export async function updateOrdenTrabajo(id, ot) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('ordenes_trabajo').update(ot).eq('id', id).select().single();
+      if (!error && data) return { data, error: null };
+    } catch (e) {}
+  }
+  const current = getOrdenesTrabajoLocal() || ordenesTrabajoIniciales;
+  const updated = current.map(item => item.id === id ? { ...item, ...ot } : item);
+  setOrdenesTrabajoLocal(updated);
+  return { data: updated.find(i => i.id === id), error: null };
+}
+
+export async function deleteOrdenTrabajo(id) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('ordenes_trabajo').delete().eq('id', id);
+      if (!error) return { error: null };
+    } catch (e) {}
+  }
+  const current = getOrdenesTrabajoLocal() || ordenesTrabajoIniciales;
+  setOrdenesTrabajoLocal(current.filter(item => item.id !== id));
+  return { error: null };
+}
+
+export async function generarOtDesdeParada(parada) {
+  const nuevaOt = {
+    id: `OT-2026-${Math.floor(100 + Math.random() * 900)}`,
+    codigo: `OT-${Math.floor(100 + Math.random() * 900)}`,
+    titulo: `OT Correctiva generada desde Parada: ${parada.causa || 'Incidencia de línea'}`,
+    activoId: 'COMP-GEN',
+    activoNombre: `Activo Principal en ${parada.linea || 'Línea'}`,
+    linea: parada.linea || 'Línea 1',
+    tipo: 'correctivo',
+    prioridad: 'critica',
+    estado: 'abierta',
+    tecnico: 'Técnico Asignado MTO',
+    turno: 'Turno Actual',
+    fechaApertura: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    fechaCierre: '',
+    tiempoEst: Number(parada.duracion) || 45,
+    tiempoReal: 0,
+    repuestos: [],
+    causaRaiz: `PARADA-REF (${parada.id}) — ${parada.causa}`,
+    paradaId: parada.id,
+    costeTotal: 95
+  };
+  return await insertOrdenTrabajo(nuevaOt);
+}
+
+export async function fetchActivosMantenimiento() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('activos_mantenimiento').select('*');
+      if (!error && data && data.length > 0) return { data, fromSupabase: true };
+    } catch (e) {}
+  }
+  return { data: mockActivos, fromSupabase: false };
+}
+
+function getRepuestosLocal() { try { const r = localStorage.getItem('mes_repuestos_almacen'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setRepuestosLocal(d) { try { localStorage.setItem('mes_repuestos_almacen', JSON.stringify(d)); } catch (_) {} }
+
+export async function fetchRepuestos() {
+  const local = getRepuestosLocal();
+  if (local && Array.isArray(local) && local.length > 0) return { data: local, fromSupabase: false };
+  setRepuestosLocal(repuestosAlmacenIniciales);
+  return { data: repuestosAlmacenIniciales, fromSupabase: false };
+}
+
+export async function insertRepuesto(rep) {
+  const current = getRepuestosLocal() || repuestosAlmacenIniciales;
+  const newItem = { ...rep, id: rep.id || `REP-${Date.now()}` };
+  const updated = [...current, newItem];
+  setRepuestosLocal(updated);
+  return { data: newItem, error: null };
+}
+
+export async function updateRepuesto(id, rep) {
+  const current = getRepuestosLocal() || repuestosAlmacenIniciales;
+  const updated = current.map(item => item.id === id ? { ...item, ...rep } : item);
+  setRepuestosLocal(updated);
+  return { data: updated.find(i => i.id === id), error: null };
+}
+
+export async function deleteRepuesto(id) {
+  const current = getRepuestosLocal() || repuestosAlmacenIniciales;
+  setRepuestosLocal(current.filter(item => item.id !== id));
+  return { error: null };
+}
+
+function getPlanesPreventivosLocal() { try { const r = localStorage.getItem('mes_planes_preventivos'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setPlanesPreventivosLocal(d) { try { localStorage.setItem('mes_planes_preventivos', JSON.stringify(d)); } catch (_) {} }
+
+export async function fetchPlanesPreventivos() {
+  const local = getPlanesPreventivosLocal();
+  if (local && Array.isArray(local) && local.length > 0) return { data: local, fromSupabase: false };
+  setPlanesPreventivosLocal(planesPreventivosIniciales);
+  return { data: planesPreventivosIniciales, fromSupabase: false };
+}
+
+export async function updatePlanPreventivo(id, plan) {
+  const current = getPlanesPreventivosLocal() || planesPreventivosIniciales;
+  const updated = current.map(item => item.id === id ? { ...item, ...plan } : item);
+  setPlanesPreventivosLocal(updated);
+  return { data: updated.find(i => i.id === id), error: null };
+}
+
+export async function fetchSensoresPredictivos() {
+  return { data: sensoresPredictivosIniciales, fromSupabase: false };
+}
+
 

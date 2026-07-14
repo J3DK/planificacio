@@ -1,6 +1,20 @@
 // Mock data — Alertas
 export const alertas = [
   {
+    id: 101, tipo: 'critica', icono: 'Wrench',
+    titulo: 'OT-081 Crítica Abierta — Motor Tracción Rodillos L4',
+    descripcion: 'Orden de trabajo correctiva crítica por sobrecarga en eje de arrastre. Técnico Carlos Mendoza asignado en Mantenimiento.',
+    modulo: 'mantenimiento', linea: 'Línea 4',
+    timestamp: '2026-07-14T08:15:00', leida: false,
+  },
+  {
+    id: 102, tipo: 'critica', icono: 'AlertTriangle',
+    titulo: 'Repuesto Crítico bajo stock — Rodamiento SKF 6205',
+    descripcion: 'Almacén técnico: El repuesto REP-SKF-6205 tiene 2 unidades disponibles (stock mínimo de seguridad: 5 uds).',
+    modulo: 'mantenimiento', linea: 'Almacén',
+    timestamp: '2026-07-14T09:00:00', leida: false,
+  },
+  {
     id: 1, tipo: 'critica', icono: 'AlertTriangle',
     titulo: 'Ruptura de stock — Cable 6mm²',
     descripcion: 'Stock actual (3 rollos) por debajo del mínimo (10 rollos). Línea 3 parada.',

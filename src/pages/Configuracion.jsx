@@ -6,7 +6,7 @@ import {
   SlidersHorizontal, Check, AlertCircle, Laptop, Printer, ArrowUp, ArrowDown,
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users, Boxes,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, Cpu, History, Menu
+  Bell, Cpu, History, Menu, Wrench
 } from 'lucide-react';
 import { getAppConfig, updateAppConfig, DEFAULT_APP_CONFIG, DEFAULT_MENU_ITEMS } from '@/services/configService';
 
