@@ -15,6 +15,7 @@ import Alertas from '@/pages/Alertas';
 import Metricas from '@/pages/Metricas';
 import PanelOperario from '@/pages/PanelOperario';
 import Historial from '@/pages/Historial';
+import Operarios from '@/pages/Operarios';
 
 function Layout({ children }) {
   return (
@@ -36,6 +37,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Layout><Dashboard /></Layout>} />
         <Route path="/panel-operario" element={<PanelOperario />} />
+        <Route path="/operarios" element={<Layout><Operarios /></Layout>} />
         <Route path="/planificacion" element={<Layout><PlanificacionLineas /></Layout>} />
         <Route path="/secuencia" element={<Layout><Secuencia /></Layout>} />
         <Route path="/lineas" element={<Layout><Lineas /></Layout>} />

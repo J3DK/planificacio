@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarDays, ListOrdered, Factory,
+  LayoutDashboard, CalendarDays, ListOrdered, Factory, Users,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
   Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History
 } from 'lucide-react';
@@ -13,6 +13,7 @@ const navItems = [
   { path: '/planificacion',      label: 'Planificación',        icon: CalendarDays },
   { path: '/secuencia',          label: 'Secuencia',            icon: ListOrdered },
   { path: '/lineas',             label: 'Líneas',               icon: Factory },
+  { path: '/operarios',          label: 'Operarios',            icon: Users },
   { path: '/produccion',         label: 'Producción',           icon: BarChart2 },
   { path: '/calidad',            label: 'Calidad',              icon: CheckSquare },
   { path: '/paradas',            label: 'Paradas',              icon: StopCircle },

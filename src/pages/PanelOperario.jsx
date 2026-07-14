@@ -7,7 +7,7 @@ import {
   ShieldAlert, Sparkles, Check, X, AlertOctagon, ArrowRight,
   ClipboardList, HelpCircle, LogOut, Maximize2, Lock,
   History, BoxesIcon, Edit2, Trash2, Save, XCircle, TrendingUp,
-  BarChart2, Activity, Filter, ChevronDown, CheckSquare
+  BarChart2, Activity, Filter, ChevronDown, CheckSquare, Users, Key, ShieldCheck
 } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -21,7 +21,8 @@ import {
   fetchSecuencia, updateSecuencia,
   insertAlerta,
   fetchHistorial,
-  fetchProductos, insertProducto, updateProducto, deleteProducto
+  fetchProductos, insertProducto, updateProducto, deleteProducto,
+  fetchOperarios
 } from '@/services/dataService';
 
 export default function PanelOperario() {
@@ -29,7 +30,12 @@ export default function PanelOperario() {
   // Configuración del Puesto / Operario
   const [lineaSelId, setLineaSelId] = useState('L1');
   const [turnoSel, setTurnoSel] = useState('Mañana');
-  const [operarioNombre, setOperarioNombre] = useState('Operario Puesto 1');
+  const [operarioNombre, setOperarioNombre] = useState('Carlos Mendoza');
+  const [operarioSelId, setOperarioSelId] = useState('OP-001');
+  const [modalOperarioOpen, setModalOperarioOpen] = useState(false);
+  const [pinLoginActivo, setPinLoginActivo] = useState(false); // Modo login por PIN (preparado)
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
   const [activeTab, setActiveTab] = useState('produccion'); // produccion | paradas | materiales | secuencia | historial | productos
 
   // Datos en vivo de Supabase / Local
@@ -37,6 +43,7 @@ export default function PanelOperario() {
   const [paradas, setParadas] = useState([]);
   const [materiales, setMateriales] = useState([]);
   const [secuencia, setSecuencia] = useState([]);
+  const [operarios, setOperarios] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Estados modales o acciones temporales
@@ -76,13 +83,14 @@ export default function PanelOperario() {
 
   const loadAllData = async () => {
     setLoading(true);
-    const [resL, resP, resM, resS, resH, resProd] = await Promise.all([
+    const [resL, resP, resM, resS, resH, resProd, resOps] = await Promise.all([
       fetchLineas(),
       fetchParadas(),
       fetchMateriasPrimas(),
       fetchSecuencia(),
       fetchHistorial(),
       fetchProductos(),
+      fetchOperarios(),
     ]);
     if (resL.data) setLineas(resL.data);
     if (resP.data) setParadas(resP.data);
@@ -90,6 +98,14 @@ export default function PanelOperario() {
     if (resS.data) setSecuencia(resS.data);
     if (resH.data) setHistorial(resH.data);
     if (resProd.data) setProductos(resProd.data);
+    if (resOps.data) {
+      setOperarios(resOps.data);
+      const inicial = resOps.data.find(o => o.id === operarioSelId) || resOps.data[0];
+      if (inicial) {
+        setOperarioSelId(inicial.id);
+        setOperarioNombre(inicial.nombre);
+      }
+    }
     setLoading(false);
   };
 
@@ -412,17 +428,39 @@ export default function PanelOperario() {
             </select>
           </div>
 
-          {/* Operario */}
-          <div className="bg-slate-800/80 border border-slate-700 rounded-2xl px-3 py-1.5 flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-amber-400" />
-            <input
-              type="text"
-              value={operarioNombre}
-              onChange={e => setOperarioNombre(e.target.value)}
-              placeholder="Nombre operario..."
-              className="bg-transparent text-white font-bold text-xs w-36 focus:outline-none"
-            />
-          </div>
+          {/* Operario Interactivo */}
+          <button
+            onClick={() => { setPinInput(''); setPinError(false); setModalOperarioOpen(true); }}
+            className="bg-slate-800/90 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 rounded-2xl px-3 py-1.5 flex items-center gap-2.5 transition-all active:scale-95 group text-left shadow-lg"
+            title="Seleccionar o cambiar operario del puesto / Login PIN"
+          >
+            {(() => {
+              const opActivo = operarios.find(o => o.id === operarioSelId) || { nombre: operarioNombre, rol: 'Operario' };
+              return (
+                <>
+                  {opActivo.avatar ? (
+                    <img src={opActivo.avatar} alt={opActivo.nombre} className="w-7 h-7 rounded-xl object-cover border border-amber-500/60 shadow-sm" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-black text-xs">
+                      {opActivo.nombre?.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-black text-white group-hover:text-amber-300 transition-colors leading-none">{opActivo.nombre}</span>
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        {opActivo.rol || 'Operario'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                      <span>Cambiar operario</span>
+                      <span className="text-[9px] text-purple-400 font-mono font-bold">(PIN Login)</span>
+                    </p>
+                  </div>
+                </>
+              );
+            })()}
+          </button>
 
           {/* Refrescar */}
           <button
@@ -1520,6 +1558,206 @@ export default function PanelOperario() {
               )}
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MODAL INTERACTIVO DE SELECCIÓN DE OPERARIO / PIN LOGIN ── */}
+      <AnimatePresence>
+        {modalOperarioOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar"
+            >
+              <div className="flex items-center justify-between pb-5 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                    <UserCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white">Selección de Operario en Puesto</h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Identifícate en {lineaActiva.nombre} para trazabilidad de calidad y paradas
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setModalOperarioOpen(false)}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Toggle de preparación Login PIN */}
+              <div className="my-5 p-3.5 rounded-2xl bg-purple-950/30 border border-purple-500/30 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400">
+                    <Key className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-purple-300">Autenticación Segura con PIN (Preparación Login)</p>
+                    <p className="text-[10px] text-slate-400">Activa para requerir credencial numérica antes de cambiar de operario</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setPinLoginActivo(!pinLoginActivo); setPinInput(''); setPinError(false); }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all border ${
+                    pinLoginActivo
+                      ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-900/50'
+                      : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                  }`}
+                >
+                  {pinLoginActivo ? 'PIN Requerido' : 'Selección Libre'}
+                </button>
+              </div>
+
+              {/* Cuadro de PIN si está activo */}
+              {pinLoginActivo && (
+                <div className="mb-6 p-4 rounded-2xl bg-slate-950 border border-purple-500/40 text-center animate-fade-in">
+                  <p className="text-xs font-bold text-slate-300 mb-2">Introduce el PIN de 4 dígitos para confirmar el acceso:</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <input
+                      type="password"
+                      maxLength="4"
+                      value={pinInput}
+                      onChange={e => { setPinInput(e.target.value); setPinError(false); }}
+                      placeholder="••••"
+                      className="bg-slate-900 border border-purple-500/50 rounded-xl px-4 py-2.5 text-center text-lg font-mono font-black text-purple-300 w-36 tracking-widest focus:outline-none"
+                    />
+                  </div>
+                  {pinError && (
+                    <p className="text-rose-400 text-xs font-bold mt-2">PIN incorrecto. Inténtalo de nuevo (Ej: 1234, 2345...)</p>
+                  )}
+                </div>
+              )}
+
+              {/* Lista de operarios asignados a esta línea primero, y luego los demás */}
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-wider text-blue-400 mb-2.5 flex items-center gap-1.5">
+                    <Factory className="w-3.5 h-3.5" />
+                    <span>Operarios Capacitados para {lineaActiva.nombre}</span>
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {operarios
+                      .filter(op => op.estado === 'activo' && Array.isArray(op.lineas) && op.lineas.includes(lineaSelId))
+                      .map(op => {
+                        const isSel = op.id === operarioSelId;
+                        return (
+                          <button
+                            key={op.id}
+                            onClick={() => {
+                              if (pinLoginActivo && op.pin && pinInput !== op.pin) {
+                                setPinError(true);
+                                return;
+                              }
+                              setOperarioSelId(op.id);
+                              setOperarioNombre(op.nombre);
+                              setModalOperarioOpen(false);
+                            }}
+                            className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all group ${
+                              isSel
+                                ? 'bg-amber-500/15 border-amber-500/60 shadow-lg'
+                                : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {op.avatar ? (
+                                <img src={op.avatar} alt={op.nombre} className="w-11 h-11 rounded-xl object-cover border border-slate-700" />
+                              ) : (
+                                <div className="w-11 h-11 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-sm">
+                                  {op.nombre?.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-black text-white text-sm group-hover:text-amber-300 transition-colors">{op.nombre}</p>
+                                <p className="text-[11px] font-bold text-amber-400 mt-0.5">{op.rol}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">{op.id} · {op.turno}</p>
+                              </div>
+                            </div>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${
+                              isSel ? 'bg-amber-500 border-amber-400 text-slate-950 font-black' : 'border-slate-700 text-transparent'
+                            }`}>
+                              <Check className="w-3.5 h-3.5" />
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {/* Otros operarios activos de la planta */}
+                <div className="pt-2">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2.5 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Otros Operarios Activos en Planta</span>
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {operarios
+                      .filter(op => op.estado === 'activo' && (!Array.isArray(op.lineas) || !op.lineas.includes(lineaSelId)))
+                      .map(op => {
+                        const isSel = op.id === operarioSelId;
+                        return (
+                          <button
+                            key={op.id}
+                            onClick={() => {
+                              if (pinLoginActivo && op.pin && pinInput !== op.pin) {
+                                setPinError(true);
+                                return;
+                              }
+                              setOperarioSelId(op.id);
+                              setOperarioNombre(op.nombre);
+                              setModalOperarioOpen(false);
+                            }}
+                            className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all group opacity-80 hover:opacity-100 ${
+                              isSel
+                                ? 'bg-amber-500/15 border-amber-500/60 shadow-lg'
+                                : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {op.avatar ? (
+                                <img src={op.avatar} alt={op.nombre} className="w-10 h-10 rounded-xl object-cover border border-slate-700" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center font-black text-white text-xs">
+                                  {op.nombre?.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-bold text-slate-200 text-xs group-hover:text-amber-300 transition-colors">{op.nombre}</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">{op.rol}</p>
+                                <p className="text-[9px] text-slate-500 font-mono">Turno: {op.turno}</p>
+                              </div>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${
+                              isSel ? 'bg-amber-500 border-amber-400 text-slate-950 font-black' : 'border-slate-700 text-transparent'
+                            }`}>
+                              <Check className="w-3 h-3" />
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between">
+                <p className="text-xs text-slate-500 font-bold">
+                  ¿Falta un operario? Da de alta nuevos perfiles en la sección <span className="text-blue-400">Admin MES &gt; Operarios</span>.
+                </p>
+                <button
+                  onClick={() => setModalOperarioOpen(false)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -9,6 +9,7 @@ import { materiales as mockMateriasPrimas } from '@/data/mockMaterias';
 import { kpis as mockKpis } from '@/data/mockDashboard';
 import { historialProduccion as mockHistorial } from '@/data/mockHistorial';
 import { productos as mockProductos } from '@/data/mockProductos';
+import { operarios as mockOperarios } from '@/data/mockOperarios';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -700,4 +701,77 @@ export async function deleteOrdenPlanificacion(id) {
 export async function setAllPlanificacion(ordenes) {
   setPlanificacionLocal(ordenes);
   return { data: ordenes, error: null };
+}
+
+// ─── CRUD — Operarios ────────────────────────────────────────────────────────
+const LS_KEY_OPERARIOS = 'mes_operarios_catalogo';
+
+function getOperariosLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY_OPERARIOS);
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return null;
+}
+
+function setOperariosLocal(operarios) {
+  try {
+    localStorage.setItem(LS_KEY_OPERARIOS, JSON.stringify(operarios));
+  } catch (_) {}
+}
+
+export async function fetchOperarios() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('operarios')
+        .select('*')
+        .order('id', { ascending: true });
+      if (!error && data && data.length > 0) return { data, fromSupabase: true };
+    } catch (e) { console.warn('Fallback a localStorage/mock operarios:', e); }
+  }
+  const local = getOperariosLocal();
+  if (local) return { data: local, fromSupabase: false };
+  setOperariosLocal(mockOperarios);
+  return { data: mockOperarios, fromSupabase: false };
+}
+
+export async function insertOperario(operario) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('operarios').insert([operario]).select().single();
+      if (!error && data) return { data, error: null };
+    } catch (e) {}
+  }
+  const current = getOperariosLocal() || mockOperarios;
+  const newItem = { ...operario, id: operario.id || `OP-${String(Date.now()).slice(-4)}` };
+  const updated = [...current, newItem];
+  setOperariosLocal(updated);
+  return { data: newItem, error: null };
+}
+
+export async function updateOperario(id, operario) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('operarios').update(operario).eq('id', id).select().single();
+      if (!error && data) return { data, error: null };
+    } catch (e) {}
+  }
+  const current = getOperariosLocal() || mockOperarios;
+  const updated = current.map(o => o.id === id ? { ...o, ...operario } : o);
+  setOperariosLocal(updated);
+  return { data: updated.find(o => o.id === id), error: null };
+}
+
+export async function deleteOperario(id) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('operarios').delete().eq('id', id);
+      if (!error) return { error: null };
+    } catch (e) {}
+  }
+  const current = getOperariosLocal() || mockOperarios;
+  const updated = current.filter(o => o.id !== id);
+  setOperariosLocal(updated);
+  return { error: null };
 }
