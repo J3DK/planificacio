@@ -14,6 +14,7 @@ import Informes from '@/pages/Informes';
 import Alertas from '@/pages/Alertas';
 import Metricas from '@/pages/Metricas';
 import PanelOperario from '@/pages/PanelOperario';
+import Historial from '@/pages/Historial';
 
 function Layout({ children }) {
   return (
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/informes" element={<Layout><Informes /></Layout>} />
         <Route path="/alertas" element={<Layout><Alertas /></Layout>} />
         <Route path="/metricas" element={<Layout><Metricas /></Layout>} />
+        <Route path="/historial" element={<Layout><Historial /></Layout>} />
       </Routes>
     </Router>
   );

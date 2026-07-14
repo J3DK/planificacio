@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarDays, ListOrdered, Factory,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu
+  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History
 } from 'lucide-react';
 import { alertas } from '@/data/mockAlertas';
 
@@ -20,6 +20,7 @@ const navItems = [
   { path: '/informes',           label: 'Informes',             icon: FileBarChart },
   { path: '/alertas',            label: 'Alertas',              icon: Bell },
   { path: '/metricas',           label: 'Métricas',             icon: SlidersHorizontal },
+  { path: '/historial',          label: 'Historial',            icon: History },
 ];
 
 export default function Sidebar() {
