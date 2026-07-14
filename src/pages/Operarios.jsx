@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, Search, Filter, ShieldCheck, Factory, Clock,
   Key, Edit3, Trash2, CheckCircle2, XCircle, Award, Sparkles,
-  LayoutGrid, List, ChevronRight, AlertCircle, RefreshCw, Mail, Phone
+  LayoutGrid, List, ChevronRight, AlertCircle, RefreshCw, Mail, Phone, Upload
 } from 'lucide-react';
 import { fetchOperarios, insertOperario, updateOperario, deleteOperario, fetchLineas } from '@/services/dataService';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
@@ -90,9 +90,43 @@ export default function Operarios() {
       estado: 'activo',
       especialidad: '',
       pin: '1234',
-      avatar: `https://images.unsplash.com/photo-${1500000000000 + Math.floor(Math.random() * 99999999)}?auto=format&fit=crop&w=150&q=80`
+      avatar: ''
     });
     setModalOpen(true);
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 300;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setFormData(prev => ({ ...prev, avatar: compressedDataUrl }));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleOpenEdit = (op) => {
@@ -782,16 +816,40 @@ export default function Operarios() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                      URL de Avatar / Foto
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Foto del Operario (Desde PC)</span>
+                      {formData.avatar && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, avatar: '' })}
+                          className="text-[10px] text-rose-400 hover:underline font-normal"
+                        >
+                          Eliminar foto
+                        </button>
+                      )}
                     </label>
-                    <input
-                      type="url"
-                      value={formData.avatar}
-                      onChange={e => setFormData({ ...formData, avatar: e.target.value })}
-                      placeholder="https://images.unsplash.com/..."
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
-                    />
+                    <div className="flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
+                        {formData.avatar ? (
+                          <img src={formData.avatar} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <UserPlus className="w-6 h-6 text-slate-600" />
+                        )}
+                      </div>
+                      <label className="flex-1 cursor-pointer bg-slate-950 hover:bg-slate-800/80 border border-dashed border-slate-700 hover:border-blue-500 rounded-2xl px-4 py-3 flex flex-col items-center justify-center text-center transition-all group">
+                        <span className="text-xs font-bold text-blue-400 group-hover:text-blue-300 flex items-center gap-1.5">
+                          <Upload className="w-4 h-4" />
+                          <span>Seleccionar imagen del PC</span>
+                        </span>
+                        <span className="text-[10px] text-slate-500 mt-0.5">JPG, PNG o WEBP (se optimiza localmente)</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                   </div>
                 </div>
 
