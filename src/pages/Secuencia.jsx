@@ -12,7 +12,7 @@ import {
   fetchLineas, updateOrdenPlanificacion, fetchPlanificacion,
   reordenarSecuenciaEnGantt, saveIncidenciaSecuencia,
   insertOrdenTrabajoDesdeSecuencia,
-  fetchMateriasPrimas, calcularDisponibilidadOrden, updateReservaMaterialesOrden
+  fetchMateriasPrimas, fetchProductos, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden
 } from '@/services/dataService';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CrudModal from '@/components/shared/CrudModal';
@@ -344,7 +344,7 @@ function MenuAcciones({ orden, onReasignar, onIncidencia }) {
 }
 
 // ─── Modal Edición de Secuencia con Tabla BOM ────────────────────────────────
-function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, saving, listaMateriales }) {
+function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, saving, listaMateriales, listaProductos = [], mapaConsumo = {} }) {
   const [formData, setFormData] = useState({});
 
   useEffect(() => {
@@ -371,7 +371,7 @@ function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, sav
     ref: formData.referencia,
     cantidad: formData.cantidad || 500,
     materiales: formData.materiales
-  }, listaMateriales);
+  }, listaMateriales, listaProductos, mapaConsumo);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -570,6 +570,7 @@ export default function Secuencia() {
   const [ordenes, setOrdenes] = useState([]);
   const [lineas, setLineas]   = useState([]);
   const [listaMateriales, setListaMateriales] = useState([]);
+  const [listaProductos, setListaProductos]   = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [modalOpen, setModalOpen]   = useState(false);
@@ -593,25 +594,33 @@ export default function Secuencia() {
 
   const loadData = async () => {
     setLoading(true);
-    const [resS, resL, resM] = await Promise.all([fetchSecuencia(), fetchLineas(), fetchMateriasPrimas()]);
+    const [resS, resL, resM, resProd] = await Promise.all([fetchSecuencia(), fetchLineas(), fetchMateriasPrimas(), fetchProductos()]);
     setOrdenes(resS.data || []);
     setLineas(resL.data || []);
     if (resM?.data) setListaMateriales(resM.data);
+    if (resProd?.data) setListaProductos(resProd.data);
     setLoading(false);
   };
 
   useEffect(() => { loadData(); }, []);
 
-  // Escuchar cambios de Planificación (Gantt) o de Materiales → refrescar datos
+  // Escuchar cambios de Planificación, Materiales o BOM → refrescar datos
   useEffect(() => {
     const handler = () => loadData();
     window.addEventListener('planificacion_updated', handler);
     window.addEventListener('materiales_updated', handler);
+    window.addEventListener('bom_updated', handler);
+    window.addEventListener('productos_updated', handler);
     return () => {
       window.removeEventListener('planificacion_updated', handler);
       window.removeEventListener('materiales_updated', handler);
+      window.removeEventListener('bom_updated', handler);
+      window.removeEventListener('productos_updated', handler);
     };
   }, []);
+
+  // Mapa global de consumo para semáforo de disponibilidad real
+  const mapaConsumo = calcularTodosConsumosComprometidos({ products: listaProductos, productos: listaProductos });
 
   // ─── Reordenamiento de prioridad ──────────────────────────────────────────
   const mover = (idx, dir) => {
@@ -768,7 +777,7 @@ export default function Secuencia() {
         {ordenes.map((orden, idx) => {
           const esRiesgoORetraso = orden.estado === 'en_riesgo' || orden.estado === 'retrasado';
           const lineaColor = orden.lineaAsignada ? (LINEA_COLORS[orden.lineaAsignada] || 'bg-slate-700/40 text-slate-400 border-slate-600') : null;
-          const disp = calcularDisponibilidadOrden({ ref: orden.referencia, cantidad: orden.cantidad || 500, materiales: orden.materiales }, listaMateriales);
+          const disp = calcularDisponibilidadOrden({ ref: orden.referencia, cantidad: orden.cantidad || 500, materiales: orden.materiales }, listaMateriales, listaProductos, mapaConsumo);
 
           return (
             <motion.div
@@ -888,6 +897,8 @@ export default function Secuencia() {
         initialData={editItem}
         saving={saving}
         listaMateriales={listaMateriales}
+        listaProductos={listaProductos}
+        mapaConsumo={mapaConsumo}
       />
       <ConfirmDialog
         isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleDelete}

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { fetchMateriasPrimas, insertMaterial, updateMaterial, deleteMaterial } from '@/services/dataService';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { fetchMateriasPrimas, fetchProductos, insertMaterial, updateMaterial, deleteMaterial, calcularTodosConsumosComprometidos } from '@/services/dataService';
 import { consumoPorDia } from '@/data/mockMaterias';
-import { AlertTriangle, CheckCircle2, Package, TrendingDown, Search, Plus, Pencil, Trash2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, TrendingDown, Search, Plus, Pencil, Trash2, RefreshCw, Layers3 } from 'lucide-react';
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 
@@ -25,6 +25,7 @@ const MATERIAL_FIELDS = [
 
 export default function MateriasPrimas() {
   const [materiales, setMateriales] = useState([]);
+  const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('todos');
   const [busqueda, setBusqueda] = useState('');
@@ -41,8 +42,12 @@ export default function MateriasPrimas() {
 
   const loadData = async () => {
     setLoading(true);
-    const { data } = await fetchMateriasPrimas();
-    setMateriales(data || []);
+    const [resMat, resProd] = await Promise.all([
+      fetchMateriasPrimas(),
+      fetchProductos()
+    ]);
+    setMateriales(resMat?.data || []);
+    setProductos(resProd?.data || []);
     setLoading(false);
   };
 
@@ -50,7 +55,11 @@ export default function MateriasPrimas() {
     loadData();
     const h = () => loadData();
     window.addEventListener('materiales_updated', h);
-    return () => window.removeEventListener('materiales_updated', h);
+    window.addEventListener('bom_updated', h);
+    return () => {
+      window.removeEventListener('materiales_updated', h);
+      window.removeEventListener('bom_updated', h);
+    };
   }, []);
 
   useEffect(() => {
@@ -59,9 +68,17 @@ export default function MateriasPrimas() {
     if (q) setBusqueda(q);
   }, [location.search]);
 
+  // Consumo comprometido dinamico de todas las órdenes en el sistema
+  const mapaConsumo = calcularTodosConsumosComprometidos({ productos });
+
   const criticos = materiales.filter(m => m.stockActual < m.stockMinimo).length;
   const advertencia = materiales.filter(m => m.stockActual >= m.stockMinimo && m.stockActual < m.stockMinimo * 1.5).length;
   const ok = materiales.filter(m => m.stockActual >= m.stockMinimo * 1.5).length;
+
+  const materialesConDeficit = materiales.filter(m => {
+    const comp = mapaConsumo[m.codigo] || Number(m.stockReservado) || 0;
+    return (Number(m.stockActual || 0) - comp) < 0;
+  });
 
   const materialFiltrado = materiales.filter(m => {
     const matchFiltro = filtro === 'todos' || m.criticidad === filtro;
@@ -69,7 +86,7 @@ export default function MateriasPrimas() {
     return matchFiltro && matchBusqueda;
   });
 
-  const pctStock = (m) => Math.min(100, Math.round((m.stockActual / m.stockMaximo) * 100));
+  const pctStock = (m) => Math.min(100, Math.round((m.stockActual / Math.max(1, m.stockMaximo)) * 100));
   const getStockColor = (m) => {
     if (m.stockActual < m.stockMinimo) return { bar: 'bg-red-500', text: 'text-red-400' };
     if (m.stockActual < m.stockMinimo * 1.5) return { bar: 'bg-amber-500', text: 'text-amber-400' };
@@ -108,12 +125,17 @@ export default function MateriasPrimas() {
     setDeleteTarget(null);
   };
 
+  // Productos que usan el material editado (BOM Inverso)
+  const productosBOMInverso = editItem?.codigo
+    ? productos.filter(p => (p.bom || []).some(item => item.codigo === editItem.codigo))
+    : [];
+
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-black text-white">Materias Primas</h2>
-          <p className="text-slate-500 text-sm">Stock · Consumo · Pedidos pendientes</p>
+          <p className="text-slate-500 text-sm">Stock · Consumido en BOM · Pedidos pendientes</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={loadData} disabled={loading}
@@ -126,6 +148,25 @@ export default function MateriasPrimas() {
           </button>
         </div>
       </motion.div>
+
+      {/* Alerta Cruzada: Déficit en Disponible Real */}
+      {materialesConDeficit.length > 0 && (
+        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="p-4 rounded-2xl bg-gradient-to-r from-red-950/80 via-slate-900 to-red-950/80 border border-red-500/50 shadow-lg shadow-red-950/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 flex-shrink-0 animate-pulse">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-red-300 flex items-center gap-2">
+                Alerta Cruzada BOM: {materialesConDeficit.length} componentes con déficit de Disponible Real
+              </h4>
+              <p className="text-xs text-slate-300 mt-0.5">
+                El consumo comprometido en órdenes de fabricación supera el stock en planta: <strong className="text-red-400 font-mono font-bold">{materialesConDeficit.map(m => m.codigo).join(', ')}</strong>
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Resumen */}
       <div className="grid grid-cols-3 gap-3">
@@ -166,7 +207,7 @@ export default function MateriasPrimas() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-800">
-                  {['Código', 'Descripción', 'Stock / Disp.', 'Mín/Máx', 'Criticidad', 'Proveedor', ''].map(h => (
+                  {['Código', 'Descripción', 'Stock Actual', 'Comprometido / Disp. Real', 'Compromiso (%)', 'Mín/Máx', 'Criticidad', 'Proveedor', ''].map(h => (
                     <th key={h} className="table-header text-left">{h}</th>
                   ))}
                 </tr>
@@ -176,25 +217,64 @@ export default function MateriasPrimas() {
                   const clr = getStockColor(m);
                   const pct = pctStock(m);
                   const isHighlighted = busqueda && m.codigo?.toLowerCase() === busqueda?.toLowerCase();
-                  const disp = Math.max(0, (m.stockActual || 0) - (m.stockReservado || 0));
+                  
+                  const comp = mapaConsumo[m.codigo] || Number(m.stockReservado) || 0;
+                  const dispReal = Number(m.stockActual || 0) - comp;
+                  const pctComp = Math.round((comp / Math.max(1, Number(m.stockActual || 0))) * 100);
+
                   return (
                     <tr key={m.id} className={`hover:bg-slate-800/30 transition-colors group ${isHighlighted ? 'bg-blue-500/10 border-l-4 border-blue-500' : ''}`}>
                       <td className="table-cell font-mono text-xs text-blue-400 font-bold">{m.codigo}</td>
-                      <td className="table-cell text-slate-300 text-xs max-w-[180px]">
+                      <td className="table-cell text-slate-300 text-xs max-w-[170px]">
                         <p className="truncate font-semibold">{m.descripcion}</p>
-                        <p className="text-[10px] text-slate-600 mt-0.5">{m.unidad}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{m.unidad}</p>
                       </td>
                       <td className="table-cell">
                         <div className="flex items-baseline gap-2">
                           <p className={`text-lg font-black ${clr.text}`}>{m.stockActual}</p>
-                          {Number(m.stockReservado) > 0 && (
-                            <span className="text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded" title="Stock reservado en órdenes del Gantt">
-                              Res: {m.stockReservado} | Disp: <strong className="text-emerald-400">{disp}</strong>
-                            </span>
-                          )}
                         </div>
                         <div className="w-20 h-1 bg-slate-800 rounded-full mt-1">
                           <div className={`h-full rounded-full ${clr.bar}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </td>
+                      <td className="table-cell">
+                        <div className="space-y-1">
+                          <div className="text-xs font-mono text-slate-400">
+                            Comprometido: <strong className="text-amber-400">{comp}</strong> {m.unidad}
+                          </div>
+                          <div>
+                            {dispReal < 0 ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-red-400 bg-red-500/20 border border-red-500/40 px-2 py-0.5 rounded-md animate-pulse">
+                                🔴 Disp: {dispReal} (Falta)
+                              </span>
+                            ) : dispReal < (m.stockMinimo || 0) ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md">
+                                🟡 Disp: {dispReal} (Bajo)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                                🟢 Disp: {dispReal} (OK)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="table-cell">
+                        <div className="flex flex-col items-start gap-1">
+                          {pctComp >= 100 ? (
+                            <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-red-500/20 text-red-400 border border-red-500/40">
+                              🔴 {pctComp}% Crítico
+                            </span>
+                          ) : pctComp >= 75 ? (
+                            <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                              🟡 {pctComp}% Elevado
+                            </span>
+                          ) : (
+                            <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                              🟢 {pctComp}% Normal
+                            </span>
+                          )}
+                          <span className="text-[10px] text-slate-500 font-bold">del stock reservado</span>
                         </div>
                       </td>
                       <td className="table-cell text-xs text-slate-400 font-mono">{m.stockMinimo} / {m.stockMaximo}</td>
@@ -203,7 +283,7 @@ export default function MateriasPrimas() {
                           {m.criticidad}
                         </span>
                       </td>
-                      <td className="table-cell text-xs text-slate-500 max-w-[120px]">
+                      <td className="table-cell text-xs text-slate-500 max-w-[110px]">
                         <span className="truncate block">{m.proveedor}</span>
                         {m.pedidoPendiente > 0 && (
                           <span className="text-[9px] text-blue-400 font-bold">Pedido: {m.pedidoPendiente} uds</span>
@@ -254,7 +334,47 @@ export default function MateriasPrimas() {
 
       <CrudModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSave}
         title={modalMode === 'create' ? 'Nuevo Material' : `Editar ${editItem.codigo}`}
-        fields={MATERIAL_FIELDS} initialData={editItem} saving={saving} />
+        fields={MATERIAL_FIELDS} initialData={editItem} saving={saving}>
+        {editItem?.codigo && (
+          <div className="space-y-2 mt-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <h4 className="text-xs font-black uppercase text-blue-400 flex items-center gap-1.5">
+              <Layers3 className="w-4 h-4" /> Productos que lo utilizan (BOM Inverso)
+            </h4>
+            {productosBOMInverso.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">
+                Ningún producto tiene este componente en su receta de Bill of Materials (BOM) actualmente.
+              </p>
+            ) : (
+              <div className="overflow-x-auto max-h-36 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-900 text-[10px] uppercase text-slate-400">
+                    <tr>
+                      <th className="py-1.5 px-2">Producto</th>
+                      <th className="py-1.5 px-2">Descripción</th>
+                      <th className="py-1.5 px-2 text-center">Cant. / Ud</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80">
+                    {productosBOMInverso.map(p => {
+                      const itemBom = (p.bom || []).find(x => x.codigo === editItem.codigo);
+                      return (
+                        <tr key={p.codigo} className="hover:bg-slate-900/60">
+                          <td className="py-1.5 px-2 font-mono font-bold text-blue-300">{p.codigo}</td>
+                          <td className="py-1.5 px-2 text-slate-300 truncate max-w-[160px]">{p.descripcion}</td>
+                          <td className="py-1.5 px-2 text-center font-mono font-bold text-emerald-400">
+                            {itemBom?.factor || 1} {editItem.unidad}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </CrudModal>
+
       <ConfirmDialog isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleDelete}
         title="Eliminar Material" message={`Se eliminará "${deleteTarget?.descripcion}" (${deleteTarget?.codigo}). ¿Estás seguro?`} deleting={deleting} />
     </div>

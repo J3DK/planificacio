@@ -13,11 +13,9 @@ import { X, Save, Plus } from 'lucide-react';
  *   fields      {Array}     — Definición de campos del formulario
  *   initialData {Object}    — Valores iniciales (para editar)
  *   saving      {boolean}   — Deshabilitar botón mientras se guarda
- *
- * Cada campo en `fields`:
- *   { key, label, type: 'text'|'number'|'select'|'textarea'|'badge-select'|'multi-select'|'tag-list', options?, placeholder?, required? }
+ *   children    {ReactNode} — Contenido adicional opcional en el formulario
  */
-export default function CrudModal({ isOpen, onClose, onSave, title, fields = [], initialData = {}, saving = false }) {
+export default function CrudModal({ isOpen, onClose, onSave, title, fields = [], initialData = {}, saving = false, children = null }) {
   const [formData, setFormData] = React.useState({});
 
   useEffect(() => {
@@ -91,10 +89,36 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
                     >
                       {field.placeholder && <option value="">{field.placeholder}</option>}
-                      {field.options?.map(o => (
-                        <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>
-                      ))}
+                      {field.options?.map(o => {
+                        const val = typeof o === 'object' ? o.value : o;
+                        const label = typeof o === 'object' ? o.label : o;
+                        return <option key={val} value={val}>{label}</option>;
+                      })}
                     </select>
+                  )}
+
+                  {field.type === 'badge-select' && (
+                    <div className="flex flex-wrap gap-2">
+                      {field.options?.map(o => {
+                        const val = typeof o === 'object' ? o.value : o;
+                        const label = typeof o === 'object' ? o.label : o;
+                        const active = formData[field.key] === val;
+                        return (
+                          <button
+                            type="button"
+                            key={val}
+                            onClick={() => handleChange(field.key, val)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                              active
+                                ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/40'
+                                : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-600'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
 
                   {field.type === 'textarea' && (
@@ -104,7 +128,7 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
                       placeholder={field.placeholder}
                       required={field.required}
                       rows={3}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors resize-none"
                     />
                   )}
 
@@ -112,8 +136,8 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
                   {field.type === 'multi-select' && (
                     <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 max-h-40 overflow-y-auto space-y-1.5">
                       {(field.options || []).map(opt => {
-                        const val = opt.value ?? opt;
-                        const label = opt.label ?? opt;
+                        const val = typeof opt === 'object' ? opt.value : opt;
+                        const label = typeof opt === 'object' ? opt.label : opt;
                         const current = Array.isArray(formData[field.key]) ? formData[field.key] : [];
                         const checked = current.includes(val);
                         return (
@@ -148,11 +172,11 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
                     />
                   )}
 
-                  {(field.type === 'text' || field.type === 'number' || !field.type) && (
+                  {!['select', 'badge-select', 'textarea', 'multi-select', 'tag-list'].includes(field.type) && (
                     <input
                       type={field.type || 'text'}
                       value={formData[field.key] ?? ''}
-                      onChange={e => handleChange(field.key, field.type === 'number' ? Number(e.target.value) : e.target.value)}
+                      onChange={e => handleChange(field.key, field.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)}
                       placeholder={field.placeholder}
                       required={field.required}
                       step={field.step}
@@ -163,6 +187,12 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
                   )}
                 </div>
               ))}
+
+              {children && (
+                <div className="pt-3 border-t border-slate-800">
+                  {children}
+                </div>
+              )}
             </form>
 
             {/* Footer */}

@@ -1,7 +1,7 @@
 // Mock data — Catálogo de Referencias / Productos de Fabricación
 // Cada referencia es un producto fabricado en las líneas de producción
 
-export const productos = [
+export const mockProductos = [
   {
     id: 'P001',
     codigo: 'BAT-48V-100Ah',
@@ -13,6 +13,12 @@ export const productos = [
     peso: 28.5,             // kg
     activo: true,
     notas: 'Referencia principal de L1. Requiere utillaje #A12.',
+    bomPendiente: false,
+    bom: [
+      { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.16, unidad: 'ud' },
+      { codigo: 'BMS-48V-100', descripcion: 'BMS 48V 100A con balanceo', factor: 0.02, unidad: 'ud' },
+      { codigo: 'CAJ-ALU-48V', descripcion: 'Caja aluminio 48V serie B', factor: 0.10, unidad: 'ud' }
+    ]
   },
   {
     id: 'P002',
@@ -25,6 +31,11 @@ export const productos = [
     peso: 42.0,
     activo: true,
     notas: 'Referencia L2. Conector tipo Deutsch DT04.',
+    bomPendiente: false,
+    bom: [
+      { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.15, unidad: 'ud' },
+      { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.25, unidad: 'par' }
+    ]
   },
   {
     id: 'P003',
@@ -37,6 +48,11 @@ export const productos = [
     peso: 14.2,
     activo: true,
     notas: 'Alta rotación en L3. BMS integrado en carcasa superior.',
+    bomPendiente: false,
+    bom: [
+      { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.20, unidad: 'par' },
+      { codigo: 'CAB-1MM-RJ', descripcion: 'Cable señal 1mm² trenzado', factor: 0.02, unidad: 'rollo' }
+    ]
   },
   {
     id: 'P004',
@@ -49,6 +65,12 @@ export const productos = [
     peso: 54.0,
     activo: true,
     notas: 'Referencia especial L4. Requiere certificación CE+UL.',
+    bomPendiente: false,
+    bom: [
+      { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.16, unidad: 'ud' },
+      { codigo: 'BMS-48V-100', descripcion: 'BMS 48V 100A con balanceo', factor: 0.04, unidad: 'ud' },
+      { codigo: 'CAJ-ALU-48V', descripcion: 'Caja aluminio 48V serie B', factor: 0.10, unidad: 'ud' }
+    ]
   },
   {
     id: 'P005',
@@ -61,6 +83,11 @@ export const productos = [
     peso: 22.0,
     activo: true,
     notas: 'Referencia estándar L5.',
+    bomPendiente: false,
+    bom: [
+      { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.30, unidad: 'par' },
+      { codigo: 'ETI-LBL-A4', descripcion: 'Etiquetas identificación A4', factor: 0.005, unidad: 'caja' }
+    ]
   },
   {
     id: 'P006',
@@ -73,6 +100,11 @@ export const productos = [
     peso: 38.0,
     activo: false,
     notas: 'Producto discontinuado. No producir hasta nuevo aviso.',
+    bomPendiente: false,
+    bom: [
+      { codigo: 'CAB-6MM-001', descripcion: 'Cable 6mm² negro (rollo 100m)', factor: 0.01, unidad: 'rollo' },
+      { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.20, unidad: 'par' }
+    ]
   },
   {
     id: 'P007',
@@ -84,6 +116,8 @@ export const productos = [
     objetivoHora: 60,
     peso: 2.8,
     activo: true,
-    notas: 'Componente semielaborado para ensamblaje interno.',
+    notas: 'Componente semielaborado para ensamblaje interno. BOM por definir.',
+    bomPendiente: true,
+    bom: []
   },
 ];

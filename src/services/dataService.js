@@ -8,7 +8,7 @@ import { produccionHistorica as mockProduccion } from '@/data/mockProduccion';
 import { materiales as mockMateriasPrimas } from '@/data/mockMaterias';
 import { kpis as mockKpis } from '@/data/mockDashboard';
 import { historialProduccion as mockHistorial } from '@/data/mockHistorial';
-import { productos as mockProductos } from '@/data/mockProductos';
+import { mockProductos } from '@/data/mockProductos';
 import { operarios as mockOperarios } from '@/data/mockOperarios';
 import { ordenesTrabajoIniciales, activosJerarquia as mockActivos, planesPreventivosIniciales, sensoresPredictivosIniciales, repuestosAlmacenIniciales } from '@/data/mockMantenimiento';
 
@@ -514,13 +514,100 @@ export const BOM_PRODUCTOS = {
   ]
 };
 
-export function calcularDisponibilidadOrden(orden, listaMateriales = []) {
+export function getTodasLasOrdenesParaConsumo() {
+  let gantt = [];
+  let secuencia = [];
+  try {
+    const rG = localStorage.getItem('mes_planificacion_gantt');
+    if (rG) gantt = JSON.parse(rG);
+  } catch (_) {}
+  try {
+    const rS = localStorage.getItem('mes_secuencia');
+    if (rS) secuencia = JSON.parse(rS);
+  } catch (_) {}
+
+  const seen = new Set();
+  const result = [];
+  for (const o of gantt) {
+    if (!o) continue;
+    seen.add(o.id);
+    result.push(o);
+  }
+  for (const s of secuencia) {
+    if (!s) continue;
+    if (s.ganttId && seen.has(s.ganttId)) continue;
+    if (seen.has(s.id)) continue;
+    seen.add(s.id);
+    result.push(s);
+  }
+  return result;
+}
+
+export function calcularTodosConsumosComprometidos({ ordenes = null, productos = null } = {}) {
+  const allOrders = ordenes || getTodasLasOrdenesParaConsumo();
+  let allProds = productos;
+  if (!allProds) {
+    try {
+      const rP = localStorage.getItem('mes_productos_catalogo');
+      allProds = rP ? JSON.parse(rP) : null;
+    } catch (_) {}
+  }
+  if (!allProds || !Array.isArray(allProds)) {
+    allProds = [];
+  }
+
+  const consumoMap = {}; // { codigoMat: totalCantidadComprometida }
+
+  for (const o of allOrders) {
+    const ref = o.ref || o.referencia;
+    if (!ref) continue;
+    const prod = allProds.find(p => p.codigo === ref);
+    const bom = (prod && Array.isArray(prod.bom)) ? prod.bom : (BOM_PRODUCTOS[ref] || null);
+    if (!bom || !Array.isArray(bom) || (prod && prod.bomPendiente)) continue;
+
+    const cantOrden = Number(o.cantidad) || 500;
+    for (const item of bom) {
+      if (!item.codigo) continue;
+      const nec = Math.ceil(cantOrden * Number(item.factor || 0));
+      consumoMap[item.codigo] = (consumoMap[item.codigo] || 0) + nec;
+    }
+  }
+  return consumoMap;
+}
+
+export function calcularDisponibilidadOrden(orden, listaMateriales = [], listaProductos = null, mapaConsumo = null) {
   const ref = orden.ref || orden.referencia || 'BAT-48V-100Ah';
   const cant = Number(orden.cantidad) || 500;
-  const bom = BOM_PRODUCTOS[ref] || [
-    { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.16, unidad: 'ud' },
-    { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.20, unidad: 'par' }
-  ];
+  
+  let prods = listaProductos;
+  if (!prods) {
+    try {
+      const rP = localStorage.getItem('mes_productos_catalogo');
+      prods = rP ? JSON.parse(rP) : null;
+    } catch (_) {}
+  }
+  const prod = (prods && Array.isArray(prods)) ? prods.find(p => p.codigo === ref) : null;
+
+  // Si el producto está marcado con bomPendiente o su BOM está vacío explícitamente:
+  if (prod && (prod.bomPendiente || (Array.isArray(prod.bom) && prod.bom.length === 0))) {
+    return {
+      estado: 'gris',
+      colorBadge: 'bg-slate-700 text-slate-300 border-slate-500 font-bold shadow-sm',
+      label: '⚪ Sin datos de material (BOM)',
+      esCritico: false,
+      sinBom: true,
+      componentes: []
+    };
+  }
+
+  const bom = (prod && Array.isArray(prod.bom) && prod.bom.length > 0)
+    ? prod.bom
+    : (BOM_PRODUCTOS[ref] || [
+        { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.16, unidad: 'ud' },
+        { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.20, unidad: 'par' }
+      ]);
+
+  const consumoTotalMap = mapaConsumo || calcularTodosConsumosComprometidos({ productos: prods });
 
   let tieneFaltaCritica = false;
   let tieneParcialOMedia = false;
@@ -530,21 +617,26 @@ export function calcularDisponibilidadOrden(orden, listaMateriales = []) {
     const mat = listaMateriales.find(m => m.codigo === item.codigo) || {
       id: Date.now() + Math.random(),
       codigo: item.codigo,
-      descripcion: item.descripcion,
-      unidad: item.unidad,
+      descripcion: item.descripcion || item.codigo,
+      unidad: item.unidad || 'ud',
       stockActual: 100,
       stockReservado: 0,
       criticidad: 'media',
       proveedor: 'Proveedor Estándar'
     };
 
-    const stockDisp = Math.max(0, Number(mat.stockActual || 0) - Number(mat.stockReservado || 0));
-    const cantNecesaria = Math.max(1, Math.ceil(cant * item.factor));
+    const compTotal = (consumoTotalMap && typeof consumoTotalMap[mat.codigo] === 'number')
+      ? consumptionOrZero(consumoTotalMap[mat.codigo])
+      : Number(mat.stockReservado || 0);
+
+    const stockActual = Number(mat.stockActual || 0);
+    const disponibleReal = stockActual - compTotal;
+    const cantNecesaria = Math.max(1, Math.ceil(cant * Number(item.factor || 0)));
 
     let estadoItem = 'OK';
-    if (stockDisp >= cantNecesaria) {
+    if (disponibleReal >= 0) {
       estadoItem = 'OK';
-    } else if (stockDisp > 0) {
+    } else if (stockActual > 0 && (stockActual - (compTotal - cantNecesaria) > 0)) {
       estadoItem = 'Parcial';
       if (mat.criticidad === 'alta') {
         tieneFaltaCritica = true;
@@ -568,7 +660,9 @@ export function calcularDisponibilidadOrden(orden, listaMateriales = []) {
       criticidad: mat.criticidad || 'media',
       proveedor: mat.proveedor || 'Sin proveedor',
       cantidadNecesaria: cantNecesaria,
-      stockDisponible: stockDisp,
+      stockDisponible: disponibleReal,
+      stockActual: stockActual,
+      comprometidoTotal: compTotal,
       estadoItem
     });
   }
@@ -602,18 +696,29 @@ export function calcularDisponibilidadOrden(orden, listaMateriales = []) {
   };
 }
 
+function consumptionOrZero(val) {
+  return typeof val === 'number' && !isNaN(val) ? val : 0;
+}
+
 export async function updateReservaMaterialesOrden(orden, accion = 'reservar') {
   const { data: lista } = await fetchMateriasPrimas();
   if (!lista || !Array.isArray(lista)) return;
 
   const ref = orden.ref || orden.referencia || 'BAT-48V-100Ah';
   const cant = Number(orden.cantidad) || 500;
-  const bom = BOM_PRODUCTOS[ref] || BOM_PRODUCTOS['BAT-48V-100Ah'];
+  
+  let prods = null;
+  try {
+    const rP = localStorage.getItem('mes_productos_catalogo');
+    if (rP) prods = JSON.parse(rP);
+  } catch (_) {}
+  const prod = (prods && Array.isArray(prods)) ? prods.find(p => p.codigo === ref) : null;
+  const bom = (prod && Array.isArray(prod.bom)) ? prod.bom : (BOM_PRODUCTOS[ref] || BOM_PRODUCTOS['BAT-48V-100Ah']);
 
   for (const item of bom) {
     const mat = lista.find(m => m.codigo === item.codigo);
     if (mat) {
-      const cantNecesaria = Math.max(1, Math.ceil(cant * item.factor));
+      const cantNecesaria = Math.max(1, Math.ceil(cant * Number(item.factor || 0)));
       const currentRes = Number(mat.stockReservado) || 0;
       const nextRes = accion === 'reservar'
         ? currentRes + cantNecesaria

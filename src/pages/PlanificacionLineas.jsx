@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Plus, Calendar, Move, Edit2, Trash2, X, Check, RefreshCw, AlertCircle, Clock, Package, FileText, ArrowRight, Layers, Filter, Search, ShieldAlert, Zap, ArrowLeftCircle } from 'lucide-react';
-import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt } from '@/services/dataService';
+import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, fetchProductos, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt } from '@/services/dataService';
 
 
 const SEMANA_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -65,14 +65,16 @@ export default function PlanificacionLineas() {
   const CELL_W = 60; // px por hora
 
   const [listaMateriales, setListaMateriales] = useState([]);
+  const [listaProductos, setListaProductos] = useState([]);
   const [blockedDropInfo, setBlockedDropInfo] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
-    const [resL, resP, resM] = await Promise.all([fetchLineas(), fetchPlanificacion(), fetchMateriasPrimas()]);
+    const [resL, resP, resM, resProd] = await Promise.all([fetchLineas(), fetchPlanificacion(), fetchMateriasPrimas(), fetchProductos()]);
     if (resL.data) setLineas(resL.data);
     if (resP.data) setOrdenes(resP.data);
     if (resM?.data) setListaMateriales(resM.data);
+    if (resProd?.data) setListaProductos(resProd.data);
     setLoading(false);
   };
 
@@ -80,18 +82,25 @@ export default function PlanificacionLineas() {
     loadData();
   }, []);
 
-  // Escuchar reordenamiento desde Secuencia o actualización de materiales
+  // Escuchar reordenamiento desde Secuencia, actualización de materiales o BOM
   useEffect(() => {
     const handler = () => loadData();
     window.addEventListener('secuencia_reordenada', handler);
     window.addEventListener('materiales_updated', handler);
     window.addEventListener('planificacion_updated', handler);
+    window.addEventListener('bom_updated', handler);
+    window.addEventListener('productos_updated', handler);
     return () => {
       window.removeEventListener('secuencia_reordenada', handler);
       window.removeEventListener('materiales_updated', handler);
       window.removeEventListener('planificacion_updated', handler);
+      window.removeEventListener('bom_updated', handler);
+      window.removeEventListener('productos_updated', handler);
     };
   }, []);
+
+  // Calcular mapa global de consumo para semáforo de disponibilidad real
+  const mapaConsumo = calcularTodosConsumosComprometidos({ products: listaProductos, productos: listaProductos });
 
   // Separar órdenes en Gantt (asignadas) vs Backlog (sin asignar)
   const ordenesGantt = ordenes.filter(o => o.linea !== null && o.linea !== 'BACKLOG' && o.linea !== '' && o.dia !== null && o.dia !== undefined);
@@ -585,7 +594,7 @@ export default function PlanificacionLineas() {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                     {backlogFiltrado.map((o) => {
                       const isBeingDragged = draggedOrden && draggedOrden.id === o.id;
-                      const disp = calcularDisponibilidadOrden(o, listaMateriales);
+                      const disp = calcularDisponibilidadOrden(o, listaMateriales, listaProductos, mapaConsumo);
                       return (
                         <motion.div
                           key={o.id}
@@ -822,7 +831,7 @@ export default function PlanificacionLineas() {
                       {/* Barras de Órdenes */}
                       {ordenesDia.map((o) => {
                         const isBeingDragged = draggedOrden && draggedOrden.id === o.id;
-                        const disp = calcularDisponibilidadOrden(o, listaMateriales);
+                        const disp = calcularDisponibilidadOrden(o, listaMateriales, listaProductos, mapaConsumo);
                         return (
                           <div
                             key={o.id}
@@ -1088,7 +1097,7 @@ export default function PlanificacionLineas() {
                   />
 
                   {(() => {
-                    const dispModal = calcularDisponibilidadOrden(formOrden, listaMateriales);
+                    const dispModal = calcularDisponibilidadOrden(formOrden, listaMateriales, listaProductos, mapaConsumo);
                     if (!dispModal.componentes || dispModal.componentes.length === 0) return null;
                     return (
                       <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
