@@ -92,6 +92,9 @@ function secuenciaToDb(s) {
     cumplimiento: s.cumplimiento,
     desvio: s.desvio,
     estado: s.estado,
+    gantt_id: s.ganttId ?? s.gantt_id ?? null,
+    linea_asignada: s.lineaAsignada ?? s.linea_asignada ?? null,
+    linea_nombre: s.lineaNombre ?? s.linea_nombre ?? null,
   };
 }
 
@@ -699,59 +702,84 @@ function setPlanificacionLocal(d) {
   } catch (_) {}
 }
 
+// Mapa auxiliar: ID de línea → nombre legible
+function getLineasNombresMap() {
+  try {
+    const lineas = getLineasLocal() || mockLineas;
+    return Object.fromEntries(lineas.map(l => [l.id, l.nombre]));
+  } catch (_) { return {}; }
+}
+
 function syncGanttToRestOfApp(ganttOrders) {
   if (!Array.isArray(ganttOrders)) return;
-  
+  const lineasNombres = getLineasNombresMap();
+
   // 1. Sincronizar hacia las Líneas de producción (mes_lineas)
   try {
     const currentLineas = getLineasLocal() || mockLineas;
     const updatedLineas = currentLineas.map(l => {
-      // Buscar orden activa en el día 0 (Hoy)
       const ordenHoy = ganttOrders.find(o => o.linea === l.id && o.dia === 0) || ganttOrders.find(o => o.linea === l.id);
-      if (ordenHoy) {
-        return {
-          ...l,
-          producto: ordenHoy.ref,
-          cliente: ordenHoy.cliente,
-        };
-      }
+      if (ordenHoy) return { ...l, producto: ordenHoy.ref, cliente: ordenHoy.cliente };
       return l;
     });
     localStorage.setItem('mes_lineas', JSON.stringify(updatedLineas));
   } catch (_) {}
 
-  // 2. Sincronizar hacia Secuencia de Órdenes (mes_secuencia)
+  // 2. Sincronizar hacia Secuencia: actualizar lineaAsignada + lineaNombre
   try {
     const currentSecuencia = getSecuenciaLocal() || mockSecuencia;
     let nextSeq = currentSecuencia.length + 1;
     const updatedSecuencia = [...currentSecuencia];
-    
+    const diasStr = ['31/05/2024', '01/06/2024', '02/06/2024', '03/06/2024', '04/06/2024', '05/06/2024'];
+
     ganttOrders.forEach(go => {
-      const foundIdx = updatedSecuencia.findIndex(s => s.referencia === go.ref && s.cliente === go.cliente);
-      const diasStr = ['31/05/2024', '01/06/2024', '02/06/2024', '03/06/2024', '04/06/2024', '05/06/2024'];
       const fechaComp = `${diasStr[go.dia] || '31/05/2024'} ${String(go.horaInicio).padStart(2, '0')}:00`;
-      
+      const lineaNombre = go.linea ? (lineasNombres[go.linea] || go.linea) : null;
+
+      // Buscar primero por ganttId, luego por ref+cliente
+      let foundIdx = updatedSecuencia.findIndex(s => s.ganttId === go.id);
+      if (foundIdx < 0) foundIdx = updatedSecuencia.findIndex(s => s.referencia === go.ref && s.cliente === go.cliente);
+
       if (foundIdx >= 0) {
         updatedSecuencia[foundIdx] = {
           ...updatedSecuencia[foundIdx],
+          ganttId: go.id,
+          lineaAsignada: go.linea || null,
+          lineaNombre: go.linea ? lineaNombre : null,
           fechaCompromiso: fechaComp,
         };
-      } else {
+      } else if (go.linea) {
+        // Solo añadir a Secuencia si tiene línea asignada
         updatedSecuencia.push({
           id: Date.now() + Math.floor(Math.random() * 10000),
           secuencia: nextSeq++,
+          ganttId: go.id,
+          lineaAsignada: go.linea,
+          lineaNombre,
           referencia: go.ref,
           cliente: go.cliente,
           fechaCompromiso: fechaComp,
           progreso: 0,
           cumplimiento: 100,
           desvio: 0,
-          estado: 'a_tiempo'
+          estado: 'a_tiempo',
         });
       }
     });
-    localStorage.setItem('mes_secuencia', JSON.stringify(updatedSecuencia));
+
+    // Limpiar lineaAsignada de órdenes que pasaron al backlog (linea === null)
+    const backlogGanttIds = new Set(ganttOrders.filter(o => !o.linea).map(o => o.id));
+    const finalSecuencia = updatedSecuencia.map(s =>
+      s.ganttId && backlogGanttIds.has(s.ganttId)
+        ? { ...s, lineaAsignada: null, lineaNombre: null }
+        : s
+    );
+
+    localStorage.setItem('mes_secuencia', JSON.stringify(finalSecuencia));
   } catch (_) {}
+
+  // 3. Emitir evento para que Secuencia.jsx se actualice en tiempo real
+  try { window.dispatchEvent(new CustomEvent('planificacion_updated', { detail: ganttOrders })); } catch (_) {}
 }
 
 export async function fetchPlanificacion() {
@@ -789,6 +817,95 @@ export async function deleteOrdenPlanificacion(id) {
 export async function setAllPlanificacion(ordenes) {
   setPlanificacionLocal(ordenes);
   return { data: ordenes, error: null };
+}
+
+// ─── REORDENAMIENTO DE SECUENCIA → GANTT ─────────────────────────────────────
+// Cuando Secuencia reordena órdenes, compacta las barras del Gantt
+// dentro de cada línea siguiendo la nueva prioridad.
+export function reordenarSecuenciaEnGantt(secuenciaOrdenada) {
+  try {
+    const ganttOrders = getPlanificacionLocal() || ordenesGanttDefault;
+    const updated = [...ganttOrders];
+
+    // Agrupar órdenes del Gantt asignadas por línea
+    const porLinea = {};
+    updated.forEach(o => {
+      if (o.linea) {
+        if (!porLinea[o.linea]) porLinea[o.linea] = [];
+        porLinea[o.linea].push(o);
+      }
+    });
+
+    // Para cada línea, reordenar sus órdenes según su posición en secuenciaOrdenada
+    Object.keys(porLinea).forEach(lineaId => {
+      const ordenesLinea = porLinea[lineaId];
+      ordenesLinea.sort((a, b) => {
+        const posA = secuenciaOrdenada.findIndex(s => s.ganttId === a.id);
+        const posB = secuenciaOrdenada.findIndex(s => s.ganttId === b.id);
+        return (posA >= 0 ? posA : 9999) - (posB >= 0 ? posB : 9999);
+      });
+
+      // Compactar horarios desde horaInicio = 6, respetando duraciones
+      let horaActual = 6;
+      ordenesLinea.forEach(o => {
+        const idx = updated.findIndex(u => u.id === o.id);
+        if (idx >= 0) {
+          updated[idx] = { ...updated[idx], horaInicio: horaActual };
+          horaActual += (updated[idx].duracion || 4);
+        }
+      });
+    });
+
+    setPlanificacionLocal(updated);
+    return { data: updated, error: null };
+  } catch (e) {
+    return { data: null, error: e.message };
+  }
+}
+
+// ─── INCIDENCIAS DE SECUENCIA (histórico en localStorage) ────────────────────
+const LS_KEY_INCIDENCIAS_SEQ = 'mes_incidencias_secuencia';
+
+export function getIncidenciasSecuencia() {
+  try {
+    const r = localStorage.getItem(LS_KEY_INCIDENCIAS_SEQ);
+    return r ? JSON.parse(r) : [];
+  } catch (_) { return []; }
+}
+
+export function saveIncidenciaSecuencia(incidencia) {
+  try {
+    const current = getIncidenciasSecuencia();
+    const newItem = { ...incidencia, id: `INC-${Date.now()}`, fechaRegistro: new Date().toISOString() };
+    localStorage.setItem(LS_KEY_INCIDENCIAS_SEQ, JSON.stringify([...current, newItem]));
+    return { data: newItem, error: null };
+  } catch (e) { return { data: null, error: e.message }; }
+}
+
+// ─── OT CORRECTIVA DESDE SECUENCIA ───────────────────────────────────────────
+export async function insertOrdenTrabajoDesdeSecuencia(orden, motivo, descripcion) {
+  const nuevaOt = {
+    id: `OT-SEC-${Math.floor(100 + Math.random() * 900)}`,
+    codigo: `OT-${Math.floor(100 + Math.random() * 900)}`,
+    titulo: `Correctivo desde Secuencia: ${orden.referencia} — ${motivo}`,
+    activoId: 'COMP-GEN',
+    activoNombre: `Línea: ${orden.lineaNombre || orden.lineaAsignada || 'Sin línea'}`,
+    linea: orden.lineaNombre || orden.lineaAsignada || 'Línea 1',
+    tipo: 'correctivo',
+    prioridad: 'critica',
+    estado: 'abierta',
+    tecnico: 'Técnico Asignado MTO',
+    turno: 'Turno Actual',
+    fechaApertura: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    fechaCierre: '',
+    tiempoEst: 60,
+    tiempoReal: 0,
+    repuestos: [],
+    causaRaiz: `SECUENCIA — ${motivo}: ${descripcion || 'Sin descripción'}`,
+    paradaId: null,
+    costeTotal: 0,
+  };
+  return await insertOrdenTrabajo(nuevaOt);
 }
 
 // ─── CRUD — Operarios ────────────────────────────────────────────────────────

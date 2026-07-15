@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Plus, Calendar, Move, Edit2, Trash2, X, Check, RefreshCw, AlertCircle, Clock, Package, FileText, ArrowRight, Layers, Filter, Search, ShieldAlert, Zap, ArrowLeftCircle } from 'lucide-react';
-import { fetchLineas, fetchPlanificacion, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion } from '@/services/dataService';
+import { fetchLineas, fetchPlanificacion, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt } from '@/services/dataService';
 
 const SEMANA_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const HORAS = Array.from({ length: 16 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`);
@@ -74,6 +74,13 @@ export default function PlanificacionLineas() {
     loadData();
   }, []);
 
+  // Escuchar reordenamiento desde Secuencia → recargar el Gantt
+  useEffect(() => {
+    const handler = () => loadData();
+    window.addEventListener('secuencia_reordenada', handler);
+    return () => window.removeEventListener('secuencia_reordenada', handler);
+  }, []);
+
   // Separar órdenes en Gantt (asignadas) vs Backlog (sin asignar)
   const ordenesGantt = ordenes.filter(o => o.linea !== null && o.linea !== 'BACKLOG' && o.linea !== '' && o.dia !== null && o.dia !== undefined);
   const ordenesBacklog = ordenes.filter(o => o.linea === null || o.linea === 'BACKLOG' || o.linea === '' || o.dia === null || o.dia === undefined);
@@ -141,7 +148,7 @@ export default function PlanificacionLineas() {
       dia: diaSeleccionado,
       horaInicio: horaFinal
     });
-
+    // planificacion_updated ya lo emite syncGanttToRestOfApp en dataService
     const resL = await fetchLineas();
     if (resL.data) setLineas(resL.data);
   };
@@ -154,6 +161,7 @@ export default function PlanificacionLineas() {
     setOrdenes(prev => prev.map(o => o.id === draggedOrden.id ? updated : o));
     setDraggedOrden(null);
     await updateOrdenPlanificacion(draggedOrden.id, { linea: null, dia: null });
+    // planificacion_updated ya lo emite syncGanttToRestOfApp en dataService
   };
 
   // ─── Modal Handlers ────────────────────────────────────────────────────────
