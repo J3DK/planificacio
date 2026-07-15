@@ -1009,8 +1009,208 @@ export async function updatePlanPreventivo(id, plan) {
   return { data: updated.find(i => i.id === id), error: null };
 }
 
+// ─── SENSORES PREDICTIVOS ────────────────────────────────────────────────────
+
+function getSensoresLocal() { try { const r = localStorage.getItem('mes_sensores_predictivos'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setSensoresLocal(d) { try { localStorage.setItem('mes_sensores_predictivos', JSON.stringify(d)); } catch (_) {} }
+
 export async function fetchSensoresPredictivos() {
+  const local = getSensoresLocal();
+  if (local && Array.isArray(local) && local.length > 0) return { data: local, fromSupabase: false };
+  setSensoresLocal(sensoresPredictivosIniciales);
   return { data: sensoresPredictivosIniciales, fromSupabase: false };
 }
 
+export async function insertSensorPredictivo(sensor) {
+  const current = getSensoresLocal() || sensoresPredictivosIniciales;
+  const newItem = { ...sensor, id: sensor.id || `SENS-${Date.now()}` };
+  const updated = [...current, newItem];
+  setSensoresLocal(updated);
+  return { data: newItem, error: null };
+}
 
+export async function updateSensorPredictivo(id, sensor) {
+  const current = getSensoresLocal() || sensoresPredictivosIniciales;
+  const updated = current.map(item => item.id === id ? { ...item, ...sensor } : item);
+  setSensoresLocal(updated);
+  return { data: updated.find(i => i.id === id), error: null };
+}
+
+export async function deleteSensorPredictivo(id) {
+  const current = getSensoresLocal() || sensoresPredictivosIniciales;
+  setSensoresLocal(current.filter(item => item.id !== id));
+  return { error: null };
+}
+
+// ─── PLANES PREVENTIVOS CRUD COMPLETO ────────────────────────────────────────
+
+export async function insertPlanPreventivo(plan) {
+  const current = getPlanesPreventivosLocal() || planesPreventivosIniciales;
+  const newItem = {
+    ...plan,
+    id: plan.id || `PLN-${Date.now()}`,
+    checklist: plan.checklist || []
+  };
+  const updated = [...current, newItem];
+  setPlanesPreventivosLocal(updated);
+  return { data: newItem, error: null };
+}
+
+export async function deletePlanPreventivo(id) {
+  const current = getPlanesPreventivosLocal() || planesPreventivosIniciales;
+  setPlanesPreventivosLocal(current.filter(item => item.id !== id));
+  return { error: null };
+}
+
+export async function addChecklistItem(planId, tarea) {
+  const current = getPlanesPreventivosLocal() || planesPreventivosIniciales;
+  const updated = current.map(plan =>
+    plan.id === planId
+      ? { ...plan, checklist: [...(plan.checklist || []), { tarea, completado: false }] }
+      : plan
+  );
+  setPlanesPreventivosLocal(updated);
+  return { data: updated.find(p => p.id === planId), error: null };
+}
+
+export async function updateChecklistItem(planId, index, tarea) {
+  const current = getPlanesPreventivosLocal() || planesPreventivosIniciales;
+  const updated = current.map(plan => {
+    if (plan.id !== planId) return plan;
+    const newChecklist = plan.checklist.map((c, i) =>
+      i === index ? { ...c, tarea } : c
+    );
+    return { ...plan, checklist: newChecklist };
+  });
+  setPlanesPreventivosLocal(updated);
+  return { data: updated.find(p => p.id === planId), error: null };
+}
+
+export async function removeChecklistItem(planId, index) {
+  const current = getPlanesPreventivosLocal() || planesPreventivosIniciales;
+  const updated = current.map(plan => {
+    if (plan.id !== planId) return plan;
+    const newChecklist = plan.checklist.filter((_, i) => i !== index);
+    return { ...plan, checklist: newChecklist };
+  });
+  setPlanesPreventivosLocal(updated);
+  return { data: updated.find(p => p.id === planId), error: null };
+}
+
+// ─── ÁRBOL DE ACTIVOS / EQUIPOS DE LÍNEA ─────────────────────────────────────
+
+function getActivosLocal() { try { const r = localStorage.getItem('mes_activos_jerarquia'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setActivosLocal(d) { try { localStorage.setItem('mes_activos_jerarquia', JSON.stringify(d)); } catch (_) {} }
+
+export async function fetchActivosMantenimientoEditable() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('activos_mantenimiento').select('*');
+      if (!error && data && data.length > 0) return { data, fromSupabase: true };
+    } catch (e) {}
+  }
+  const local = getActivosLocal();
+  if (local && Array.isArray(local) && local.length > 0) return { data: local, fromSupabase: false };
+  setActivosLocal(mockActivos);
+  return { data: mockActivos, fromSupabase: false };
+}
+
+// Obtiene lista plana de todos los equipos (tipo 'maquina' y 'componente') para selectores
+export function getEquiposPlanos(arbol) {
+  const result = [];
+  function recorrer(nodos) {
+    if (!nodos) return;
+    nodos.forEach(n => {
+      if (n.tipo === 'maquina' || n.tipo === 'componente') {
+        result.push({ id: n.id, label: `${n.nombre} (${n.id})` });
+      }
+      if (n.hijos) recorrer(n.hijos);
+    });
+  }
+  recorrer(arbol);
+  return result;
+}
+
+// Añadir un equipo (máquina) a una línea específica del árbol
+export async function insertEquipoEnLinea(lineaId, equipo) {
+  const { data: arbol } = await fetchActivosMantenimientoEditable();
+  const newEquipo = {
+    ...equipo,
+    id: equipo.id || `MQ-${Date.now()}`,
+    tipo: 'maquina',
+    hijos: equipo.hijos || []
+  };
+
+  function addToLinea(nodos) {
+    return nodos.map(n => {
+      if (n.id === lineaId) {
+        return { ...n, hijos: [...(n.hijos || []), newEquipo] };
+      }
+      if (n.hijos) return { ...n, hijos: addToLinea(n.hijos) };
+      return n;
+    });
+  }
+
+  const updated = addToLinea(arbol);
+  setActivosLocal(updated);
+  return { data: newEquipo, error: null };
+}
+
+// Editar un equipo/componente por ID en cualquier nivel del árbol
+export async function updateEquipoEnArbol(equipoId, cambios) {
+  const { data: arbol } = await fetchActivosMantenimientoEditable();
+
+  function editInTree(nodos) {
+    return nodos.map(n => {
+      if (n.id === equipoId) return { ...n, ...cambios };
+      if (n.hijos) return { ...n, hijos: editInTree(n.hijos) };
+      return n;
+    });
+  }
+
+  const updated = editInTree(arbol);
+  setActivosLocal(updated);
+  return { data: updated, error: null };
+}
+
+// Eliminar un equipo/componente por ID de cualquier nivel del árbol
+export async function deleteEquipoEnArbol(equipoId) {
+  const { data: arbol } = await fetchActivosMantenimientoEditable();
+
+  function removeFromTree(nodos) {
+    return nodos
+      .filter(n => n.id !== equipoId)
+      .map(n => ({
+        ...n,
+        hijos: n.hijos ? removeFromTree(n.hijos) : []
+      }));
+  }
+
+  const updated = removeFromTree(arbol);
+  setActivosLocal(updated);
+  return { error: null };
+}
+
+// Añadir un componente hijo a un equipo (máquina) del árbol
+export async function insertComponenteEnEquipo(equipoId, componente) {
+  const { data: arbol } = await fetchActivosMantenimientoEditable();
+  const newComp = {
+    ...componente,
+    id: componente.id || `COMP-${Date.now()}`,
+    tipo: 'componente'
+  };
+
+  function addToEquipo(nodos) {
+    return nodos.map(n => {
+      if (n.id === equipoId) {
+        return { ...n, hijos: [...(n.hijos || []), newComp] };
+      }
+      if (n.hijos) return { ...n, hijos: addToEquipo(n.hijos) };
+      return n;
+    });
+  }
+
+  const updated = addToEquipo(arbol);
+  setActivosLocal(updated);
+  return { data: newComp, error: null };
+}

@@ -15,7 +15,7 @@ import { X, Save, Plus } from 'lucide-react';
  *   saving      {boolean}   — Deshabilitar botón mientras se guarda
  *
  * Cada campo en `fields`:
- *   { key, label, type: 'text'|'number'|'select'|'textarea'|'badge-select', options?, placeholder?, required? }
+ *   { key, label, type: 'text'|'number'|'select'|'textarea'|'badge-select'|'multi-select'|'tag-list', options?, placeholder?, required? }
  */
 export default function CrudModal({ isOpen, onClose, onSave, title, fields = [], initialData = {}, saving = false }) {
   const [formData, setFormData] = React.useState({});
@@ -24,7 +24,7 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
     if (isOpen) {
       const initial = {};
       fields.forEach(f => {
-        initial[f.key] = initialData[f.key] !== undefined ? initialData[f.key] : (f.default ?? '');
+        initial[f.key] = initialData[f.key] !== undefined ? initialData[f.key] : (f.default ?? (['multi-select', 'tag-list'].includes(f.type) ? [] : ''));
       });
       setFormData(initial);
     }
@@ -108,6 +108,46 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
                     />
                   )}
 
+                  {/* multi-select: checkboxes para arrays */}
+                  {field.type === 'multi-select' && (
+                    <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 max-h-40 overflow-y-auto space-y-1.5">
+                      {(field.options || []).map(opt => {
+                        const val = opt.value ?? opt;
+                        const label = opt.label ?? opt;
+                        const current = Array.isArray(formData[field.key]) ? formData[field.key] : [];
+                        const checked = current.includes(val);
+                        return (
+                          <label key={val} className="flex items-center gap-2.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                const next = checked
+                                  ? current.filter(v => v !== val)
+                                  : [...current, val];
+                                handleChange(field.key, next);
+                              }}
+                              className="w-4 h-4 rounded accent-blue-500"
+                            />
+                            <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{label}</span>
+                          </label>
+                        );
+                      })}
+                      {(!field.options || field.options.length === 0) && (
+                        <p className="text-xs text-slate-500 italic">No hay opciones disponibles</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* tag-list: añadir/eliminar ítems de texto en un array */}
+                  {field.type === 'tag-list' && (
+                    <TagListField
+                      value={Array.isArray(formData[field.key]) ? formData[field.key] : []}
+                      onChange={val => handleChange(field.key, val)}
+                      placeholder={field.placeholder || 'Añadir ítem...'}
+                    />
+                  )}
+
                   {(field.type === 'text' || field.type === 'number' || !field.type) && (
                     <input
                       type={field.type || 'text'}
@@ -135,8 +175,7 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
                 Cancelar
               </button>
               <button
-                type="submit"
-                form="crud-form"
+                type="button"
                 onClick={handleSubmit}
                 disabled={saving}
                 className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-60 shadow-lg shadow-blue-900/40"
@@ -149,5 +188,79 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
         </div>
       )}
     </AnimatePresence>
+  );
+}
+
+// Subcomponente para campo de lista de etiquetas
+function TagListField({ value, onChange, placeholder }) {
+  const [inputVal, setInputVal] = React.useState('');
+  const [editingIndex, setEditingIndex] = React.useState(null);
+  const [editingVal, setEditingVal] = React.useState('');
+
+  const addItem = () => {
+    const trimmed = inputVal.trim();
+    if (!trimmed) return;
+    onChange([...value, trimmed]);
+    setInputVal('');
+  };
+
+  const removeItem = (idx) => onChange(value.filter((_, i) => i !== idx));
+
+  const startEdit = (idx) => { setEditingIndex(idx); setEditingVal(value[idx]); };
+  const saveEdit = () => {
+    if (editingVal.trim()) {
+      onChange(value.map((v, i) => i === editingIndex ? editingVal.trim() : v));
+    }
+    setEditingIndex(null);
+    setEditingVal('');
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={inputVal}
+          onChange={e => setInputVal(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
+          placeholder={placeholder}
+          className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+        />
+        <button
+          type="button"
+          onClick={addItem}
+          className="px-3 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 text-xs font-black transition-all"
+        >
+          + Añadir
+        </button>
+      </div>
+      {value.length > 0 && (
+        <div className="space-y-1 max-h-36 overflow-y-auto">
+          {value.map((item, idx) => (
+            <div key={idx} className="flex items-center gap-2 p-2 bg-slate-800/60 rounded-lg border border-slate-700/60 group">
+              {editingIndex === idx ? (
+                <>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={editingVal}
+                    onChange={e => setEditingVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveEdit(); } if (e.key === 'Escape') { setEditingIndex(null); } }}
+                    className="flex-1 bg-slate-700 border border-blue-500/50 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+                  />
+                  <button type="button" onClick={saveEdit} className="text-[10px] px-2 py-1 rounded bg-blue-600/30 text-blue-400 font-bold hover:bg-blue-600/50">✓</button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 text-xs text-slate-300">{item}</span>
+                  <button type="button" onClick={() => startEdit(idx)} className="opacity-0 group-hover:opacity-100 text-[10px] px-2 py-0.5 rounded bg-slate-700 text-slate-400 hover:text-white transition-all">✏</button>
+                  <button type="button" onClick={() => removeItem(idx)} className="opacity-0 group-hover:opacity-100 text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all">✕</button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
