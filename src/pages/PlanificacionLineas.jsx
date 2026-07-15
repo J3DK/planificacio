@@ -592,32 +592,31 @@ export default function PlanificacionLineas() {
           </div>
           <div className="overflow-x-auto no-scrollbar">
             <div className="relative" style={{ minWidth: CELL_W * 16 + 120 }}>
-              {/* Indicador Global de Hora Actual — Cruza todo el diagrama de Gantt */}
-              {diaSeleccionado === 0 && isTimeInRange && (
-                <div
-                  className="absolute top-0 bottom-0 z-30 pointer-events-none flex flex-col items-center transition-all duration-1000"
-                  style={{ left: 112 + currentTimeX }} // 112px es el ancho de la columna izquierda ("w-28")
-                >
-                  {/* Etiqueta flotante con la hora del sistema en el header */}
-                  <div className="bg-red-600 text-white font-black text-[11px] font-mono px-2 py-0.5 rounded-full shadow-lg shadow-red-600/60 -translate-y-1.5 flex items-center gap-1.5 border border-red-300">
-                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                    <span>{currentTimeFormatted}</span>
-                  </div>
-                  {/* Línea vertical roja/ámbar continua */}
-                  <div className="w-0.5 flex-1 bg-gradient-to-b from-red-500 via-amber-400 to-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
-                </div>
-              )}
-
-              {/* Horas header */}
+              {/* Horas header — contiene también la etiqueta de hora actual */}
               <div className="flex border-b border-slate-800 bg-slate-900/60">
                 <div className="w-28 flex-shrink-0 bg-slate-900/90 px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center">
                   Línea
                 </div>
-                {HORAS.map((h, idx) => (
-                  <div key={h} style={{ width: CELL_W }} className="flex-shrink-0 text-center text-[11px] text-slate-400 py-2.5 border-l border-slate-800 font-mono font-bold">
-                    {h}
-                  </div>
-                ))}
+                {/* Área temporal: mismo sistema de coordenadas que las líneas por fila */}
+                <div className="relative flex-1 flex">
+                  {HORAS.map((h, idx) => (
+                    <div key={h} style={{ width: CELL_W }} className="flex-shrink-0 text-center text-[11px] text-slate-400 py-2.5 border-l border-slate-800 font-mono font-bold">
+                      {h}
+                    </div>
+                  ))}
+                  {/* Etiqueta de hora actual — misma posición que las líneas rojas por fila */}
+                  {diaSeleccionado === 0 && isTimeInRange && (
+                    <div
+                      className="absolute top-0 bottom-0 z-30 pointer-events-none flex items-center transition-all duration-1000"
+                      style={{ left: currentTimeX }}
+                    >
+                      <div className="bg-red-600 text-white font-black text-[11px] font-mono px-2 py-0.5 rounded-full shadow-lg shadow-red-600/60 -translate-x-1/2 flex items-center gap-1.5 border border-red-300 whitespace-nowrap">
+                        <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                        <span>{currentTimeFormatted}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Filas de Líneas */}
