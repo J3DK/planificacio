@@ -34,6 +34,7 @@ function mapMaterial(m) {
     stockMaximo: m.stock_maximo ?? m.stockMaximo ?? 0,
     pedidoPendiente: m.pedido_pendiente ?? m.pedidoPendiente ?? 0,
     fechaEntrega: m.fecha_entrega ?? m.fechaEntrega,
+    stockReservado: m.stock_reservado ?? m.stockReservado ?? 0,
   };
 }
 
@@ -78,6 +79,7 @@ function materialToDb(m) {
     fecha_entrega: m.fechaEntrega ?? m.fecha_entrega,
     criticidad: m.criticidad,
     proveedor: m.proveedor,
+    stock_reservado: m.stockReservado ?? m.stock_reservado ?? 0,
   };
 }
 
@@ -207,6 +209,17 @@ export async function fetchProduccion() {
   return { data: mockProduccion, fromSupabase: false };
 }
 
+function getMateriasLocal() {
+  try {
+    const r = localStorage.getItem('mes_materias_primas');
+    return r ? JSON.parse(r) : null;
+  } catch (_) { return null; }
+}
+
+function setMateriasLocal(list) {
+  try { localStorage.setItem('mes_materias_primas', JSON.stringify(list)); } catch (_) {}
+}
+
 export async function fetchMateriasPrimas() {
   if (isSupabaseConfigured()) {
     try {
@@ -214,7 +227,11 @@ export async function fetchMateriasPrimas() {
       if (!error && data && data.length > 0) return { data: data.map(mapMaterial), fromSupabase: true };
     } catch (e) {}
   }
-  return { data: mockMateriasPrimas, fromSupabase: false };
+  const local = getMateriasLocal();
+  if (local) return { data: local.map(mapMaterial), fromSupabase: false };
+  const inicial = mockMateriasPrimas.map(mapMaterial);
+  setMateriasLocal(inicial);
+  return { data: inicial, fromSupabase: false };
 }
 
 export async function fetchDashboardKpis() {
@@ -416,21 +433,197 @@ export async function deleteSecuencia(id) {
 // ─── WRITE — Materias Primas ─────────────────────────────────────────────────
 
 export async function insertMaterial(material) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { data, error } = await supabase.from('materias_primas').insert([materialToDb(material)]).select().single();
-  return { data: data ? mapMaterial(data) : null, error };
+  const newMat = mapMaterial({ ...material, id: material.id || Date.now(), stockReservado: material.stockReservado || 0 });
+  if (isSupabaseConfigured()) {
+    const { data, error } = await supabase.from('materias_primas').insert([materialToDb(newMat)]).select().single();
+    if (!error && data) return { data: mapMaterial(data), error: null };
+  }
+  const local = (getMateriasLocal() || mockMateriasPrimas.map(mapMaterial));
+  local.push(newMat);
+  setMateriasLocal(local);
+  return { data: newMat, error: null };
 }
 
 export async function updateMaterial(id, material) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { data, error } = await supabase.from('materias_primas').update(materialToDb(material)).eq('id', id).select().single();
-  return { data: data ? mapMaterial(data) : null, error };
+  if (isSupabaseConfigured()) {
+    const { data, error } = await supabase.from('materias_primas').update(materialToDb(material)).eq('id', id).select().single();
+    if (!error && data) return { data: mapMaterial(data), error: null };
+  }
+  const local = (getMateriasLocal() || mockMateriasPrimas.map(mapMaterial));
+  let updated = null;
+  const next = local.map(m => {
+    if (m.id === id) {
+      updated = mapMaterial({ ...m, ...material });
+      return updated;
+    }
+    return m;
+  });
+  setMateriasLocal(next);
+  return { data: updated, error: null };
 }
 
 export async function deleteMaterial(id) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { error } = await supabase.from('materias_primas').delete().eq('id', id);
-  return { error };
+  if (isSupabaseConfigured()) {
+    await supabase.from('materias_primas').delete().eq('id', id);
+  }
+  const local = (getMateriasLocal() || mockMateriasPrimas.map(mapMaterial)).filter(m => m.id !== id);
+  setMateriasLocal(local);
+  return { error: null };
+}
+
+// ─── BOM Y DISPONIBILIDAD DE MATERIALES PARA PLANIFICACIÓN / SECUENCIA ──────
+
+export const BOM_PRODUCTOS = {
+  'BAT-48V-100Ah': [
+    { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.16, unidad: 'ud' },
+    { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.20, unidad: 'par' },
+    { codigo: 'CAJ-ALU-48V', descripcion: 'Caja aluminio 48V serie B', factor: 0.10, unidad: 'ud' }
+  ],
+  'BAT-12V-100Ah': [
+    { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.20, unidad: 'par' },
+    { codigo: 'CAB-1MM-RJ', descripcion: 'Cable señal 1mm² trenzado', factor: 0.02, unidad: 'rollo' }
+  ],
+  'BAT-24V-100Ah': [
+    { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.30, unidad: 'par' },
+    { codigo: 'ETI-LBL-A4', descripcion: 'Etiquetas identificación A4', factor: 0.005, unidad: 'caja' }
+  ],
+  'BAT-24V-200Ah': [
+    { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.15, unidad: 'ud' },
+    { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.25, unidad: 'par' }
+  ],
+  'BAT-48V-200Ah': [
+    { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.16, unidad: 'ud' },
+    { codigo: 'BMS-48V-100', descripcion: 'BMS 48V 100A con balanceo', factor: 0.04, unidad: 'ud' },
+    { codigo: 'CAJ-ALU-48V', descripcion: 'Caja aluminio 48V serie B', factor: 0.10, unidad: 'ud' }
+  ],
+  'BAT-48V-300Ah-PRO': [
+    { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.20, unidad: 'ud' },
+    { codigo: 'BMS-48V-100', descripcion: 'BMS 48V 100A con balanceo', factor: 0.05, unidad: 'ud' }
+  ],
+  'BAT-24V-150Ah-MAR': [
+    { codigo: 'TER-CAL-025', descripcion: 'Terminal calibre 25mm²', factor: 0.02, unidad: 'caja' },
+    { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.20, unidad: 'par' }
+  ],
+  'BAT-12V-50Ah-ULTRA': [
+    { codigo: 'CAB-6MM-001', descripcion: 'Cable 6mm² negro (rollo 100m)', factor: 0.004, unidad: 'rollo' },
+    { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.15, unidad: 'par' }
+  ],
+  'BAT-48V-100Ah-RACK': [
+    { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.16, unidad: 'ud' },
+    { codigo: 'CAB-1MM-RJ', descripcion: 'Cable señal 1mm² trenzado', factor: 0.03, unidad: 'rollo' }
+  ]
+};
+
+export function calcularDisponibilidadOrden(orden, listaMateriales = []) {
+  const ref = orden.ref || orden.referencia || 'BAT-48V-100Ah';
+  const cant = Number(orden.cantidad) || 500;
+  const bom = BOM_PRODUCTOS[ref] || [
+    { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.16, unidad: 'ud' },
+    { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.20, unidad: 'par' }
+  ];
+
+  let tieneFaltaCritica = false;
+  let tieneParcialOMedia = false;
+  const componentes = [];
+
+  for (const item of bom) {
+    const mat = listaMateriales.find(m => m.codigo === item.codigo) || {
+      id: Date.now() + Math.random(),
+      codigo: item.codigo,
+      descripcion: item.descripcion,
+      unidad: item.unidad,
+      stockActual: 100,
+      stockReservado: 0,
+      criticidad: 'media',
+      proveedor: 'Proveedor Estándar'
+    };
+
+    const stockDisp = Math.max(0, Number(mat.stockActual || 0) - Number(mat.stockReservado || 0));
+    const cantNecesaria = Math.max(1, Math.ceil(cant * item.factor));
+
+    let estadoItem = 'OK';
+    if (stockDisp >= cantNecesaria) {
+      estadoItem = 'OK';
+    } else if (stockDisp > 0) {
+      estadoItem = 'Parcial';
+      if (mat.criticidad === 'alta') {
+        tieneFaltaCritica = true;
+      } else {
+        tieneParcialOMedia = true;
+      }
+    } else {
+      estadoItem = 'Falta';
+      if (mat.criticidad === 'alta') {
+        tieneFaltaCritica = true;
+      } else {
+        tieneParcialOMedia = true;
+      }
+    }
+
+    componentes.push({
+      materialId: mat.id,
+      codigo: mat.codigo,
+      descripcion: mat.descripcion || item.descripcion,
+      unidad: mat.unidad || item.unidad,
+      criticidad: mat.criticidad || 'media',
+      proveedor: mat.proveedor || 'Sin proveedor',
+      cantidadNecesaria: cantNecesaria,
+      stockDisponible: stockDisp,
+      estadoItem
+    });
+  }
+
+  if (tieneFaltaCritica) {
+    return {
+      estado: 'rojo',
+      colorBadge: 'bg-red-500/20 text-red-400 border-red-500/40 font-black animate-pulse shadow-sm shadow-red-900/50',
+      label: '🔴 Falta Crítico',
+      esCritico: true,
+      componentes
+    };
+  }
+
+  if (tieneParcialOMedia) {
+    return {
+      estado: 'ambar',
+      colorBadge: 'bg-amber-500/20 text-amber-400 border-amber-500/40 font-black',
+      label: '🟡 Stock Parcial',
+      esCritico: false,
+      componentes
+    };
+  }
+
+  return {
+    estado: 'verde',
+    colorBadge: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 font-black',
+    label: '🟢 Stock OK',
+    esCritico: false,
+    componentes
+  };
+}
+
+export async function updateReservaMaterialesOrden(orden, accion = 'reservar') {
+  const { data: lista } = await fetchMateriasPrimas();
+  if (!lista || !Array.isArray(lista)) return;
+
+  const ref = orden.ref || orden.referencia || 'BAT-48V-100Ah';
+  const cant = Number(orden.cantidad) || 500;
+  const bom = BOM_PRODUCTOS[ref] || BOM_PRODUCTOS['BAT-48V-100Ah'];
+
+  for (const item of bom) {
+    const mat = lista.find(m => m.codigo === item.codigo);
+    if (mat) {
+      const cantNecesaria = Math.max(1, Math.ceil(cant * item.factor));
+      const currentRes = Number(mat.stockReservado) || 0;
+      const nextRes = accion === 'reservar'
+        ? currentRes + cantNecesaria
+        : Math.max(0, currentRes - cantNecesaria);
+
+      await updateMaterial(mat.id, { stockReservado: nextRes });
+    }
+  }
+
+  window.dispatchEvent(new CustomEvent('materiales_updated', { detail: { ordenId: orden.id, accion } }));
 }
 
 // ─── WRITE — Calidad ─────────────────────────────────────────────────────────

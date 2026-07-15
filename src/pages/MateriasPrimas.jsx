@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { fetchMateriasPrimas, insertMaterial, updateMaterial, deleteMaterial } from '@/services/dataService';
@@ -36,6 +37,8 @@ export default function MateriasPrimas() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  const location = useLocation();
+
   const loadData = async () => {
     setLoading(true);
     const { data } = await fetchMateriasPrimas();
@@ -43,7 +46,18 @@ export default function MateriasPrimas() {
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    const h = () => loadData();
+    window.addEventListener('materiales_updated', h);
+    return () => window.removeEventListener('materiales_updated', h);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get('codigo') || params.get('q') || params.get('buscar');
+    if (q) setBusqueda(q);
+  }, [location.search]);
 
   const criticos = materiales.filter(m => m.stockActual < m.stockMinimo).length;
   const advertencia = materiales.filter(m => m.stockActual >= m.stockMinimo && m.stockActual < m.stockMinimo * 1.5).length;
@@ -152,7 +166,7 @@ export default function MateriasPrimas() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-800">
-                  {['Código', 'Descripción', 'Stock', 'Mín/Máx', 'Criticidad', 'Proveedor', ''].map(h => (
+                  {['Código', 'Descripción', 'Stock / Disp.', 'Mín/Máx', 'Criticidad', 'Proveedor', ''].map(h => (
                     <th key={h} className="table-header text-left">{h}</th>
                   ))}
                 </tr>
@@ -161,16 +175,25 @@ export default function MateriasPrimas() {
                 {materialFiltrado.map(m => {
                   const clr = getStockColor(m);
                   const pct = pctStock(m);
+                  const isHighlighted = busqueda && m.codigo?.toLowerCase() === busqueda?.toLowerCase();
+                  const disp = Math.max(0, (m.stockActual || 0) - (m.stockReservado || 0));
                   return (
-                    <tr key={m.id} className="hover:bg-slate-800/30 transition-colors group">
-                      <td className="table-cell font-mono text-xs text-blue-400">{m.codigo}</td>
+                    <tr key={m.id} className={`hover:bg-slate-800/30 transition-colors group ${isHighlighted ? 'bg-blue-500/10 border-l-4 border-blue-500' : ''}`}>
+                      <td className="table-cell font-mono text-xs text-blue-400 font-bold">{m.codigo}</td>
                       <td className="table-cell text-slate-300 text-xs max-w-[180px]">
-                        <p className="truncate">{m.descripcion}</p>
+                        <p className="truncate font-semibold">{m.descripcion}</p>
                         <p className="text-[10px] text-slate-600 mt-0.5">{m.unidad}</p>
                       </td>
                       <td className="table-cell">
-                        <p className={`text-lg font-black ${clr.text}`}>{m.stockActual}</p>
-                        <div className="w-16 h-1 bg-slate-800 rounded-full mt-1">
+                        <div className="flex items-baseline gap-2">
+                          <p className={`text-lg font-black ${clr.text}`}>{m.stockActual}</p>
+                          {Number(m.stockReservado) > 0 && (
+                            <span className="text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded" title="Stock reservado en órdenes del Gantt">
+                              Res: {m.stockReservado} | Disp: <strong className="text-emerald-400">{disp}</strong>
+                            </span>
+                          )}
+                        </div>
+                        <div className="w-20 h-1 bg-slate-800 rounded-full mt-1">
                           <div className={`h-full rounded-full ${clr.bar}`} style={{ width: `${pct}%` }} />
                         </div>
                       </td>

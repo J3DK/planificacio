@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   GripVertical, Clock, AlertTriangle, CheckCircle2, Circle,
   ChevronUp, ChevronDown, Plus, Pencil, Trash2, RefreshCw,
   MoreVertical, ArrowRightLeft, FileWarning, Wrench, X, Check,
-  Factory, AlertCircle, Loader2
+  Factory, AlertCircle, Loader2, Package, Save
 } from 'lucide-react';
 import {
   fetchSecuencia, insertSecuencia, updateSecuencia, deleteSecuencia,
   fetchLineas, updateOrdenPlanificacion, fetchPlanificacion,
   reordenarSecuenciaEnGantt, saveIncidenciaSecuencia,
-  insertOrdenTrabajoDesdeSecuencia
+  insertOrdenTrabajoDesdeSecuencia,
+  fetchMateriasPrimas, calcularDisponibilidadOrden, updateReservaMaterialesOrden
 } from '@/services/dataService';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CrudModal from '@/components/shared/CrudModal';
@@ -341,10 +343,233 @@ function MenuAcciones({ orden, onReasignar, onIncidencia }) {
   );
 }
 
+// ─── Modal Edición de Secuencia con Tabla BOM ────────────────────────────────
+function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, saving, listaMateriales }) {
+  const [formData, setFormData] = useState({});
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        referencia: initialData.referencia || '',
+        cliente: initialData.cliente || '',
+        fechaCompromiso: initialData.fechaCompromiso || '',
+        estado: initialData.estado || 'a_tiempo',
+        progreso: initialData.progreso || 0,
+        cumplimiento: initialData.cumplimiento || 0,
+        desvio: initialData.desvio || 0,
+        cantidad: initialData.cantidad || 500,
+        materiales: initialData.materiales || 'Componentes estándar de la referencia',
+        secuencia: initialData.secuencia || 1,
+        id: initialData.id || null
+      });
+    }
+  }, [isOpen, initialData]);
+
+  if (!isOpen) return null;
+
+  const dispModal = calcularDisponibilidadOrden({
+    ref: formData.referencia,
+    cantidad: formData.cantidad || 500,
+    materiales: formData.materiales
+  }, listaMateriales);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto space-y-4"
+      >
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h3 className="text-white font-black text-base flex items-center gap-2">
+            <Plus className="w-4 h-4 text-blue-400" />
+            {mode === 'create' ? 'Nueva Orden en Secuencia (MTO)' : 'Editar Orden en Secuencia'}
+          </h3>
+          <button onClick={onClose} type="button" className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Referencia (Producto) *</label>
+              <input
+                type="text" required
+                value={formData.referencia || ''}
+                onChange={e => setFormData({ ...formData, referencia: e.target.value })}
+                placeholder="BAT-48V-100Ah-PRO"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Cliente *</label>
+              <input
+                type="text" required
+                value={formData.cliente || ''}
+                onChange={e => setFormData({ ...formData, cliente: e.target.value })}
+                placeholder="Cliente Industrial"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Fecha Compromiso *</label>
+              <input
+                type="text" required
+                value={formData.fechaCompromiso || ''}
+                onChange={e => setFormData({ ...formData, fechaCompromiso: e.target.value })}
+                placeholder="31/05/2024 07:30"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Estado</label>
+              <select
+                value={formData.estado || 'a_tiempo'}
+                onChange={e => setFormData({ ...formData, estado: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value="a_tiempo">🟢 A tiempo</option>
+                <option value="en_riesgo">🟡 En riesgo</option>
+                <option value="retrasado">🔴 Retrasado</option>
+                <option value="pendiente">⚪ Pendiente</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Cantidad (uds)</label>
+              <input
+                type="number" min="1"
+                value={formData.cantidad || 500}
+                onChange={e => setFormData({ ...formData, cantidad: Number(e.target.value) })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 bg-slate-800/40 p-3 rounded-xl border border-slate-700">
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Progreso (%)</label>
+              <input
+                type="number" min="0" max="100"
+                value={formData.progreso || 0}
+                onChange={e => setFormData({ ...formData, progreso: Number(e.target.value) })}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Cumplimiento (%)</label>
+              <input
+                type="number" min="0" max="100"
+                value={formData.cumplimiento || 0}
+                onChange={e => setFormData({ ...formData, cumplimiento: Number(e.target.value) })}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Desvío (uds)</label>
+              <input
+                type="number"
+                value={formData.desvio || 0}
+                onChange={e => setFormData({ ...formData, desvio: Number(e.target.value) })}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white"
+              />
+            </div>
+          </div>
+
+          {/* Especificación y BOM */}
+          <div>
+            <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Especificación de Materiales y Componentes</label>
+            <textarea
+              rows={2}
+              value={formData.materiales || ''}
+              onChange={e => setFormData({ ...formData, materiales: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 mb-3"
+            />
+
+            {dispModal.componentes && dispModal.componentes.length > 0 && (
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="text-[11px] font-black text-white flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-blue-400" /> Bill of Materials (BOM) — Verificación de Stock
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${dispModal.colorBadge}`}>
+                    {dispModal.label}
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-slate-500 border-b border-slate-800/60 text-[10px]">
+                        <th className="pb-1.5">Componente</th>
+                        <th className="pb-1.5 text-right">Nec.</th>
+                        <th className="pb-1.5 text-right">Disp.</th>
+                        <th className="pb-1.5 text-center">Estado</th>
+                        <th className="pb-1.5 text-right">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/40">
+                      {dispModal.componentes.map((comp, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/40">
+                          <td className="py-1.5 font-bold text-slate-300">{comp.nombre}</td>
+                          <td className="py-1.5 text-right font-mono text-slate-300">{comp.necesario} {comp.unidad}</td>
+                          <td className={`py-1.5 text-right font-mono font-bold ${comp.estadoItem === 'Falta' ? 'text-red-400' : 'text-emerald-400'}`}>
+                            {comp.disponible} {comp.unidad}
+                          </td>
+                          <td className="py-1.5 text-center">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              comp.estadoItem === 'Falta' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                              comp.estadoItem === 'Ajustado' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                              'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            }`}>
+                              {comp.estadoItem === 'Falta' ? '🔴 Falta' : comp.estadoItem === 'Ajustado' ? '🟡 Ajustado' : '🟢 Ok'}
+                            </span>
+                          </td>
+                          <td className="py-1.5 text-right">
+                            <Link
+                              to={`/materias-primas?codigo=${comp.codigo}`}
+                              className="text-blue-400 hover:text-blue-300 underline font-mono text-[11px]"
+                            >
+                              Aprovisionar →
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-60 shadow-lg shadow-blue-900/40">
+              <Save className="w-3.5 h-3.5" />
+              {saving ? 'Guardando…' : 'Guardar Orden MTO'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function Secuencia() {
   const [ordenes, setOrdenes] = useState([]);
   const [lineas, setLineas]   = useState([]);
+  const [listaMateriales, setListaMateriales] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [modalOpen, setModalOpen]   = useState(false);
@@ -368,19 +593,24 @@ export default function Secuencia() {
 
   const loadData = async () => {
     setLoading(true);
-    const [resS, resL] = await Promise.all([fetchSecuencia(), fetchLineas()]);
+    const [resS, resL, resM] = await Promise.all([fetchSecuencia(), fetchLineas(), fetchMateriasPrimas()]);
     setOrdenes(resS.data || []);
     setLineas(resL.data || []);
+    if (resM?.data) setListaMateriales(resM.data);
     setLoading(false);
   };
 
   useEffect(() => { loadData(); }, []);
 
-  // Escuchar cambios de Planificación (Gantt) → refrescar datos
+  // Escuchar cambios de Planificación (Gantt) o de Materiales → refrescar datos
   useEffect(() => {
     const handler = () => loadData();
     window.addEventListener('planificacion_updated', handler);
-    return () => window.removeEventListener('planificacion_updated', handler);
+    window.addEventListener('materiales_updated', handler);
+    return () => {
+      window.removeEventListener('planificacion_updated', handler);
+      window.removeEventListener('materiales_updated', handler);
+    };
   }, []);
 
   // ─── Reordenamiento de prioridad ──────────────────────────────────────────
@@ -538,6 +768,7 @@ export default function Secuencia() {
         {ordenes.map((orden, idx) => {
           const esRiesgoORetraso = orden.estado === 'en_riesgo' || orden.estado === 'retrasado';
           const lineaColor = orden.lineaAsignada ? (LINEA_COLORS[orden.lineaAsignada] || 'bg-slate-700/40 text-slate-400 border-slate-600') : null;
+          const disp = calcularDisponibilidadOrden({ ref: orden.referencia, cantidad: orden.cantidad || 500, materiales: orden.materiales }, listaMateriales);
 
           return (
             <motion.div
@@ -573,6 +804,10 @@ export default function Secuencia() {
                 <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                   <span className="text-sm font-black text-white font-mono">{orden.referencia}</span>
                   <StatusBadge status={orden.estado} />
+                  {/* Badge semáforo BOM en stock */}
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${disp.colorBadge}`} title="Disponibilidad de componentes en stock">
+                    {disp.label}
+                  </span>
                   {/* Badge de línea asignada */}
                   {orden.lineaNombre ? (
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border ${lineaColor}`}>
@@ -644,11 +879,15 @@ export default function Secuencia() {
         })}
       </div>
 
-      {/* Modales CRUD */}
-      <CrudModal
-        isOpen={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSave}
-        title={modalMode === 'create' ? 'Nueva Orden de Fabricación' : 'Editar Orden'}
-        fields={SECUENCIA_FIELDS} initialData={editItem} saving={saving}
+      {/* Modales CRUD / Edición con BOM */}
+      <ModalEdicionSecuencia
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSave={handleSave}
+        mode={modalMode}
+        initialData={editItem}
+        saving={saving}
+        listaMateriales={listaMateriales}
       />
       <ConfirmDialog
         isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleDelete}

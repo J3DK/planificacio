@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Plus, Calendar, Move, Edit2, Trash2, X, Check, RefreshCw, AlertCircle, Clock, Package, FileText, ArrowRight, Layers, Filter, Search, ShieldAlert, Zap, ArrowLeftCircle } from 'lucide-react';
-import { fetchLineas, fetchPlanificacion, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt } from '@/services/dataService';
+import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt } from '@/services/dataService';
+
 
 const SEMANA_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const HORAS = Array.from({ length: 16 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`);
@@ -62,11 +64,15 @@ export default function PlanificacionLineas() {
 
   const CELL_W = 60; // px por hora
 
+  const [listaMateriales, setListaMateriales] = useState([]);
+  const [blockedDropInfo, setBlockedDropInfo] = useState(null);
+
   const loadData = async () => {
     setLoading(true);
-    const [resL, resP] = await Promise.all([fetchLineas(), fetchPlanificacion()]);
+    const [resL, resP, resM] = await Promise.all([fetchLineas(), fetchPlanificacion(), fetchMateriasPrimas()]);
     if (resL.data) setLineas(resL.data);
     if (resP.data) setOrdenes(resP.data);
+    if (resM?.data) setListaMateriales(resM.data);
     setLoading(false);
   };
 
@@ -74,11 +80,17 @@ export default function PlanificacionLineas() {
     loadData();
   }, []);
 
-  // Escuchar reordenamiento desde Secuencia → recargar el Gantt
+  // Escuchar reordenamiento desde Secuencia o actualización de materiales
   useEffect(() => {
     const handler = () => loadData();
     window.addEventListener('secuencia_reordenada', handler);
-    return () => window.removeEventListener('secuencia_reordenada', handler);
+    window.addEventListener('materiales_updated', handler);
+    window.addEventListener('planificacion_updated', handler);
+    return () => {
+      window.removeEventListener('secuencia_reordenada', handler);
+      window.removeEventListener('materiales_updated', handler);
+      window.removeEventListener('planificacion_updated', handler);
+    };
   }, []);
 
   // Separar órdenes en Gantt (asignadas) vs Backlog (sin asignar)
@@ -133,6 +145,20 @@ export default function PlanificacionLineas() {
       return;
     }
 
+    // Si pasa de Backlog a Gantt o cambia, verificamos disponibilidad
+    const disp = calcularDisponibilidadOrden(draggedOrden, listaMateriales);
+    if ((!draggedOrden.linea || draggedOrden.linea === 'BACKLOG') && disp.estado === 'rojo' && !draggedOrden.forzar_asignacion) {
+      setBlockedDropInfo({
+        orden: draggedOrden,
+        lineaId,
+        horaIdx: horaFinal,
+        disp
+      });
+      setDraggedOrden(null);
+      return;
+    }
+
+    const eraBacklog = !draggedOrden.linea || draggedOrden.linea === 'BACKLOG';
     const updated = {
       ...draggedOrden,
       linea: lineaId,
@@ -148,7 +174,41 @@ export default function PlanificacionLineas() {
       dia: diaSeleccionado,
       horaInicio: horaFinal
     });
-    // planificacion_updated ya lo emite syncGanttToRestOfApp en dataService
+
+    if (eraBacklog) {
+      await updateReservaMaterialesOrden(updated, 'reservar');
+      const resM = await fetchMateriasPrimas();
+      if (resM?.data) setListaMateriales(resM.data);
+    }
+
+    const resL = await fetchLineas();
+    if (resL.data) setLineas(resL.data);
+  };
+
+  const handleConfirmBlockedDrop = async () => {
+    if (!blockedDropInfo) return;
+    const { orden, lineaId, horaIdx } = blockedDropInfo;
+    const updated = {
+      ...orden,
+      linea: lineaId,
+      dia: diaSeleccionado,
+      horaInicio: horaIdx,
+      forzar_asignacion: true
+    };
+
+    setOrdenes(prev => prev.map(o => o.id === orden.id ? updated : o));
+    setBlockedDropInfo(null);
+
+    await updateOrdenPlanificacion(orden.id, {
+      linea: lineaId,
+      dia: diaSeleccionado,
+      horaInicio: horaIdx,
+      forzar_asignacion: true
+    });
+
+    await updateReservaMaterialesOrden(updated, 'reservar');
+    const resM = await fetchMateriasPrimas();
+    if (resM?.data) setListaMateriales(resM.data);
     const resL = await fetchLineas();
     if (resL.data) setLineas(resL.data);
   };
@@ -156,12 +216,15 @@ export default function PlanificacionLineas() {
   // Drop sobre el Backlog (Desasignar si arrastras desde el Gantt)
   const handleDropToBacklog = async (e) => {
     e.preventDefault();
-    if (!draggedOrden || draggedOrden.linea === null) return;
+    if (!draggedOrden || !draggedOrden.linea || draggedOrden.linea === 'BACKLOG') return;
     const updated = { ...draggedOrden, linea: null, dia: null };
     setOrdenes(prev => prev.map(o => o.id === draggedOrden.id ? updated : o));
+    const toFree = draggedOrden;
     setDraggedOrden(null);
-    await updateOrdenPlanificacion(draggedOrden.id, { linea: null, dia: null });
-    // planificacion_updated ya lo emite syncGanttToRestOfApp en dataService
+    await updateOrdenPlanificacion(toFree.id, { linea: null, dia: null });
+    await updateReservaMaterialesOrden(toFree, 'liberar');
+    const resM = await fetchMateriasPrimas();
+    if (resM?.data) setListaMateriales(resM.data);
   };
 
   // ─── Modal Handlers ────────────────────────────────────────────────────────
@@ -210,6 +273,23 @@ export default function PlanificacionLineas() {
     e.preventDefault();
     setSaving(true);
 
+    const eraBacklog = modalMode === 'create' || !ordenes.find(o => o.id === formOrden.id)?.linea || ordenes.find(o => o.id === formOrden.id)?.linea === 'BACKLOG';
+
+    if (!formOrden.sinAsignar && eraBacklog) {
+      const disp = calcularDisponibilidadOrden(formOrden, listaMateriales);
+      if (disp.estado === 'rojo' && !formOrden.forzar_asignacion) {
+        setSaving(false);
+        setBlockedDropInfo({
+          orden: formOrden,
+          lineaId: formOrden.linea,
+          horaIdx: Number(formOrden.horaInicio),
+          disp
+        });
+        setModalOpen(false);
+        return;
+      }
+    }
+
     const dataToSave = {
       ...formOrden,
       linea: formOrden.sinAsignar ? null : formOrden.linea,
@@ -222,12 +302,26 @@ export default function PlanificacionLineas() {
 
     if (modalMode === 'create') {
       const { data } = await insertOrdenPlanificacion(dataToSave);
-      if (data) setOrdenes(prev => [...prev, data]);
+      if (data) {
+        setOrdenes(prev => [...prev, data]);
+        if (data.linea && data.linea !== 'BACKLOG') {
+          await updateReservaMaterialesOrden(data, 'reservar');
+        }
+      }
     } else {
       const { data } = await updateOrdenPlanificacion(formOrden.id, dataToSave);
-      if (data) setOrdenes(prev => prev.map(o => o.id === formOrden.id ? data : o));
+      if (data) {
+        setOrdenes(prev => prev.map(o => o.id === formOrden.id ? data : o));
+        if (eraBacklog && data.linea && data.linea !== 'BACKLOG') {
+          await updateReservaMaterialesOrden(data, 'reservar');
+        } else if (!eraBacklog && (!data.linea || data.linea === 'BACKLOG')) {
+          await updateReservaMaterialesOrden(data, 'liberar');
+        }
+      }
     }
 
+    const resM = await fetchMateriasPrimas();
+    if (resM?.data) setListaMateriales(resM.data);
     const resL = await fetchLineas();
     if (resL.data) setLineas(resL.data);
 
@@ -238,8 +332,13 @@ export default function PlanificacionLineas() {
   const handleDelete = async () => {
     if (!formOrden.id) return;
     setSaving(true);
+    if (!formOrden.sinAsignar && formOrden.linea && formOrden.linea !== 'BACKLOG') {
+      await updateReservaMaterialesOrden(formOrden, 'liberar');
+    }
     await deleteOrdenPlanificacion(formOrden.id);
     setOrdenes(prev => prev.filter(o => o.id !== formOrden.id));
+    const resM = await fetchMateriasPrimas();
+    if (resM?.data) setListaMateriales(resM.data);
     const resL = await fetchLineas();
     if (resL.data) setLineas(resL.data);
     setSaving(false);
@@ -250,7 +349,10 @@ export default function PlanificacionLineas() {
     if (!formOrden.id) return;
     setSaving(true);
     await updateOrdenPlanificacion(formOrden.id, { linea: null, dia: null });
+    await updateReservaMaterialesOrden(formOrden, 'liberar');
     setOrdenes(prev => prev.map(o => o.id === formOrden.id ? { ...o, linea: null, dia: null } : o));
+    const resM = await fetchMateriasPrimas();
+    if (resM?.data) setListaMateriales(resM.data);
     const resL = await fetchLineas();
     if (resL.data) setLineas(resL.data);
     setSaving(false);
@@ -271,18 +373,34 @@ export default function PlanificacionLineas() {
   const handleConfirmQuickAssign = async (e) => {
     e.preventDefault();
     if (!assignOrden) return;
+    const disp = calcularDisponibilidadOrden(assignOrden, listaMateriales);
+    if (disp.estado === 'rojo' && !assignOrden.forzar_asignacion) {
+      setAssignModalOpen(false);
+      setBlockedDropInfo({
+        orden: assignOrden,
+        lineaId: assignForm.linea,
+        horaIdx: Number(assignForm.horaInicio),
+        disp
+      });
+      return;
+    }
+
     setSaving(true);
+    const updated = {
+      ...assignOrden,
+      linea: assignForm.linea,
+      dia: Number(assignForm.dia),
+      horaInicio: Number(assignForm.horaInicio)
+    };
     await updateOrdenPlanificacion(assignOrden.id, {
       linea: assignForm.linea,
       dia: Number(assignForm.dia),
       horaInicio: Number(assignForm.horaInicio)
     });
-    setOrdenes(prev => prev.map(o => o.id === assignOrden.id ? {
-      ...o,
-      linea: assignForm.linea,
-      dia: Number(assignForm.dia),
-      horaInicio: Number(assignForm.horaInicio)
-    } : o));
+    await updateReservaMaterialesOrden(updated, 'reservar');
+    setOrdenes(prev => prev.map(o => o.id === assignOrden.id ? updated : o));
+    const resM = await fetchMateriasPrimas();
+    if (resM?.data) setListaMateriales(resM.data);
     const resL = await fetchLineas();
     if (resL.data) setLineas(resL.data);
     setSaving(false);
@@ -345,6 +463,37 @@ export default function PlanificacionLineas() {
           </button>
         </div>
       </motion.div>
+
+      {/* Alerta de cabecera si hay órdenes con semáforo rojo en el Gantt */}
+      {(() => {
+        const criticasEnGantt = ordenesGantt.filter(o => calcularDisponibilidadOrden(o, listaMateriales).estado === 'rojo');
+        if (criticasEnGantt.length === 0) return null;
+        return (
+          <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+            className="bg-red-500/15 border-2 border-red-500/50 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-red-950/40">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400 flex-shrink-0">
+                <ShieldAlert className="w-6 h-6 animate-bounce" />
+              </div>
+              <div>
+                <h4 className="text-white font-black text-sm">Riesgo de Parada por Falta de Material Crítico</h4>
+                <p className="text-xs text-red-300 mt-0.5">
+                  Hay <strong className="text-white font-mono">{criticasEnGantt.length}</strong> orden(es) programada(s) en las líneas con semáforo <span className="bg-red-500/20 text-red-400 font-bold px-1.5 py-0.5 rounded border border-red-500/40">🔴 Falta Crítica</span>. Verifica el aprovisionamiento.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {criticasEnGantt.map(o => (
+                <button key={o.id} onClick={(e) => openEditModal(o, e)}
+                  className="px-2.5 py-1.5 rounded-lg bg-red-950/80 border border-red-500/40 text-red-200 hover:text-white hover:bg-red-900/80 text-xs font-mono font-bold transition-all flex items-center gap-1.5">
+                  <span>{o.codigo || o.ref}</span>
+                  <span className="text-[10px] bg-red-500 text-white px-1 rounded">BOM 🔴</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        );
+      })()}
 
       {/* 📋 SECCIÓN: BACKLOG / ÓRDENES SIN ASIGNAR */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
@@ -436,6 +585,7 @@ export default function PlanificacionLineas() {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                     {backlogFiltrado.map((o) => {
                       const isBeingDragged = draggedOrden && draggedOrden.id === o.id;
+                      const disp = calcularDisponibilidadOrden(o, listaMateriales);
                       return (
                         <motion.div
                           key={o.id}
@@ -450,12 +600,17 @@ export default function PlanificacionLineas() {
                           <div className="absolute top-0 left-0 right-0 h-1.5" style={{ backgroundColor: o.color || '#6366f1' }} />
 
                           <div>
-                            {/* Fila 1: Código y Prioridad */}
-                            <div className="flex items-center justify-between mb-2 pt-1">
+                            {/* Fila 1: Código, Prioridad y Semáforo */}
+                            <div className="flex items-center justify-between mb-2 pt-1 flex-wrap gap-1">
                               <span className="font-mono text-xs font-black text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
                                 {o.codigo || `OF-${o.id}`}
                               </span>
-                              {getPrioridadBadge(o.prioridad || 'normal')}
+                              <div className="flex items-center gap-1">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono border ${disp.colorBadge}`} title="Disponibilidad de material en stock">
+                                  {disp.label}
+                                </span>
+                                {getPrioridadBadge(o.prioridad || 'normal')}
+                              </div>
                             </div>
 
                             {/* Producto y Cliente */}
@@ -667,6 +822,7 @@ export default function PlanificacionLineas() {
                       {/* Barras de Órdenes */}
                       {ordenesDia.map((o) => {
                         const isBeingDragged = draggedOrden && draggedOrden.id === o.id;
+                        const disp = calcularDisponibilidadOrden(o, listaMateriales);
                         return (
                           <div
                             key={o.id}
@@ -683,12 +839,20 @@ export default function PlanificacionLineas() {
                               border: `1.5px solid ${o.color || '#2563eb'}`,
                             }}
                           >
-                            <div className="flex items-center justify-between w-full min-w-0">
+                            <div className="flex items-center justify-between w-full min-w-0 gap-1.5">
                               <div className="min-w-0 truncate pr-1">
-                                <p className="text-xs font-black text-white truncate leading-tight flex items-center gap-1.5" style={{ color: o.color || '#60a5fa' }}>
-                                  <Move className="w-3 h-3 flex-shrink-0 opacity-70" />
-                                  {o.codigo ? `[${o.codigo}] ` : ''}{o.ref}
-                                </p>
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold flex-shrink-0 border ${
+                                    disp.estado === 'rojo' ? 'bg-red-500 text-white border-red-400 font-black animate-pulse' :
+                                    disp.estado === 'ambar' ? 'bg-amber-500/30 text-amber-300 border-amber-500/50' :
+                                    'bg-emerald-500/30 text-emerald-300 border-emerald-500/50'
+                                  }`}>
+                                    {disp.label}
+                                  </span>
+                                  <p className="text-xs font-black text-white truncate leading-tight" style={{ color: o.color || '#60a5fa' }}>
+                                    {o.codigo ? `[${o.codigo}] ` : ''}{o.ref}
+                                  </p>
+                                </div>
                                 <p className="text-[10px] text-slate-300 truncate leading-none mt-0.5">
                                   {o.cliente} · {o.cantidad ? `${o.cantidad}uds · ` : ''}{o.duracion}h
                                 </p>
@@ -912,7 +1076,7 @@ export default function PlanificacionLineas() {
                   </div>
                 </div>
 
-                {/* Lista de Materiales / Receta */}
+                {/* Lista de Materiales / Receta y Tabla BOM */}
                 <div>
                   <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Especificación de Materiales y Componentes</label>
                   <textarea
@@ -920,8 +1084,66 @@ export default function PlanificacionLineas() {
                     value={formOrden.materiales || ''}
                     onChange={e => setFormOrden({ ...formOrden, materiales: e.target.value })}
                     placeholder="Celdas LFP 300Ah (x16), BMS CAN-Bus 48V, Sensor térmico PT100 (x4)..."
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 mb-3"
                   />
+
+                  {(() => {
+                    const dispModal = calcularDisponibilidadOrden(formOrden, listaMateriales);
+                    if (!dispModal.componentes || dispModal.componentes.length === 0) return null;
+                    return (
+                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                          <span className="text-[11px] font-black text-white flex items-center gap-1.5">
+                            <Package className="w-3.5 h-3.5 text-indigo-400" /> Bill of Materials (BOM) en Tiempo Real
+                          </span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${dispModal.colorBadge}`}>
+                            {dispModal.label}
+                          </span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="text-slate-500 border-b border-slate-800/60 text-[10px]">
+                                <th className="pb-1.5">Componente</th>
+                                <th className="pb-1.5 text-right">Nec.</th>
+                                <th className="pb-1.5 text-right">Disp.</th>
+                                <th className="pb-1.5 text-center">Estado</th>
+                                <th className="pb-1.5 text-right">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/40">
+                              {dispModal.componentes.map((comp, idx) => (
+                                <tr key={idx} className="hover:bg-slate-900/40">
+                                  <td className="py-1.5 font-bold text-slate-300">{comp.nombre}</td>
+                                  <td className="py-1.5 text-right font-mono text-slate-300">{comp.necesario} {comp.unidad}</td>
+                                  <td className={`py-1.5 text-right font-mono font-bold ${comp.estadoItem === 'Falta' ? 'text-red-400' : 'text-emerald-400'}`}>
+                                    {comp.disponible} {comp.unidad}
+                                  </td>
+                                  <td className="py-1.5 text-center">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                      comp.estadoItem === 'Falta' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                      comp.estadoItem === 'Ajustado' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                                      'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    }`}>
+                                      {comp.estadoItem === 'Falta' ? '🔴 Falta' : comp.estadoItem === 'Ajustado' ? '🟡 Ajustado' : '🟢 Ok'}
+                                    </span>
+                                  </td>
+                                  <td className="py-1.5 text-right">
+                                    <Link
+                                      to={`/materias-primas?codigo=${comp.codigo}`}
+                                      className="text-indigo-400 hover:text-indigo-300 underline font-mono text-[11px]"
+                                    >
+                                      Aprovisionar →
+                                    </Link>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Color de etiqueta */}
@@ -983,6 +1205,83 @@ export default function PlanificacionLineas() {
                   </div>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── MODAL BLOQUEO D&D / SUPERVISOR OVERRIDE ─────────────────────────── */}
+      <AnimatePresence>
+        {blockedDropInfo && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              className="card p-6 max-w-md w-full bg-slate-900 border-2 border-red-500/80 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 className="text-base font-black text-white flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-red-500 animate-bounce" /> Bloqueo de Asignación por Stock Crítico
+                </h3>
+                <button onClick={() => setBlockedDropInfo(null)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="bg-red-950/40 border border-red-500/40 rounded-xl p-3 text-xs text-red-200">
+                <p className="font-bold mb-1">⚠️ No se puede programar la orden <span className="font-mono text-white">{blockedDropInfo.orden.codigo || blockedDropInfo.orden.ref}</span> en la línea seleccionada.</p>
+                <p className="text-[11px] text-red-300">
+                  El semáforo de disponibilidad está en <strong className="text-white">🔴 Falta Crítica</strong> de materias primas/componentes. La asignación directa por Drag & Drop ha sido bloqueada para prevenir paradas en planta.
+                </p>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Componentes con Falta de Stock en BOM:</span>
+                <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-800 max-h-40 overflow-y-auto">
+                  {blockedDropInfo.disp.componentes.filter(c => c.estadoItem === 'Falta').map((comp, idx) => (
+                    <div key={idx} className="p-2.5 text-xs flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-slate-200 block">{comp.nombre}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{comp.codigo}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-red-400 font-mono font-black text-xs block">{comp.disponible} / {comp.necesario} {comp.unidad}</span>
+                        <Link
+                          to={`/materias-primas?codigo=${comp.codigo}`}
+                          className="text-indigo-400 hover:text-indigo-300 underline font-mono text-[10px]"
+                        >
+                          Ir a stock →
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80 text-xs text-slate-300">
+                <p className="flex items-center gap-2 font-bold text-amber-400 mb-1">
+                  <Zap className="w-4 h-4" /> Autorización de Supervisor Requerida
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  Si ya existe una orden de aprovisionamiento en curso o un traspaso de almacén urgente, el supervisor puede forzar la programación bajo su responsabilidad.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  onClick={() => setBlockedDropInfo(null)}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-black transition-all"
+                >
+                  Cancelar / Mantener en Backlog
+                </button>
+                <button
+                  onClick={handleConfirmBlockedDrop}
+                  className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-red-900/40 transition-all"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" /> Forzar Asignación (Supervisor)
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
