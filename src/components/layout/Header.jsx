@@ -9,14 +9,20 @@ const routeTitles = {
   '/panel-operario':{ title: 'Terminal Operario · Captura Manual', sub: 'Declaración en planta de producción, paradas y consumos' },
   '/planificacion': { title: 'Planificación de Líneas',       sub: 'Gestión de capacidad y carga' },
   '/secuencia':     { title: 'Secuencia de Fabricación',      sub: 'Órdenes MTO priorizadas' },
-  '/lineas':        { title: 'Líneas de Producción',          sub: 'Estado y OEE por línea' },
+  '/lineas':        { title: 'Líneas de Producción',          sub: 'Estado y OEE por línea · Asignación en vivo de personal' },
+  '/operarios':     { title: 'Operarios & Plantilla',         sub: 'Fichas individuales, skills y asignación de turno por línea' },
+  '/cualificaciones':{ title: 'Skills, Formación & Permisos',  sub: 'Catálogo Maestro de Cualificaciones y Matriz de Competencias' },
+  '/productos':     { title: 'Catálogo de Productos y BOM',   sub: 'Listado de productos terminados, fórmulas y escandallos' },
   '/produccion':    { title: 'Producción',                    sub: 'Seguimiento producción real vs objetivo' },
   '/calidad':       { title: 'Calidad',                       sub: 'FPY · Scrap · Retrabajos' },
   '/paradas':       { title: 'Paradas',                       sub: 'Registro y análisis de paradas' },
+  '/mantenimiento': { title: 'Mantenimiento & Activos (GMAO)',sub: 'Gestión de OT, repuestos y sensores predictivos' },
   '/materias-primas':{ title: 'Materias Primas',              sub: 'Stock · Consumo · Pedidos pendientes' },
   '/informes':      { title: 'Informes',                      sub: 'Generación y exportación de informes' },
   '/alertas':       { title: 'Centro de Alertas',             sub: 'Notificaciones activas' },
-  '/metricas':      { title: 'Métricas del Dashboard',         sub: 'Configura widgets y umbrales del panel' },
+  '/metricas':      { title: 'Métricas del Dashboard',        sub: 'Configura widgets y umbrales del panel' },
+  '/historial':     { title: 'Historial de Operaciones',      sub: 'Auditoría y trazabilidad' },
+  '/configuracion': { title: 'Configuración de Empresa',      sub: 'Preferencias, turnos y personalización' },
 };
 
 export default function Header() {

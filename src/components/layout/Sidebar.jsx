@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings, Boxes, Wrench
+  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings, Boxes, Wrench, Award
 } from 'lucide-react';
 import { alertas } from '@/data/mockAlertas';
 import { useAppConfig } from '@/services/configService';
@@ -12,7 +12,7 @@ import { getCurrentShiftInfo } from '@/services/dataService';
 const ICON_MAP = {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users, Boxes,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, SlidersHorizontal, Cpu, History, Settings, Wrench
+  Bell, SlidersHorizontal, Cpu, History, Settings, Wrench, Award
 };
 
 const navItems = [
@@ -22,6 +22,7 @@ const navItems = [
   { path: '/secuencia',          label: 'Secuencia',            iconName: 'ListOrdered' },
   { path: '/lineas',             label: 'Líneas',               iconName: 'Factory' },
   { path: '/operarios',          label: 'Operarios',            iconName: 'Users' },
+  { path: '/cualificaciones',    label: 'Skills & Formación',   iconName: 'Award' },
   { path: '/productos',          label: 'Productos',            iconName: 'Boxes' },
   { path: '/produccion',         label: 'Producción',           iconName: 'BarChart2' },
   { path: '/calidad',            label: 'Calidad',              iconName: 'CheckSquare' },

@@ -10,6 +10,7 @@ import { kpis as mockKpis } from '@/data/mockDashboard';
 import { historialProduccion as mockHistorial } from '@/data/mockHistorial';
 import { mockProductos } from '@/data/mockProductos';
 import { operarios as mockOperarios } from '@/data/mockOperarios';
+import { skillsMasterIniciales, formacionesMasterIniciales, permisosMasterIniciales } from '@/data/mockCualificaciones';
 import { ordenesTrabajoIniciales, activosJerarquia as mockActivos, planesPreventivosIniciales, sensoresPredictivosIniciales, repuestosAlmacenIniciales } from '@/data/mockMantenimiento';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -1850,6 +1851,7 @@ export async function insertOperario(operario) {
   const newItem = { ...operario, id: operario.id || `OP-${String(Date.now()).slice(-4)}` };
   const updated = [...current, newItem];
   setOperariosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('operarios_updated'));
   return { data: newItem, error: null };
 }
 
@@ -1857,12 +1859,16 @@ export async function updateOperario(id, operario) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('operarios').update(operario).eq('id', id).select().single();
-      if (!error && data) return { data, error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('operarios_updated'));
+        return { data, error: null };
+      }
     } catch (e) {}
   }
   const current = getOperariosLocal() || mockOperarios;
   const updated = current.map(o => o.id === id ? { ...o, ...operario } : o);
   setOperariosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('operarios_updated'));
   return { data: updated.find(o => o.id === id), error: null };
 }
 
@@ -1870,13 +1876,57 @@ export async function deleteOperario(id) {
   if (isSupabaseConfigured()) {
     try {
       const { error } = await supabase.from('operarios').delete().eq('id', id);
-      if (!error) return { error: null };
+      if (!error) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('operarios_updated'));
+        return { error: null };
+      }
     } catch (e) {}
   }
   const current = getOperariosLocal() || mockOperarios;
   const updated = current.filter(o => o.id !== id);
   setOperariosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('operarios_updated'));
   return { error: null };
+}
+
+// ─── CATÁLOGO MAESTRO DE CUALIFICACIONES, SKILLS, FORMACIONES Y PERMISOS ────
+export function getCatalogoSkills() {
+  try {
+    const r = localStorage.getItem('mes_catalogo_skills');
+    return r ? JSON.parse(r) : skillsMasterIniciales;
+  } catch (_) { return skillsMasterIniciales; }
+}
+export function saveCatalogoSkills(lista) {
+  try {
+    localStorage.setItem('mes_catalogo_skills', JSON.stringify(lista));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('cualificaciones_updated'));
+  } catch (_) {}
+}
+
+export function getCatalogoFormaciones() {
+  try {
+    const r = localStorage.getItem('mes_catalogo_formaciones');
+    return r ? JSON.parse(r) : formacionesMasterIniciales;
+  } catch (_) { return formacionesMasterIniciales; }
+}
+export function saveCatalogoFormaciones(lista) {
+  try {
+    localStorage.setItem('mes_catalogo_formaciones', JSON.stringify(lista));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('cualificaciones_updated'));
+  } catch (_) {}
+}
+
+export function getCatalogoPermisos() {
+  try {
+    const r = localStorage.getItem('mes_catalogo_permisos');
+    return r ? JSON.parse(r) : permisosMasterIniciales;
+  } catch (_) { return permisosMasterIniciales; }
+}
+export function saveCatalogoPermisos(lista) {
+  try {
+    localStorage.setItem('mes_catalogo_permisos', JSON.stringify(lista));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('cualificaciones_updated'));
+  } catch (_) {}
 }
 
 // ─── MANTENIMIENTO INTEGRAL (GMAO / OTs / Activos / Repuestos) ───────────────
