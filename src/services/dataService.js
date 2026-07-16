@@ -26,7 +26,38 @@ function mapLinea(l) {
   };
 }
 
-function mapMaterial(m) {
+export function getImagenGuardada(key) {
+  if (!key) return null;
+  try {
+    const mapStr = localStorage.getItem('mes_imagenes_asociadas');
+    if (mapStr) {
+      const map = JSON.parse(mapStr);
+      if (map[key]) return map[key];
+    }
+  } catch (_) {}
+  return null;
+}
+
+export function setImagenGuardada(key, dataUrl) {
+  if (!key) return;
+  try {
+    const mapStr = localStorage.getItem('mes_imagenes_asociadas');
+    const map = mapStr ? JSON.parse(mapStr) : {};
+    if (dataUrl) {
+      map[key] = dataUrl;
+    } else {
+      delete map[key];
+    }
+    localStorage.setItem('mes_imagenes_asociadas', JSON.stringify(map));
+  } catch (e) {
+    console.warn('Error al guardar imagen en localStorage:', e);
+  }
+}
+
+export function mapMaterial(m) {
+  if (!m) return m;
+  const img = getImagenGuardada(m.codigo) || getImagenGuardada(m.id) || m.imagen || '';
+  if (img && !m.imagen) m.imagen = img;
   return {
     ...m,
     stockActual: m.stock_actual ?? m.stockActual ?? 0,
@@ -35,6 +66,21 @@ function mapMaterial(m) {
     pedidoPendiente: m.pedido_pendiente ?? m.pedidoPendiente ?? 0,
     fechaEntrega: m.fecha_entrega ?? m.fechaEntrega,
     stockReservado: m.stock_reservado ?? m.stockReservado ?? 0,
+    imagen: img,
+  };
+}
+
+export function mapProducto(p) {
+  if (!p) return p;
+  const img = getImagenGuardada(p.codigo) || getImagenGuardada(p.id) || p.imagen || '';
+  const bom = (p && Array.isArray(p.bom)) ? p.bom.map(b => ({
+    ...b,
+    imagen: getImagenGuardada(b.codigo) || b.imagen || ''
+  })) : p.bom;
+  return {
+    ...p,
+    imagen: img,
+    bom: bom
   };
 }
 
@@ -435,20 +481,29 @@ export async function deleteSecuencia(id) {
 
 export async function insertMaterial(material) {
   const newMat = mapMaterial({ ...material, id: material.id || Date.now(), stockReservado: material.stockReservado || 0 });
-  if (isSupabaseConfigured()) {
-    const { data, error } = await supabase.from('materias_primas').insert([materialToDb(newMat)]).select().single();
-    if (!error && data) return { data: mapMaterial(data), error: null };
+  if (newMat.imagen !== undefined) {
+    setImagenGuardada(newMat.codigo, newMat.imagen);
+    setImagenGuardada(newMat.id, newMat.imagen);
   }
   const local = (getMateriasLocal() || mockMateriasPrimas.map(mapMaterial));
   local.push(newMat);
   setMateriasLocal(local);
+
+  if (isSupabaseConfigured()) {
+    try {
+      const dbPayload = materialToDb(newMat);
+      delete dbPayload.imagen;
+      const { data, error } = await supabase.from('materias_primas').insert([dbPayload]).select().single();
+      if (!error && data) return { data: mapMaterial({ ...data, imagen: newMat.imagen }), error: null };
+    } catch (e) {}
+  }
   return { data: newMat, error: null };
 }
 
 export async function updateMaterial(id, material) {
-  if (isSupabaseConfigured()) {
-    const { data, error } = await supabase.from('materias_primas').update(materialToDb(material)).eq('id', id).select().single();
-    if (!error && data) return { data: mapMaterial(data), error: null };
+  if (material.imagen !== undefined) {
+    setImagenGuardada(material.codigo, material.imagen);
+    setImagenGuardada(id, material.imagen);
   }
   const local = (getMateriasLocal() || mockMateriasPrimas.map(mapMaterial));
   let updated = null;
@@ -460,7 +515,16 @@ export async function updateMaterial(id, material) {
     return m;
   });
   setMateriasLocal(next);
-  return { data: updated, error: null };
+
+  if (isSupabaseConfigured()) {
+    try {
+      const dbPayload = materialToDb(material);
+      delete dbPayload.imagen;
+      const { data, error } = await supabase.from('materias_primas').update(dbPayload).eq('id', id).select().single();
+      if (!error && data) return { data: mapMaterial({ ...data, imagen: material.imagen }), error: null };
+    } catch (e) {}
+  }
+  return { data: updated || mapMaterial({ id, ...material }), error: null };
 }
 
 export async function deleteMaterial(id) {
@@ -822,44 +886,67 @@ export async function fetchProductos() {
         .from('productos')
         .select('*')
         .order('codigo', { ascending: true });
-      if (!error && data && data.length > 0) return { data, fromSupabase: true };
+      if (!error && data && data.length > 0) return { data: data.map(mapProducto), fromSupabase: true };
     } catch (e) { console.warn('Fallback a localStorage/mock productos:', e); }
   }
   // Intentar localStorage primero, si no usar mock
   const local = getProductosLocal();
-  if (local) return { data: local, fromSupabase: false };
+  if (local) return { data: local.map(mapProducto), fromSupabase: false };
   // Inicializar localStorage con mock
-  setProductosLocal(mockProductos);
-  return { data: mockProductos, fromSupabase: false };
+  const inicial = mockProductos.map(mapProducto);
+  setProductosLocal(inicial);
+  return { data: inicial, fromSupabase: false };
 }
 
 export async function insertProducto(producto) {
-  if (isSupabaseConfigured()) {
-    try {
-      const { data, error } = await supabase.from('productos').insert([producto]).select().single();
-      if (!error && data) return { data, error: null };
-    } catch (e) {}
+  if (producto.imagen !== undefined) {
+    setImagenGuardada(producto.codigo, producto.imagen);
+    if (producto.id) setImagenGuardada(producto.id, producto.imagen);
   }
-  // LocalStorage fallback
-  const current = getProductosLocal() || mockProductos;
-  const newItem = { ...producto, id: `P${Date.now()}` };
+  if (Array.isArray(producto.bom)) {
+    producto.bom.forEach(b => {
+      if (b.imagen !== undefined) setImagenGuardada(b.codigo, b.imagen);
+    });
+  }
+  const current = getProductosLocal() || mockProductos.map(mapProducto);
+  const newItem = mapProducto({ ...producto, id: producto.id || `P${Date.now()}` });
   const updated = [...current, newItem];
   setProductosLocal(updated);
+
+  if (isSupabaseConfigured()) {
+    try {
+      const dbPayload = { ...newItem };
+      delete dbPayload.imagen;
+      const { data, error } = await supabase.from('productos').insert([dbPayload]).select().single();
+      if (!error && data) return { data: mapProducto({ ...data, imagen: newItem.imagen, bom: newItem.bom }), error: null };
+    } catch (e) {}
+  }
   return { data: newItem, error: null };
 }
 
 export async function updateProducto(id, producto) {
+  if (producto.imagen !== undefined) {
+    setImagenGuardada(producto.codigo, producto.imagen);
+    setImagenGuardada(id, producto.imagen);
+  }
+  if (Array.isArray(producto.bom)) {
+    producto.bom.forEach(b => {
+      if (b.imagen !== undefined) setImagenGuardada(b.codigo, b.imagen);
+    });
+  }
+  const current = getProductosLocal() || mockProductos.map(mapProducto);
+  const updated = current.map(p => p.id === id ? mapProducto({ ...p, ...producto }) : p);
+  setProductosLocal(updated);
+
   if (isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase.from('productos').update(producto).eq('id', id).select().single();
-      if (!error && data) return { data, error: null };
+      const dbPayload = { ...producto };
+      delete dbPayload.imagen;
+      const { data, error } = await supabase.from('productos').update(dbPayload).eq('id', id).select().single();
+      if (!error && data) return { data: mapProducto({ ...data, imagen: producto.imagen, bom: producto.bom }), error: null };
     } catch (e) {}
   }
-  // LocalStorage fallback
-  const current = getProductosLocal() || mockProductos;
-  const updated = current.map(p => p.id === id ? { ...p, ...producto } : p);
-  setProductosLocal(updated);
-  return { data: updated.find(p => p.id === id), error: null };
+  return { data: updated.find(p => p.id === id) || mapProducto({ id, ...producto }), error: null };
 }
 
 export async function deleteProducto(id) {

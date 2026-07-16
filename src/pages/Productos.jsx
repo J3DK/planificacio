@@ -85,7 +85,8 @@ export default function Productos() {
       activo: true,
       notas: 'Utillajes estándar e inspección de calidad final obligatoria.',
       bomPendiente: true,
-      bom: []
+      bom: [],
+      imagen: ''
     });
     setActiveTab('general');
     setModalMode('create');
@@ -643,6 +644,40 @@ export default function Productos() {
                       />
                     </div>
 
+                    {/* Imagen / Foto del Producto */}
+                    <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        {form.imagen ? (
+                          <img src={form.imagen} alt={form.codigo} className="w-14 h-14 rounded-xl object-cover border border-slate-700 shadow bg-slate-900 shrink-0" />
+                        ) : (
+                          <div className="w-14 h-14 rounded-xl border border-dashed border-slate-700 bg-slate-900/60 flex items-center justify-center text-slate-500 text-[9px] font-black shrink-0 text-center">
+                            Sin foto
+                          </div>
+                        )}
+                        <div>
+                          <span className="block text-xs font-bold text-slate-200">Imagen / Foto del Producto</span>
+                          <span className="text-[11px] text-slate-400">Sube o modifica la foto principal de esta referencia.</span>
+                        </div>
+                      </div>
+                      <label className="cursor-pointer px-3.5 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-xs font-black flex items-center gap-1.5 transition-all border border-blue-500/30 shrink-0">
+                        <span>📷 Seleccionar Foto</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = event => {
+                              setForm(prev => ({ ...prev, imagen: event.target.result }));
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                    </div>
+
                     {/* Cliente y Estado */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -744,34 +779,6 @@ export default function Productos() {
                             ) : (
                               <span className="text-[8px] font-black text-slate-500 text-center">Sin foto</span>
                             )}
-                            <label
-                              htmlFor={`add-bom-upload-${newBomMat}`}
-                              className="absolute inset-0 bg-blue-600/80 hover:bg-blue-600 text-white flex items-center justify-center opacity-0 hover:opacity-100 cursor-pointer transition-opacity"
-                              title="Subir / cambiar foto de este componente"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                              <input
-                                id={`add-bom-upload-${newBomMat}`}
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={async e => {
-                                  const file = e.target.files?.[0];
-                                  if (!file) return;
-                                  const reader = new FileReader();
-                                  reader.onload = async event => {
-                                    const dataUrl = event.target.result;
-                                    const mat = materias.find(m => m.codigo === newBomMat);
-                                    if (mat && mat.id) {
-                                      await updateMaterial(mat.id, { ...mat, imagen: dataUrl });
-                                      window.dispatchEvent(new CustomEvent('materiales_updated'));
-                                    }
-                                    showToast(`Archivo subido para materia prima [${newBomMat}]`);
-                                  };
-                                  reader.readAsDataURL(file);
-                                }}
-                              />
-                            </label>
                           </div>
                         )}
                         <div className="flex-1 w-full">
@@ -847,7 +854,7 @@ export default function Productos() {
                                   <tr key={item.codigo} className="hover:bg-slate-900/40">
                                     <td className="py-2.5 px-3 font-mono font-bold text-blue-400">{item.codigo}</td>
                                     <td className="py-2.5 px-3 text-center">
-                                      <div className="flex items-center justify-center gap-2">
+                                      <div className="flex items-center justify-center">
                                         {matImg ? (
                                           <img src={matImg} alt={item.codigo} className="w-10 h-10 rounded-xl object-cover border border-slate-700 shadow bg-slate-950 shrink-0" />
                                         ) : (
@@ -855,20 +862,6 @@ export default function Productos() {
                                             Sin foto
                                           </div>
                                         )}
-                                        <label
-                                          htmlFor={`modal-bom-upload-${item.codigo}`}
-                                          className="cursor-pointer px-2 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-[10px] font-black flex items-center gap-1 transition-all border border-blue-500/30 shrink-0"
-                                          title="Subir archivo / cambiar foto para este componente"
-                                        >
-                                          <span>📷 Subir</span>
-                                          <input
-                                            id={`modal-bom-upload-${item.codigo}`}
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={e => handleUploadBomItemImage(item.codigo, e)}
-                                          />
-                                        </label>
                                       </div>
                                     </td>
                                     <td className="py-2.5 px-3 text-slate-200">{item.descripcion}</td>
