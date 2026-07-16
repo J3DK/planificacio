@@ -11,6 +11,7 @@ import ConfirmDialog from '@/components/shared/ConfirmDialog';
 const MATERIAL_FIELDS = [
   { key: 'codigo',           label: 'Código',              type: 'text',   required: true, placeholder: 'CAB-6MM-001' },
   { key: 'descripcion',      label: 'Descripción',         type: 'text',   required: true, placeholder: 'Cable 6mm² negro...' },
+  { key: 'imagen',           label: 'Imagen / Foto (Subir archivo)', type: 'image_upload' },
   { key: 'unidad',           label: 'Unidad',              type: 'select', required: true,
     options: ['ud', 'rollo', 'caja', 'par', 'kg', 'm'] },
   { key: 'stockActual',      label: 'Stock Actual',        type: 'number', min: 0, default: 0 },
@@ -207,8 +208,8 @@ export default function MateriasPrimas() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-800">
-                  {['Código', 'Descripción', 'Stock Actual', 'Comprometido / Disp. Real', 'Compromiso (%)', 'Mín/Máx', 'Criticidad', 'Proveedor', ''].map(h => (
-                    <th key={h} className={`table-header text-left ${h === 'Código' ? 'whitespace-nowrap min-w-[140px] w-[140px] shrink-0' : ''}`}>{h}</th>
+                  {['Código', 'Imagen', 'Descripción', 'Stock Actual', 'Comprometido / Disp. Real', 'Compromiso (%)', 'Mín/Máx', 'Criticidad', 'Proveedor', ''].map(h => (
+                    <th key={h} className={`table-header text-left ${h === 'Código' ? 'whitespace-nowrap min-w-[140px] w-[140px] shrink-0' : h === 'Imagen' ? 'w-[60px] text-center' : ''}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -225,6 +226,43 @@ export default function MateriasPrimas() {
                   return (
                     <tr key={m.id} className={`hover:bg-slate-800/30 transition-colors group ${isHighlighted ? 'bg-blue-500/10 border-l-4 border-blue-500' : ''}`}>
                       <td className="table-cell font-mono text-xs text-blue-400 font-bold whitespace-nowrap min-w-[140px] w-[140px] shrink-0">{m.codigo}</td>
+                      <td className="table-cell text-center">
+                        <div className="relative inline-block group/img">
+                          {m.imagen ? (
+                            <img src={m.imagen} alt={m.codigo} className="w-10 h-10 rounded-xl object-cover border border-slate-700 shadow bg-slate-900 mx-auto" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl border border-dashed border-slate-700 bg-slate-800/40 flex items-center justify-center text-slate-500 text-[9px] font-semibold mx-auto">
+                              Sin foto
+                            </div>
+                          )}
+                          <label
+                            htmlFor={`mat-upload-${m.id}`}
+                            className="absolute -bottom-1 -right-1 p-1 rounded-full bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow-md opacity-0 group-hover/img:opacity-100 transition-all scale-75 group-hover/img:scale-100"
+                            title="Subir / cambiar foto"
+                          >
+                            <Pencil className="w-2.5 h-2.5" />
+                            <input
+                              id={`mat-upload-${m.id}`}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async e => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = async event => {
+                                  const dataUrl = event.target.result;
+                                  await updateMaterial(m.id, { ...m, imagen: dataUrl });
+                                  loadData();
+                                  window.dispatchEvent(new CustomEvent('materiales_updated'));
+                                  window.dispatchEvent(new CustomEvent('bom_updated'));
+                                };
+                                reader.readAsDataURL(file);
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </td>
                       <td className="table-cell text-slate-300 text-xs max-w-[170px]">
                         <p className="truncate font-semibold">{m.descripcion}</p>
                         <p className="text-[10px] text-slate-500 mt-0.5">{m.unidad}</p>

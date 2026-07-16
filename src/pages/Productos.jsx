@@ -115,7 +115,8 @@ export default function Productos() {
       codigo: mat.codigo,
       descripcion: mat.descripcion || mat.codigo,
       unidad: mat.unidad || 'ud',
-      factor: Math.max(0.001, Number(newBomFactor) || 1)
+      factor: Math.max(0.001, Number(newBomFactor) || 1),
+      imagen: mat.imagen || ''
     });
     setForm({ ...form, bom: currentBom, bomPendiente: false });
     setNewBomMat('');
@@ -134,6 +135,46 @@ export default function Productos() {
       ...form,
       bom: currentBom.map(item => item.codigo === codigo ? { ...item, factor: Math.max(0.001, Number(factor) || 0) } : item)
     });
+  };
+
+  const handleUploadBomItemImage = async (codigo, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target.result;
+      const currentBom = Array.isArray(form.bom) ? [...form.bom] : [];
+      const nextBom = currentBom.map(item => item.codigo === codigo ? { ...item, imagen: dataUrl } : item);
+      setForm(prev => ({ ...prev, bom: nextBom }));
+      
+      const mat = materias.find(m => m.codigo === codigo);
+      if (mat && mat.id) {
+        await updateMaterial(mat.id, { ...mat, imagen: dataUrl });
+        window.dispatchEvent(new CustomEvent('materiales_updated'));
+      }
+      showToast(`Archivo subido y asignado al componente BOM [${codigo}]`);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadProductImage = async (id, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target.result;
+      const target = id ? productos.find(p => p.id === id) : null;
+      if (target) {
+        const next = { ...target, imagen: dataUrl };
+        await updateProducto(id, next);
+        setProductos(prev => prev.map(p => p.id === id ? next : p));
+        showToast(`Imagen principal subida para producto [${target.codigo}]`);
+      } else {
+        setForm(prev => ({ ...prev, imagen: dataUrl }));
+        showToast('Imagen cargada al formulario del producto');
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSave = async (e) => {
@@ -332,15 +373,41 @@ export default function Productos() {
                       {p.familia || 'General'}
                     </span>
                   </div>
-                  {p.activo ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                      <CheckCircle2 className="w-3 h-3" /> Activo
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-red-400 bg-red-500/10 border border-red-500/30 px-2 py-0.5 rounded-full">
-                      <XCircle className="w-3 h-3" /> Discontinuado
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* Foto Producto + Subir */}
+                    <div className="relative group/prodimg">
+                      {p.imagen ? (
+                        <img src={p.imagen} alt={p.codigo} className="w-8 h-8 rounded-lg object-cover border border-slate-700 shadow bg-slate-950" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-lg border border-dashed border-slate-700 bg-slate-950/60 flex items-center justify-center text-slate-500 text-[8px] font-black">
+                          Foto
+                        </div>
+                      )}
+                      <label
+                        htmlFor={`prod-upload-${p.id}`}
+                        className="absolute -bottom-1 -right-1 p-1 rounded-full bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow opacity-0 group-hover/prodimg:opacity-100 transition-all scale-75 group-hover/prodimg:scale-100"
+                        title="Subir archivo / cambiar foto producto"
+                      >
+                        <Edit2 className="w-2.5 h-2.5" />
+                        <input
+                          id={`prod-upload-${p.id}`}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => handleUploadProductImage(p.id, e)}
+                        />
+                      </label>
+                    </div>
+                    {p.activo ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                        <CheckCircle2 className="w-3 h-3" /> Activo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-red-400 bg-red-500/10 border border-red-500/30 px-2 py-0.5 rounded-full">
+                        <XCircle className="w-3 h-3" /> Discontinuado
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Descripción y Cliente */}
@@ -364,6 +431,62 @@ export default function Productos() {
                     </span>
                   )}
                 </div>
+
+                {/* BOM Visual - Lista de componentes con foto y subida */}
+                {p.bom && p.bom.length > 0 && (
+                  <div className="mb-4 bg-slate-950/90 rounded-2xl p-3 border border-slate-800/80 shadow-inner">
+                    <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-800/60">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <Layers3 className="w-3 h-3 text-blue-400" /> Componentes BOM (Identificación Visual)
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-500 bg-slate-900 px-1.5 py-0.5 rounded">{p.bom.length} ítems</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                      {p.bom.map((b, idx) => {
+                        const matImg = b.imagen || materias.find(m => m.codigo === b.codigo)?.imagen;
+                        return (
+                          <div key={b.codigo || idx} className="flex items-center gap-2.5 bg-slate-900/90 p-2 rounded-xl border border-slate-800/80 hover:border-blue-500/40 transition-all group/item">
+                            <div className="relative shrink-0">
+                              {matImg ? (
+                                <img src={matImg} alt={b.codigo} className="w-9 h-9 rounded-lg object-cover border border-slate-700 bg-slate-950" />
+                              ) : (
+                                <div className="w-9 h-9 rounded-lg border border-dashed border-slate-700 bg-slate-950/60 flex items-center justify-center text-slate-500 text-[8px] font-black text-center leading-none">
+                                  Sin foto
+                                </div>
+                              )}
+                              <label
+                                htmlFor={`card-bom-upload-${p.id}-${b.codigo}`}
+                                className="absolute -bottom-1 -right-1 p-1 rounded-full bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow opacity-0 group-hover/item:opacity-100 transition-all scale-75 group-hover/item:scale-100"
+                                title="Subir archivo / cambiar foto del componente"
+                              >
+                                <Edit2 className="w-2.5 h-2.5" />
+                                <input
+                                  id={`card-bom-upload-${p.id}-${b.codigo}`}
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={e => {
+                                    handleUploadBomItemImage(b.codigo, e);
+                                    // También se actualiza la vista en local si es de este producto
+                                    const nextBom = p.bom.map(x => x.codigo === b.codigo ? { ...x } : x);
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-mono font-bold text-blue-300 truncate">{b.codigo}</p>
+                              <p className="text-[10px] text-slate-400 font-semibold truncate">{b.descripcion}</p>
+                            </div>
+                            <div className="text-right shrink-0 bg-slate-950/60 px-2 py-1 rounded-lg border border-slate-800/60">
+                              <span className="text-xs font-mono font-black text-emerald-400">{b.factor}</span>
+                              <span className="text-[9px] text-slate-500 block leading-tight">{b.unidad}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Parámetros de Cadencia y Peso */}
                 <div className="grid grid-cols-3 gap-2 bg-slate-950/90 rounded-2xl p-3 border border-slate-800/80 mb-4 text-center">
@@ -614,6 +737,43 @@ export default function Productos() {
                       </p>
 
                       <div className="flex flex-col sm:flex-row gap-2.5 items-end">
+                        {newBomMat && (
+                          <div className="relative shrink-0 flex items-center justify-center bg-slate-900 border border-slate-700 rounded-xl w-10 h-10 overflow-hidden shadow">
+                            {materias.find(m => m.codigo === newBomMat)?.imagen ? (
+                              <img src={materias.find(m => m.codigo === newBomMat)?.imagen} alt={newBomMat} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[8px] font-black text-slate-500 text-center">Sin foto</span>
+                            )}
+                            <label
+                              htmlFor={`add-bom-upload-${newBomMat}`}
+                              className="absolute inset-0 bg-blue-600/80 hover:bg-blue-600 text-white flex items-center justify-center opacity-0 hover:opacity-100 cursor-pointer transition-opacity"
+                              title="Subir / cambiar foto de este componente"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                              <input
+                                id={`add-bom-upload-${newBomMat}`}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={async e => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  const reader = new FileReader();
+                                  reader.onload = async event => {
+                                    const dataUrl = event.target.result;
+                                    const mat = materias.find(m => m.codigo === newBomMat);
+                                    if (mat && mat.id) {
+                                      await updateMaterial(mat.id, { ...mat, imagen: dataUrl });
+                                      window.dispatchEvent(new CustomEvent('materiales_updated'));
+                                    }
+                                    showToast(`Archivo subido para materia prima [${newBomMat}]`);
+                                  };
+                                  reader.readAsDataURL(file);
+                                }}
+                              />
+                            </label>
+                          </div>
+                        )}
                         <div className="flex-1 w-full">
                           <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Componente / Materia Prima</label>
                           <select
@@ -644,7 +804,7 @@ export default function Productos() {
                           type="button"
                           onClick={handleAddBomItem}
                           disabled={!newBomMat}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-black text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 flex-shrink-0"
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-black text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 flex-shrink-0 shadow-md shadow-blue-900/40"
                         >
                           <Plus className="w-3.5 h-3.5" /> Añadir
                         </button>
@@ -673,6 +833,7 @@ export default function Productos() {
                             <thead className="bg-slate-900/50 border-b border-slate-800 text-[10px] uppercase text-slate-400 sticky top-0">
                               <tr>
                                 <th className="py-2 px-3">Código</th>
+                                <th className="py-2 px-3 text-center">Imagen / Foto</th>
                                 <th className="py-2 px-3">Descripción</th>
                                 <th className="py-2 px-3 text-center">Cantidad por Unidad</th>
                                 <th className="py-2 px-3 text-center">Unidad</th>
@@ -680,33 +841,61 @@ export default function Productos() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/80 font-medium">
-                              {(form.bom || []).map(item => (
-                                <tr key={item.codigo} className="hover:bg-slate-900/40">
-                                  <td className="py-2.5 px-3 font-mono font-bold text-blue-400">{item.codigo}</td>
-                                  <td className="py-2.5 px-3 text-slate-200">{item.descripcion}</td>
-                                  <td className="py-2.5 px-3 text-center">
-                                    <input
-                                      type="number"
-                                      step="0.001"
-                                      min="0.001"
-                                      value={item.factor || 1}
-                                      onChange={e => handleUpdateBomFactor(item.codigo, e.target.value)}
-                                      className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono font-bold text-emerald-400 text-center focus:outline-none focus:border-blue-500"
-                                    />
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center text-slate-400 font-mono">{item.unidad}</td>
-                                  <td className="py-2.5 px-3 text-right">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveBomItem(item.codigo)}
-                                      className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
-                                      title="Eliminar del BOM"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
+                              {(form.bom || []).map(item => {
+                                const matImg = item.imagen || materias.find(m => m.codigo === item.codigo)?.imagen;
+                                return (
+                                  <tr key={item.codigo} className="hover:bg-slate-900/40">
+                                    <td className="py-2.5 px-3 font-mono font-bold text-blue-400">{item.codigo}</td>
+                                    <td className="py-2.5 px-3 text-center">
+                                      <div className="flex items-center justify-center gap-2">
+                                        {matImg ? (
+                                          <img src={matImg} alt={item.codigo} className="w-10 h-10 rounded-xl object-cover border border-slate-700 shadow bg-slate-950 shrink-0" />
+                                        ) : (
+                                          <div className="w-10 h-10 rounded-xl border border-dashed border-slate-700 bg-slate-950/60 flex items-center justify-center text-slate-500 text-[8px] font-black shrink-0 text-center">
+                                            Sin foto
+                                          </div>
+                                        )}
+                                        <label
+                                          htmlFor={`modal-bom-upload-${item.codigo}`}
+                                          className="cursor-pointer px-2 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-[10px] font-black flex items-center gap-1 transition-all border border-blue-500/30 shrink-0"
+                                          title="Subir archivo / cambiar foto para este componente"
+                                        >
+                                          <span>📷 Subir</span>
+                                          <input
+                                            id={`modal-bom-upload-${item.codigo}`}
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={e => handleUploadBomItemImage(item.codigo, e)}
+                                          />
+                                        </label>
+                                      </div>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-slate-200">{item.descripcion}</td>
+                                    <td className="py-2.5 px-3 text-center">
+                                      <input
+                                        type="number"
+                                        step="0.001"
+                                        min="0.001"
+                                        value={item.factor || 1}
+                                        onChange={e => handleUpdateBomFactor(item.codigo, e.target.value)}
+                                        className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono font-bold text-emerald-400 text-center focus:outline-none focus:border-blue-500"
+                                      />
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center text-slate-400 font-mono">{item.unidad}</td>
+                                    <td className="py-2.5 px-3 text-right">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveBomItem(item.codigo)}
+                                        className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+                                        title="Eliminar del BOM"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>

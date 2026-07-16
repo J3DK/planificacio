@@ -80,6 +80,7 @@ function materialToDb(m) {
     criticidad: m.criticidad,
     proveedor: m.proveedor,
     stock_reservado: m.stockReservado ?? m.stock_reservado ?? 0,
+    imagen: m.imagen,
   };
 }
 

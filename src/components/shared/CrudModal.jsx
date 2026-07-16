@@ -172,7 +172,54 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
                     />
                   )}
 
-                  {!['select', 'badge-select', 'textarea', 'multi-select', 'tag-list'].includes(field.type) && (
+                  {/* image_upload: subida de archivos de imagen locales con FileReader y preview */}
+                  {field.type === 'image_upload' && (
+                    <div className="space-y-2.5 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                      <div className="flex items-center gap-4">
+                        {formData[field.key] ? (
+                          <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-700 shadow-md flex-shrink-0 bg-slate-900">
+                            <img src={formData[field.key]} alt="Vista previa" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => handleChange(field.key, '')}
+                              className="absolute top-1 right-1 p-1 bg-red-600/90 hover:bg-red-600 text-white rounded-full shadow transition-colors"
+                              title="Eliminar imagen"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 rounded-xl border border-dashed border-slate-700 bg-slate-800/40 flex items-center justify-center text-slate-500 text-[10px] flex-shrink-0 text-center p-1 font-semibold">
+                            Sin foto
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white font-black text-xs transition-all border border-blue-500/30 shadow-sm">
+                            <span>{formData[field.key] ? '🔄 Cambiar archivo de imagen' : '📷 Subir archivo de imagen'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = event => {
+                                  handleChange(field.key, event.target.result);
+                                };
+                                reader.readAsDataURL(file);
+                              }}
+                            />
+                          </label>
+                          <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                            Sube cualquier archivo (PNG, JPG, SVG, WEBP). Se vinculará para rápida identificación.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {!['select', 'badge-select', 'textarea', 'multi-select', 'tag-list', 'image_upload'].includes(field.type) && (
                     <input
                       type={field.type || 'text'}
                       value={formData[field.key] ?? ''}
