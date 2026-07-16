@@ -7,7 +7,8 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Clock, ClipboardList,
-  MessageSquare, AlertTriangle, CheckCircle2, ArrowUp, ArrowDown, Wrench
+  MessageSquare, AlertTriangle, CheckCircle2, ArrowUp, ArrowDown, Wrench,
+  X, Sliders, RefreshCw, Layers
 } from 'lucide-react';
 import {
   kpis, cumplimientoAcumulado, produccionPorHora,
@@ -15,7 +16,7 @@ import {
 } from '@/data/mockDashboard';
 import { alertas as mockAlertas } from '@/data/mockAlertas';
 import KPICard from '@/components/shared/KPICard';
-import { fetchLineas, fetchMateriasPrimas, fetchCalidad } from '@/services/dataService';
+import { fetchLineas, fetchMateriasPrimas, fetchCalidad, fetchSecuencia, updateLinea } from '@/services/dataService';
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 16 },
@@ -66,6 +67,26 @@ const SemiCircleGauge = ({ value = 0, color = '#84cc16' }) => {
 export default function Dashboard() {
   const alertasMtoCriticas = mockAlertas.filter(a => a.modulo === 'mantenimiento' && a.tipo === 'critica' && !a.leida);
 
+  const [modalFicha, setModalFicha] = useState(null); // null | 'cumplimiento' | 'tiempo'
+  const [lineasData, setLineasData] = useState([]);
+  const [guardandoLineas, setGuardandoLineas] = useState(false);
+
+  const [kpisMain, setKpisMain] = useState({
+    cumplimientoPlan: kpis.cumplimientoPlan,
+    cumplimientoPlanObjetivo: kpis.cumplimientoPlanObjetivo,
+    cumplimientoPlanVsAyer: kpis.cumplimientoPlanVsAyer,
+    produccionPlanificada: kpis.produccionPlanificada,
+    produccionReal: kpis.produccionReal,
+    desviacionAcumulada: kpis.desviacionAcumulada,
+    desviacionPct: kpis.desviacionPct,
+    ritmoReal: kpis.ritmoReal,
+    ritmoObjetivo: kpis.ritmoObjetivo,
+    tiempoRestante: kpis.tiempoRestante,
+    tiempoRestanteLabel: kpis.tiempoRestanteLabel,
+    ordenesDia: kpis.ordenesDia,
+    unidad: kpis.unidad,
+  });
+
   const [indicadores, setIndicadores] = useState({
     disponibilidad: 92.6,
     rendimiento: 97.4,
@@ -80,17 +101,77 @@ export default function Dashboard() {
     let mounted = true;
     const cargarIndicadores = async () => {
       try {
-        const [resLineas, resMat, resCal] = await Promise.all([
+        const [resLineas, resMat, resCal, resSec] = await Promise.all([
           fetchLineas(),
           fetchMateriasPrimas(),
-          fetchCalidad()
+          fetchCalidad(),
+          fetchSecuencia()
         ]);
         if (!mounted) return;
 
         const lineas = resLineas?.data || [];
         const materiales = resMat?.data || [];
         const calidadList = resCal?.data || [];
+        const secuenciaList = resSec?.data || [];
 
+        setLineasData(lineas);
+
+        // ── 1. CÁLCULO DINÁMICO DE FICHAS PRINCIPALES (ROW 1) ────────────────
+        if (lineas.length > 0) {
+          const totalPlan = lineas.reduce((acc, l) => acc + (Number(l.objetivoHoy ?? l.objetivo_hoy) || 0), 0);
+          const totalReal = lineas.reduce((acc, l) => acc + (Number(l.produccionHoy ?? l.produccion_hoy) || 0), 0);
+          
+          const cump = totalPlan > 0 ? Number(((totalReal / totalPlan) * 100).toFixed(1)) : kpis.cumplimientoPlan;
+          const desv = totalReal - totalPlan;
+          const desvPct = totalPlan > 0 ? Number(((desv / totalPlan) * 100).toFixed(1)) : kpis.desviacionPct;
+
+          const activas = lineas.filter(l => (Number(l.velocidadActual ?? l.velocidad_actual) || 0) > 0);
+          const velReal = activas.length > 0
+            ? Math.round(activas.reduce((acc, l) => acc + Number(l.velocidadActual ?? l.velocidad_actual), 0) / activas.length)
+            : kpis.ritmoReal;
+          const velObj = activas.length > 0
+            ? Math.round(activas.reduce((acc, l) => acc + Number(l.velocidadNominal ?? l.velocidad_nominal), 0) / activas.length)
+            : kpis.ritmoObjetivo;
+
+          const now = new Date();
+          const hrs = now.getHours();
+          const mins = now.getMinutes();
+          let endHr = 14;
+          let shiftName = 'Turno Mañana';
+          if (hrs >= 14 && hrs < 22) {
+            endHr = 22;
+            shiftName = 'Turno Tarde';
+          } else if (hrs >= 22 || hrs < 6) {
+            endHr = 6;
+            shiftName = 'Turno Noche';
+          }
+          let remMins = (endHr - hrs) * 60 - mins;
+          if (remMins < 0) remMins += 24 * 60;
+          const remH = Math.floor(remMins / 60);
+          const remM = remMins % 60;
+          const tRest = remH > 0 || remM > 0 ? `${remH}h ${remM.toString().padStart(2, '0')}m` : 'Completado';
+          const tLabel = `Fin de ${shiftName} (${endHr}:00)`;
+
+          const ordCount = secuenciaList.length > 0 ? secuenciaList.length : kpis.ordenesDia;
+
+          setKpisMain({
+            cumplimientoPlan: cump || 97.6,
+            cumplimientoPlanObjetivo: 100,
+            cumplimientoPlanVsAyer: +1.8,
+            produccionPlanificada: totalPlan > 0 ? totalPlan : kpis.produccionPlanificada,
+            produccionReal: totalReal > 0 ? totalReal : kpis.produccionReal,
+            desviacionAcumulada: totalPlan > 0 ? desv : kpis.desviacionAcumulada,
+            desviacionPct: totalPlan > 0 ? desvPct : kpis.desviacionPct,
+            ritmoReal: velReal || kpis.ritmoReal,
+            ritmoObjetivo: velObj || kpis.ritmoObjetivo,
+            tiempoRestante: tRest,
+            tiempoRestanteLabel: tLabel,
+            ordenesDia: ordCount,
+            unidad: 'uds',
+          });
+        }
+
+        // ── 2. CÁLCULO DE INDICADORES CLAVE DE RENDIMIENTO ───────────────────
         let disp = 92.6;
         let rend = 97.4;
         let cal = 98.8;
@@ -146,12 +227,14 @@ export default function Dashboard() {
     window.addEventListener('lineas_updated', handler);
     window.addEventListener('materiales_updated', handler);
     window.addEventListener('calidad_updated', handler);
+    window.addEventListener('secuencia_updated', handler);
 
     return () => {
       mounted = false;
       window.removeEventListener('lineas_updated', handler);
       window.removeEventListener('materiales_updated', handler);
       window.removeEventListener('calidad_updated', handler);
+      window.removeEventListener('secuencia_updated', handler);
     };
   }, []);
 
@@ -282,61 +365,110 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
-      {/* ── ROW 1: KPIs principales ─────────────────────────── */}
+      {/* ── ROW 1: KPIs principales (Interactivos y dinámicos) ─────────── */}
       <motion.div {...fadeUp(0.05)} className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-        {/* Cumplimiento plan — grande */}
-        <div className="col-span-2 md:col-span-1 xl:col-span-1 card p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent" />
-          <p className="section-title mb-3">% Cumplimiento Plan</p>
-          {/* Gauge ring */}
+        {/* Cumplimiento plan — grande e interactivo */}
+        <div
+          onClick={() => setModalFicha('cumplimiento')}
+          className="col-span-2 md:col-span-1 xl:col-span-1 card p-5 flex flex-col items-center justify-center text-center relative overflow-hidden cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 border-slate-800 hover:border-blue-500/50 shadow-lg hover:shadow-xl group"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-transparent to-transparent group-hover:from-blue-600/20 transition-all" />
+          <p className="section-title mb-3 flex items-center gap-1.5">
+            % Cumplimiento Plan <Sliders className="w-3.5 h-3.5 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </p>
           <div className="relative w-24 h-24 mb-2">
             <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
               <circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" strokeWidth="10"/>
               <circle cx="50" cy="50" r="40" fill="none" stroke="#2563eb" strokeWidth="10"
-                strokeDasharray={`${2 * Math.PI * 40 * kpis.cumplimientoPlan / 100} ${2 * Math.PI * 40}`}
+                strokeDasharray={`${2 * Math.PI * 40 * Math.min(100, Math.max(0, kpisMain.cumplimientoPlan)) / 100} ${2 * Math.PI * 40}`}
                 strokeLinecap="round" className="transition-all duration-1000"/>
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-black text-blue-400">{kpis.cumplimientoPlan}%</span>
+              <span className="text-2xl font-black text-blue-400">{kpisMain.cumplimientoPlan}%</span>
             </div>
           </div>
-          <p className="text-[10px] text-slate-500">Obj: {kpis.cumplimientoPlanObjetivo}%</p>
+          <p className="text-[10px] text-slate-500">Obj: {kpisMain.cumplimientoPlanObjetivo}%</p>
           <div className="flex items-center gap-1 mt-1 text-emerald-400 text-xs font-bold">
             <TrendingUp className="w-3 h-3" />
-            <span>vs ayer: +{kpis.cumplimientoPlanVsAyer} pp</span>
+            <span>vs ayer: +{kpisMain.cumplimientoPlanVsAyer} pp</span>
           </div>
         </div>
 
-        <KPICard title="Producción Planificada" value={kpis.produccionPlanificada.toLocaleString('es')} unit={kpis.unidad} sub="Plan del día" color="slate" />
-        <KPICard title="Producción Real" value={kpis.produccionReal.toLocaleString('es')} unit={kpis.unidad} sub="Acumulado día" color="blue" />
+        {/* Producción Planificada */}
+        <KPICard
+          title="Producción Planificada"
+          value={kpisMain.produccionPlanificada.toLocaleString('es')}
+          unit={kpisMain.unidad}
+          sub="Plan del día (Clic para ajustar)"
+          color="slate"
+          onClick={() => setModalFicha('cumplimiento')}
+        />
+
+        {/* Producción Real */}
+        <KPICard
+          title="Producción Real"
+          value={kpisMain.produccionReal.toLocaleString('es')}
+          unit={kpisMain.unidad}
+          sub="Acumulado día (En vivo)"
+          color="blue"
+          onClick={() => setModalFicha('cumplimiento')}
+        />
+
+        {/* Desviación Acumulada */}
         <KPICard
           title="Desviación Acumulada"
-          value={kpis.desviacionAcumulada}
-          unit={kpis.unidad}
-          sub={`${kpis.desviacionPct}% vs plan`}
-          color={kpis.desviacionAcumulada >= 0 ? 'green' : 'red'}
+          value={kpisMain.desviacionAcumulada > 0 ? `+${kpisMain.desviacionAcumulada}` : kpisMain.desviacionAcumulada}
+          unit={kpisMain.unidad}
+          sub={`${kpisMain.desviacionPct > 0 ? `+${kpisMain.desviacionPct}` : kpisMain.desviacionPct}% vs plan`}
+          trendValue={kpisMain.desviacionPct}
+          trend={kpisMain.desviacionAcumulada >= 0 ? 'good' : 'bad'}
+          color={kpisMain.desviacionAcumulada >= 0 ? 'green' : 'red'}
+          onClick={() => setModalFicha('cumplimiento')}
         />
-        <KPICard title="Ritmo Real" value={kpis.ritmoReal} unit="uds/h" sub={`Obj: ${kpis.ritmoObjetivo} uds/h`} color="blue" />
 
-        {/* Tiempo restante */}
-        <div className="card p-4 flex flex-col justify-between">
-          <p className="section-title">Tiempo Restante</p>
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-amber-400 flex-shrink-0" />
-            <span className="text-2xl font-black text-amber-400">{kpis.tiempoRestante}</span>
+        {/* Ritmo Real */}
+        <KPICard
+          title="Ritmo Real"
+          value={kpisMain.ritmoReal}
+          unit="uds/h"
+          sub={`Obj: ${kpisMain.ritmoObjetivo} uds/h`}
+          color="blue"
+          onClick={() => setModalFicha('cumplimiento')}
+        />
+
+        {/* Tiempo Restante */}
+        <div
+          onClick={() => setModalFicha('tiempo')}
+          className="card p-4 flex flex-col justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 hover:border-amber-500/40 shadow-lg hover:shadow-xl group relative overflow-hidden"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-transparent group-hover:from-amber-500/10 transition-all" />
+          <div className="flex items-center justify-between">
+            <p className="section-title">Tiempo Restante</p>
+            <Clock className="w-4 h-4 text-amber-400 opacity-60 group-hover:opacity-100 transition-opacity" />
           </div>
-          <p className="text-[10px] text-slate-500">{kpis.tiempoRestanteLabel}</p>
+          <div className="flex items-center gap-2 my-2">
+            <span className="text-2xl font-black text-amber-400">{kpisMain.tiempoRestante}</span>
+          </div>
+          <p className="text-[10px] text-slate-500 font-medium">{kpisMain.tiempoRestanteLabel}</p>
         </div>
 
         {/* Órdenes del día */}
-        <div className="card p-4 flex flex-col justify-between">
-          <p className="section-title">Órdenes del Día</p>
-          <div className="flex items-center gap-2">
-            <ClipboardList className="w-5 h-5 text-purple-400 flex-shrink-0" />
-            <span className="text-3xl font-black text-purple-400">{kpis.ordenesDia}</span>
+        <Link
+          to="/secuencia"
+          className="card p-4 flex flex-col justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 hover:border-purple-500/40 shadow-lg hover:shadow-xl group relative overflow-hidden block"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-transparent group-hover:from-purple-500/10 transition-all" />
+          <div className="flex items-center justify-between">
+            <p className="section-title">Órdenes del Día</p>
+            <ClipboardList className="w-4 h-4 text-purple-400 opacity-60 group-hover:opacity-100 transition-opacity" />
           </div>
-          <p className="text-[10px] text-slate-500">Unitarias (MTO)</p>
-        </div>
+          <div className="flex items-center gap-2 my-2">
+            <span className="text-3xl font-black text-purple-400">{kpisMain.ordenesDia}</span>
+          </div>
+          <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1 group-hover:text-purple-300 transition-colors">
+            <span>Gestionar en Secuencia</span> <ArrowUp className="w-2.5 h-2.5 rotate-45" />
+          </p>
+        </Link>
       </motion.div>
 
       {/* ── ROW 2: Gráficos ─────────────────────────────────── */}
@@ -571,6 +703,195 @@ export default function Dashboard() {
           </div>
         </div>
       </motion.div>
+
+      {/* ── MODAL INTERACTIVO DE FICHAS DE CUMPLIMIENTO / PRODUCCIÓN ────────── */}
+      {modalFicha === 'cumplimiento' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="card p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto border-slate-800 bg-slate-900 shadow-2xl space-y-6"
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400">
+                  <Sliders className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-white">Desglose y Edición en Vivo de Producción</h3>
+                  <p className="text-xs text-slate-400">Ajusta los objetivos y producción real por cada línea para actualizar las fichas del Dashboard al instante.</p>
+                </div>
+              </div>
+              <button onClick={() => setModalFicha(null)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Resumen Superior en Modal */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+              <div className="text-center">
+                <p className="text-[10px] uppercase font-black text-slate-500">Total Planificado</p>
+                <p className="text-xl font-black text-slate-200 mt-1">{kpisMain.produccionPlanificada.toLocaleString('es')} uds</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] uppercase font-black text-slate-500">Total Real</p>
+                <p className="text-xl font-black text-blue-400 mt-1">{kpisMain.produccionReal.toLocaleString('es')} uds</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] uppercase font-black text-slate-500">Cumplimiento Global</p>
+                <p className="text-xl font-black text-emerald-400 mt-1">{kpisMain.cumplimientoPlan}%</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] uppercase font-black text-slate-500">Desviación Total</p>
+                <p className={`text-xl font-black mt-1 ${kpisMain.desviacionAcumulada >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {kpisMain.desviacionAcumulada >= 0 ? `+${kpisMain.desviacionAcumulada}` : kpisMain.desviacionAcumulada} uds
+                </p>
+              </div>
+            </div>
+
+            {/* Tabla interactiva de líneas */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/40">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] font-black uppercase text-slate-500 bg-slate-900/80">
+                    <th className="py-3 px-4">Línea</th>
+                    <th className="py-3 px-4">Estado</th>
+                    <th className="py-3 px-4">Objetivo Hoy (uds)</th>
+                    <th className="py-3 px-4">Producción Hoy (uds)</th>
+                    <th className="py-3 px-4">% Cumplimiento</th>
+                    <th className="py-3 px-4">Velocidad Actual</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-medium">
+                  {lineasData.map((l, idx) => {
+                    const obj = Number(l.objetivoHoy ?? l.objetivo_hoy) || 0;
+                    const prod = Number(l.produccionHoy ?? l.produccion_hoy) || 0;
+                    const c = obj > 0 ? Number(((prod / obj) * 100).toFixed(1)) : 0;
+                    const des = prod - obj;
+
+                    const handleUpdateLineaField = (field, val) => {
+                      const updated = lineasData.map((item, i) => i === idx ? { ...item, [field]: Number(val) || 0 } : item);
+                      setLineasData(updated);
+                    };
+
+                    return (
+                      <tr key={l.id || idx} className="hover:bg-slate-900/50 transition-colors">
+                        <td className="py-3 px-4 font-black text-white">{l.nombre || `Línea ${idx+1}`}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${l.estado === 'en_marcha' ? 'bg-emerald-500/20 text-emerald-400' : l.estado === 'parada' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>
+                            {l.estado === 'en_marcha' ? 'En Marcha' : l.estado === 'parada' ? 'Parada' : 'Mantenimiento'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <input
+                            type="number"
+                            value={obj}
+                            onChange={(e) => handleUpdateLineaField('objetivoHoy', e.target.value)}
+                            className="w-24 bg-slate-900 border border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1 text-white font-bold text-xs"
+                          />
+                        </td>
+                        <td className="py-3 px-4">
+                          <input
+                            type="number"
+                            value={prod}
+                            onChange={(e) => handleUpdateLineaField('produccionHoy', e.target.value)}
+                            className="w-24 bg-slate-900 border border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1 text-white font-bold text-xs"
+                          />
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`font-black ${c >= 100 ? 'text-emerald-400' : c >= 90 ? 'text-blue-400' : 'text-amber-400'}`}>
+                            {c}% ({des >= 0 ? `+${des}` : des} uds)
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-mono text-slate-300">
+                          {l.velocidadActual ?? l.velocidad_actual} uds/h
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+              <Link to="/lineas" onClick={() => setModalFicha(null)} className="text-xs text-blue-400 font-bold hover:underline flex items-center gap-1">
+                Ir a gestión avanzada de Líneas &rarr;
+              </Link>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setModalFicha(null)} className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all">
+                  Cancelar
+                </button>
+                <button
+                  disabled={guardandoLineas}
+                  onClick={async () => {
+                    setGuardandoLineas(true);
+                    for (const l of lineasData) {
+                      await updateLinea(l.id, l);
+                    }
+                    window.dispatchEvent(new Event('lineas_updated'));
+                    setGuardandoLineas(false);
+                    setModalFicha(null);
+                  }}
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-blue-900/30"
+                >
+                  {guardandoLineas ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sliders className="w-4 h-4" />}
+                  <span>{guardandoLineas ? 'Guardando...' : 'Aplicar y Recalcular en Vivo'}</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── MODAL INTERACTIVO DE TIEMPO RESTANTE / TURNO ────────── */}
+      {modalFicha === 'tiempo' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="card p-6 max-w-lg w-full border-slate-800 bg-slate-900 shadow-2xl space-y-5"
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                  <Clock className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">Estado del Turno Actual</h3>
+                  <p className="text-xs text-slate-400">Sincronización horaria con el reloj del sistema MES</p>
+                </div>
+              </div>
+              <button onClick={() => setModalFicha(null)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-800 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Turno en curso:</span>
+                <span className="text-sm font-black text-white">{kpisMain.tiempoRestanteLabel.replace('Hasta fin de turno ', '').replace('Fin de ', '')}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Tiempo restante:</span>
+                <span className="text-lg font-black text-amber-400 font-mono">{kpisMain.tiempoRestante}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Horario oficial:</span>
+                <span className="text-xs font-bold text-slate-300">06:00 — 14:00 (Rotativo según reloj)</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <Link to="/paradas" onClick={() => setModalFicha(null)} className="text-xs text-blue-400 font-bold hover:underline">
+                Ver registro de paradas de turno &rarr;
+              </Link>
+              <button onClick={() => setModalFicha(null)} className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all">
+                Cerrar
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

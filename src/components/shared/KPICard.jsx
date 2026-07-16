@@ -1,8 +1,9 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
-export default function KPICard({ title, value, unit, sub, trend, trendValue, color = 'blue', size = 'md', className = '' }) {
+export default function KPICard({ title, value, unit, sub, trend, trendValue, color = 'blue', size = 'md', className = '', onClick, to }) {
   const colorMap = {
     blue:   { bg: 'from-blue-600/20 to-blue-500/5',   border: 'border-blue-500/30',  text: 'text-blue-400',   glow: '' },
     green:  { bg: 'from-emerald-600/20 to-emerald-500/5', border: 'border-emerald-500/30', text: 'text-emerald-400', glow: '' },
@@ -23,13 +24,12 @@ export default function KPICard({ title, value, unit, sub, trend, trendValue, co
     ? (isPositive ? 'text-red-400' : 'text-emerald-400')
     : 'text-slate-400';
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${c.bg} ${c.border} p-4 ${className}`}
-    >
+  const interactiveClass = (onClick || to)
+    ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 hover:border-slate-500/60 shadow-lg hover:shadow-xl'
+    : '';
+
+  const content = (
+    <>
       {/* decorative orb */}
       <div className={`absolute -top-6 -right-6 w-20 h-20 rounded-full opacity-10 bg-current ${c.text} blur-xl`} />
 
@@ -53,6 +53,26 @@ export default function KPICard({ title, value, unit, sub, trend, trendValue, co
           )}
         </div>
       )}
+    </>
+  );
+
+  if (to) {
+    return (
+      <Link to={to} className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${c.bg} ${c.border} p-4 block ${interactiveClass} ${className}`}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      onClick={onClick}
+      className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${c.bg} ${c.border} p-4 ${interactiveClass} ${className}`}
+    >
+      {content}
     </motion.div>
   );
 }
