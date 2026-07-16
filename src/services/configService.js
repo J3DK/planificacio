@@ -9,6 +9,7 @@ export const DEFAULT_MENU_ITEMS = [
   { path: '/secuencia',          label: 'Secuencia',            iconName: 'ListOrdered',     visible: true },
   { path: '/lineas',             label: 'Líneas',               iconName: 'Factory',         visible: true },
   { path: '/operarios',          label: 'Operarios',            iconName: 'Users',           visible: true },
+  { path: '/cualificaciones',    label: 'Cualificación & Cursos', iconName: 'Award',           visible: true },
   { path: '/productos',          label: 'Productos',            iconName: 'Boxes',           visible: true },
   { path: '/produccion',         label: 'Producción',           iconName: 'BarChart2',       visible: true },
   { path: '/calidad',            label: 'Calidad',              iconName: 'CheckSquare',     visible: true },
@@ -46,6 +47,17 @@ export function getAppConfig() {
       let currentMenu = Array.isArray(parsed.menuOrder) && parsed.menuOrder.length > 0
         ? parsed.menuOrder
         : DEFAULT_MENU_ITEMS;
+
+      // Reconciliación para el módulo de Cualificación y Cursos
+      if (!currentMenu.some(item => item.path === '/cualificaciones')) {
+        const opIdx = currentMenu.findIndex(item => item.path === '/operarios');
+        const cualifItem = { path: '/cualificaciones', label: 'Cualificación & Cursos', iconName: 'Award', visible: true };
+        if (opIdx >= 0) {
+          currentMenu.splice(opIdx + 1, 0, cualifItem);
+        } else {
+          currentMenu.push(cualifItem);
+        }
+      }
 
       // Reconciliación por si el usuario guardó el menú antes de la creación del módulo de Productos
       if (!currentMenu.some(item => item.path === '/productos')) {

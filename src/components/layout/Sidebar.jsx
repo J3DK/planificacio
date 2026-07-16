@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users,
@@ -43,9 +43,23 @@ export default function Sidebar() {
   const appConfig = useAppConfig();
   const shiftInfo = getCurrentShiftInfo();
 
-  const activeNavList = (appConfig.menuOrder && Array.isArray(appConfig.menuOrder) && appConfig.menuOrder.length > 0)
-    ? appConfig.menuOrder.filter(i => i.visible !== false)
-    : navItems;
+  const activeNavList = useMemo(() => {
+    const baseList = (appConfig.menuOrder && Array.isArray(appConfig.menuOrder) && appConfig.menuOrder.length > 0)
+      ? appConfig.menuOrder.filter(i => i.visible !== false)
+      : navItems;
+
+    let list = [...baseList];
+    if (!list.some(i => i.path === '/cualificaciones')) {
+      const opIdx = list.findIndex(i => i.path === '/operarios');
+      const cualifItem = { path: '/cualificaciones', label: 'Cualificación & Cursos', iconName: 'Award', visible: true };
+      if (opIdx >= 0) {
+        list.splice(opIdx + 1, 0, cualifItem);
+      } else {
+        list.push(cualifItem);
+      }
+    }
+    return list;
+  }, [appConfig.menuOrder]);
 
   const alertasNoLeidas = alertas.filter(a => !a.leida).length;
 
