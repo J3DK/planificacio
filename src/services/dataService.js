@@ -10,7 +10,7 @@ import { kpis as mockKpis } from '@/data/mockDashboard';
 import { historialProduccion as mockHistorial } from '@/data/mockHistorial';
 import { mockProductos } from '@/data/mockProductos';
 import { operarios as mockOperarios } from '@/data/mockOperarios';
-import { skillsMasterIniciales, formacionesMasterIniciales, permisosMasterIniciales } from '@/data/mockCualificaciones';
+import { skillsMasterIniciales, formacionesMasterIniciales, permisosMasterIniciales, capacitacionesMasterIniciales } from '@/data/mockCualificaciones';
 import { ordenesTrabajoIniciales, activosJerarquia as mockActivos, planesPreventivosIniciales, sensoresPredictivosIniciales, repuestosAlmacenIniciales } from '@/data/mockMantenimiento';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -1925,6 +1925,19 @@ export function getCatalogoPermisos() {
 export function saveCatalogoPermisos(lista) {
   try {
     localStorage.setItem('mes_catalogo_permisos', JSON.stringify(lista));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('cualificaciones_updated'));
+  } catch (_) {}
+}
+
+export function getCatalogoCapacitaciones() {
+  try {
+    const r = localStorage.getItem('mes_catalogo_capacitaciones');
+    return r ? JSON.parse(r) : capacitacionesMasterIniciales;
+  } catch (_) { return capacitacionesMasterIniciales; }
+}
+export function saveCatalogoCapacitaciones(lista) {
+  try {
+    localStorage.setItem('mes_catalogo_capacitaciones', JSON.stringify(lista));
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('cualificaciones_updated'));
   } catch (_) {}
 }

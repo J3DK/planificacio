@@ -22,7 +22,7 @@ const navItems = [
   { path: '/secuencia',          label: 'Secuencia',            iconName: 'ListOrdered' },
   { path: '/lineas',             label: 'Líneas',               iconName: 'Factory' },
   { path: '/operarios',          label: 'Operarios',            iconName: 'Users' },
-  { path: '/cualificaciones',    label: 'Skills & Formación',   iconName: 'Award' },
+  { path: '/cualificaciones',    label: 'Cualificación & Cursos',   iconName: 'Award' },
   { path: '/productos',          label: 'Productos',            iconName: 'Boxes' },
   { path: '/produccion',         label: 'Producción',           iconName: 'BarChart2' },
   { path: '/calidad',            label: 'Calidad',              iconName: 'CheckSquare' },
@@ -56,28 +56,93 @@ export default function Sidebar() {
 
     const IconComponent = item.icon || ICON_MAP[item.iconName] || Zap;
 
+    const currentTab = new URLSearchParams(location.search).get('tab') || 'skills';
+
     return (
-      <NavLink
-        to={item.path}
-        onClick={() => setMobileOpen(false)}
-        className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative ${
-          isActive
-            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
-            : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/70'
-        }`}
-      >
-        <IconComponent className={`flex-shrink-0 ${collapsed ? 'w-5 h-5' : 'w-4 h-4'}`} />
-        {!collapsed && (
-          <span className="text-sm font-semibold truncate">{item.label}</span>
+      <div className="space-y-1">
+        <NavLink
+          to={item.path}
+          onClick={() => setMobileOpen(false)}
+          className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative ${
+            isActive
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
+              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/70'
+          }`}
+        >
+          <IconComponent className={`flex-shrink-0 ${collapsed ? 'w-5 h-5' : 'w-4 h-4'}`} />
+          {!collapsed && (
+            <span className="text-sm font-semibold truncate">{item.label}</span>
+          )}
+          {/* Badge alertas */}
+          {item.path === '/alertas' && alertasNoLeidas > 0 && (
+            <span className={`absolute ${collapsed ? 'top-0.5 right-0.5' : 'right-3'} bg-red-500 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center`}>
+              {alertasNoLeidas}
+            </span>
+          )}
+          {!collapsed && isActive && <ChevronRight className="w-3 h-3 ml-auto opacity-60" />}
+        </NavLink>
+
+        {/* Submenú de Cualificación y Cursos en Sidebar principal */}
+        {item.path === '/cualificaciones' && isActive && !collapsed && (
+          <div className="ml-4 pl-3 border-l-2 border-slate-800/80 space-y-1 pt-1 pb-1">
+            <NavLink
+              to="/cualificaciones?tab=skills"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                currentTab === 'skills'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <span>⭐ Skills & Habilidades</span>
+            </NavLink>
+            <NavLink
+              to="/cualificaciones?tab=formaciones"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                currentTab === 'formaciones'
+                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <span>🎓 Cursos & Formaciones</span>
+            </NavLink>
+            <NavLink
+              to="/cualificaciones?tab=capacitaciones"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                currentTab === 'capacitaciones'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <span>🎯 Planes de Capacitación</span>
+            </NavLink>
+            <NavLink
+              to="/cualificaciones?tab=permisos"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                currentTab === 'permisos'
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <span>🛡️ Permisos por Equipo</span>
+            </NavLink>
+            <NavLink
+              to="/cualificaciones?tab=matriz"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                currentTab === 'matriz'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <span>📊 Matriz ILUO (Polivalencia)</span>
+            </NavLink>
+          </div>
         )}
-        {/* Badge alertas */}
-        {item.path === '/alertas' && alertasNoLeidas > 0 && (
-          <span className={`absolute ${collapsed ? 'top-0.5 right-0.5' : 'right-3'} bg-red-500 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center`}>
-            {alertasNoLeidas}
-          </span>
-        )}
-        {!collapsed && isActive && <ChevronRight className="w-3 h-3 ml-auto opacity-60" />}
-      </NavLink>
+      </div>
     );
   };
 

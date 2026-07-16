@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import {
   fetchOperarios, insertOperario, updateOperario, deleteOperario,
-  fetchLineas, getCatalogoSkills, getCatalogoFormaciones, getCatalogoPermisos
+  fetchLineas, getCatalogoSkills, getCatalogoFormaciones, getCatalogoPermisos, getCatalogoCapacitaciones
 } from '@/services/dataService';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 
@@ -19,6 +19,7 @@ export default function Operarios() {
   const [catalogoSkills, setCatalogoSkills] = useState([]);
   const [catalogoFormaciones, setCatalogoFormaciones] = useState([]);
   const [catalogoPermisos, setCatalogoPermisos] = useState([]);
+  const [catalogoCapacitaciones, setCatalogoCapacitaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 
@@ -87,6 +88,7 @@ export default function Operarios() {
     setCatalogoSkills(getCatalogoSkills() || []);
     setCatalogoFormaciones(getCatalogoFormaciones() || []);
     setCatalogoPermisos(getCatalogoPermisos() || []);
+    setCatalogoCapacitaciones(getCatalogoCapacitaciones() || []);
     setLoading(false);
   };
 
@@ -1404,14 +1406,35 @@ export default function Operarios() {
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                           <div className="md:col-span-2">
-                            <label className="block text-[11px] font-bold text-slate-400 mb-1">Título de la Capacitación / Evaluación</label>
-                            <input
-                              type="text"
-                              value={capTitulo}
-                              onChange={(e) => setCapTitulo(e.target.value)}
-                              placeholder="Ej: Evaluación Anual de Soldadura y Calidad EOL"
-                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
-                            />
+                            <label className="block text-[11px] font-bold text-slate-400 mb-1">Título / Seleccionar desde Catálogo Maestro</label>
+                            <div className="flex gap-2">
+                              {catalogoCapacitaciones.length > 0 && (
+                                <select
+                                  onChange={(e) => {
+                                    const item = catalogoCapacitaciones.find(c => c.titulo === e.target.value);
+                                    if (item) {
+                                      setCapTitulo(item.titulo);
+                                      setCapPlan(item.plan || 'Plan Anual de Reciclaje');
+                                      if (item.puntuacionMinima) setCapPuntuacion(item.puntuacionMinima);
+                                      if (item.descripcion) setCapObservaciones(item.descripcion);
+                                    }
+                                  }}
+                                  className="bg-slate-950 border border-emerald-500/40 rounded-xl px-2.5 py-2 text-xs font-bold text-emerald-300 focus:outline-none shrink-0 max-w-[170px]"
+                                >
+                                  <option value="">🎯 Catálogo Maestro...</option>
+                                  {catalogoCapacitaciones.map(c => (
+                                    <option key={c.id} value={c.titulo}>{c.titulo}</option>
+                                  ))}
+                                </select>
+                              )}
+                              <input
+                                type="text"
+                                value={capTitulo}
+                                onChange={(e) => setCapTitulo(e.target.value)}
+                                placeholder="Ej: Evaluación Anual de Soldadura y Calidad EOL"
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                              />
+                            </div>
                           </div>
                           <div>
                             <label className="block text-[11px] font-bold text-slate-400 mb-1">Plan de Desarrollo</label>
