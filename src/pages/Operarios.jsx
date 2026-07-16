@@ -4,7 +4,8 @@ import {
   Users, UserPlus, Search, Filter, ShieldCheck, Factory, Clock,
   Key, Edit3, Trash2, CheckCircle2, XCircle, Award, Sparkles,
   LayoutGrid, List, ChevronRight, AlertCircle, RefreshCw, Upload,
-  GraduationCap, Star, Calendar, BookOpen, Layers, PlusCircle, Check
+  GraduationCap, Star, Calendar, BookOpen, Layers, PlusCircle, Check,
+  Target, Briefcase, TrendingUp, CheckSquare, FileText, Sliders, AlertTriangle
 } from 'lucide-react';
 import {
   fetchOperarios, insertOperario, updateOperario, deleteOperario,
@@ -53,7 +54,7 @@ export default function Operarios() {
   // Modal Ficha 360° Operario (Skills, Formaciones, Permisos, Historial)
   const [fichaOpen, setFichaOpen] = useState(false);
   const [selectedOp, setSelectedOp] = useState(null);
-  const [activeTabFicha, setActiveTabFicha] = useState('skills'); // 'skills' | 'formaciones' | 'permisos' | 'historial'
+  const [activeTabFicha, setActiveTabFicha] = useState('resumen'); // 'resumen' | 'capacitaciones' | 'skills' | 'formaciones' | 'puestos' | 'historial'
 
   // Forms rápidos dentro de la ficha 360°
   const [skillToAdd, setSkillToAdd] = useState('');
@@ -66,6 +67,13 @@ export default function Operarios() {
 
   const [permisoToAdd, setPermisoToAdd] = useState('');
   const [permisoNivelAcceso, setPermisoNivelAcceso] = useState('Operador Principal');
+
+  // Estado para form rápido de Capacitaciones y recertificaciones
+  const [capTitulo, setCapTitulo] = useState('Evaluación Técnica Periódica y Seguridad MES');
+  const [capPlan, setCapPlan] = useState('Plan Anual de Reciclaje y Cualificación 2026');
+  const [capPuntuacion, setCapPuntuacion] = useState(94);
+  const [capEstado, setCapEstado] = useState('superada');
+  const [capObservaciones, setCapObservaciones] = useState('Demuestra soltura en operativas y cumplimiento estricto de PRL en planta.');
 
   // Confirmar Borrado
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -272,13 +280,68 @@ export default function Operarios() {
 
   // ─── ACCIONES DENTRO DE LA FICHA 360° ────────────────────────────────────────
 
-  const handleOpenFicha = (op) => {
-    setSelectedOp(op);
-    setActiveTabFicha('skills');
+  const handleOpenFicha = (op, defaultTab = 'resumen') => {
+    const opWithCap = op.capacitaciones && op.capacitaciones.length > 0 ? op : {
+      ...op,
+      capacitaciones: [
+        {
+          id: 'CAP-2026-01',
+          titulo: 'Evaluación Técnica Periódica y Seguridad MES',
+          plan: 'Plan Anual de Reciclaje y Cualificación 2026',
+          fecha: new Date().toISOString().slice(0, 10),
+          evaluador: 'Comité Técnico de Planta MES',
+          puntuacion: 95,
+          estado: 'superada',
+          observaciones: 'Apto y cualificado para operar en su puesto y línea asignada según estándares de calidad.'
+        }
+      ]
+    };
+    setSelectedOp(opWithCap);
+    setActiveTabFicha(defaultTab);
     setSkillToAdd(catalogoSkills[0]?.nombre || '');
     setFormacionToAdd(catalogoFormaciones[0]?.nombre || '');
     setPermisoToAdd(catalogoPermisos[0]?.equipoNombre || lineas[0]?.nombre || '');
+    setCapTitulo('Evaluación de Competencias del Puesto actual');
+    setCapPlan('Plan de Capacitación y Reciclaje MES 2026');
+    setCapPuntuacion(94);
+    setCapEstado('superada');
+    setCapObservaciones('Demuestra total soltura en operativas y cumplimiento estricto de PRL en planta.');
     setFichaOpen(true);
+  };
+
+  const handleAddCapacitacionToOp = async () => {
+    if (!selectedOp || !capTitulo.trim()) return;
+    const newCap = {
+      id: `CAP-${Date.now().toString().slice(-4)}`,
+      titulo: capTitulo,
+      plan: capPlan,
+      fecha: new Date().toISOString().slice(0, 10),
+      evaluador: 'Responsable Técnico de Puesto',
+      puntuacion: Number(capPuntuacion),
+      estado: capEstado,
+      observaciones: capObservaciones
+    };
+    const updatedCapacitaciones = [newCap, ...(selectedOp.capacitaciones || [])];
+    const newHist = [{ id: `HS-${Date.now()}`, fecha: new Date().toLocaleString(), tipo: 'capacitacion', descripcion: `Registrada evaluación de competencias [${capTitulo}] (${capEstado.toUpperCase()}) - Nota: ${capPuntuacion}/100`, linea: selectedOp.lineaActualId || 'General', piezas: 0 }, ...(selectedOp.historial || [])];
+    const updatedOp = { ...selectedOp, capacitaciones: updatedCapacitaciones, historial: newHist };
+    const { data } = await updateOperario(selectedOp.id, updatedOp);
+    if (data) {
+      setOperarios(prev => prev.map(o => o.id === selectedOp.id ? data : o));
+      setSelectedOp(data);
+      triggerSuccess(`🎯 Capacitación registrada para ${selectedOp.nombre}`);
+    }
+  };
+
+  const handleRemoveCapacitacionFromOp = async (capId) => {
+    if (!selectedOp) return;
+    const updatedCapacitaciones = (selectedOp.capacitaciones || []).filter(c => c.id !== capId);
+    const updatedOp = { ...selectedOp, capacitaciones: updatedCapacitaciones };
+    const { data } = await updateOperario(selectedOp.id, updatedOp);
+    if (data) {
+      setOperarios(prev => prev.map(o => o.id === selectedOp.id ? data : o));
+      setSelectedOp(data);
+      triggerSuccess('🎯 Registro de capacitación eliminado');
+    }
   };
 
   const handleAddSkillToOp = async () => {
@@ -715,34 +778,48 @@ export default function Operarios() {
                       </select>
                     </div>
 
-                    {/* Fichas / Resumen Habilidades, Formaciones y Permisos */}
-                    <div className="grid grid-cols-3 gap-2 pt-1">
+                    {/* Fichas / Resumen Capacitaciones, Skills, Formaciones y Puestos */}
+                    <div className="grid grid-cols-4 gap-1.5 pt-1">
                       <div
-                        onClick={() => { setSelectedOp(op); setActiveTabFicha('skills'); setFichaOpen(true); }}
-                        className="bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-2 text-center cursor-pointer transition-colors"
+                        onClick={() => handleOpenFicha(op, 'capacitaciones')}
+                        className="bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-1.5 text-center cursor-pointer transition-colors group/mini"
+                        title="Ver Capacitaciones y Competencias"
                       >
-                        <p className="text-[10px] font-bold text-slate-400">Skills</p>
-                        <p className="text-sm font-black text-amber-400 mt-0.5 flex items-center justify-center gap-1">
+                        <p className="text-[9px] font-bold text-slate-400 group-hover/mini:text-slate-200">Capacit.</p>
+                        <p className="text-xs font-black text-emerald-400 mt-0.5 flex items-center justify-center gap-1">
+                          <Target className="w-3 h-3 text-emerald-400" />
+                          <span>{op.capacitaciones?.length || 1}</span>
+                        </p>
+                      </div>
+                      <div
+                        onClick={() => handleOpenFicha(op, 'skills')}
+                        className="bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-1.5 text-center cursor-pointer transition-colors group/mini"
+                        title="Ver Matriz de Skills"
+                      >
+                        <p className="text-[9px] font-bold text-slate-400 group-hover/mini:text-slate-200">Skills</p>
+                        <p className="text-xs font-black text-amber-400 mt-0.5 flex items-center justify-center gap-1">
                           <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                           <span>{numSkills}</span>
                         </p>
                       </div>
                       <div
-                        onClick={() => { setSelectedOp(op); setActiveTabFicha('formaciones'); setFichaOpen(true); }}
-                        className="bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-2 text-center cursor-pointer transition-colors"
+                        onClick={() => handleOpenFicha(op, 'formaciones')}
+                        className="bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-1.5 text-center cursor-pointer transition-colors group/mini"
+                        title="Ver Formaciones y Cursos"
                       >
-                        <p className="text-[10px] font-bold text-slate-400">Formación</p>
-                        <p className="text-sm font-black text-indigo-400 mt-0.5 flex items-center justify-center gap-1">
+                        <p className="text-[9px] font-bold text-slate-400 group-hover/mini:text-slate-200">Formación</p>
+                        <p className="text-xs font-black text-indigo-400 mt-0.5 flex items-center justify-center gap-1">
                           <GraduationCap className="w-3 h-3 text-indigo-400" />
                           <span>{numFormaciones}</span>
                         </p>
                       </div>
                       <div
-                        onClick={() => { setSelectedOp(op); setActiveTabFicha('permisos'); setFichaOpen(true); }}
-                        className="bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-2 text-center cursor-pointer transition-colors"
+                        onClick={() => handleOpenFicha(op, 'puestos')}
+                        className="bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-1.5 text-center cursor-pointer transition-colors group/mini"
+                        title="Ver Puestos y Líneas Autorizadas"
                       >
-                        <p className="text-[10px] font-bold text-slate-400">Permisos</p>
-                        <p className="text-sm font-black text-purple-400 mt-0.5 flex items-center justify-center gap-1">
+                        <p className="text-[9px] font-bold text-slate-400 group-hover/mini:text-slate-200">Puestos</p>
+                        <p className="text-xs font-black text-purple-400 mt-0.5 flex items-center justify-center gap-1">
                           <ShieldCheck className="w-3 h-3 text-purple-400" />
                           <span>{numPermisos}</span>
                         </p>
@@ -839,16 +916,43 @@ export default function Operarios() {
                         </select>
                       </td>
                       <td className="py-4 px-4 text-center">
-                        <button
-                          onClick={() => handleOpenFicha(op)}
-                          className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-800 hover:bg-blue-600/30 text-xs font-black text-slate-200 hover:text-blue-300 transition-colors border border-slate-700"
-                        >
-                          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                          <span>{op.skills?.length || 0}</span>
-                          <span className="text-slate-600">|</span>
-                          <GraduationCap className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>{op.formaciones?.length || 0}</span>
-                        </button>
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs font-black">
+                          <button
+                            onClick={() => handleOpenFicha(op, 'capacitaciones')}
+                            className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 text-emerald-400 transition-colors"
+                            title="Capacitaciones"
+                          >
+                            <Target className="w-3 h-3" />
+                            <span>{op.capacitaciones?.length || 1}</span>
+                          </button>
+                          <span className="text-slate-700">·</span>
+                          <button
+                            onClick={() => handleOpenFicha(op, 'skills')}
+                            className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 text-amber-400 transition-colors"
+                            title="Skills"
+                          >
+                            <Star className="w-3 h-3 fill-amber-400" />
+                            <span>{op.skills?.length || 0}</span>
+                          </button>
+                          <span className="text-slate-700">·</span>
+                          <button
+                            onClick={() => handleOpenFicha(op, 'formaciones')}
+                            className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 text-indigo-400 transition-colors"
+                            title="Formación"
+                          >
+                            <GraduationCap className="w-3 h-3" />
+                            <span>{op.formaciones?.length || 0}</span>
+                          </button>
+                          <span className="text-slate-700">·</span>
+                          <button
+                            onClick={() => handleOpenFicha(op, 'puestos')}
+                            className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800 text-purple-400 transition-colors"
+                            title="Puestos y Líneas"
+                          >
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>{op.permisos?.length || 0}</span>
+                          </button>
+                        </div>
                       </td>
                       <td className="py-4 px-4 text-center">
                         <span className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700">
@@ -909,112 +1013,514 @@ export default function Operarios() {
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-4xl w-full shadow-2xl max-h-[92vh] flex flex-col overflow-hidden relative"
+              className="bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-[1300px] h-[92vh] max-h-[920px] shadow-2xl flex flex-col md:flex-row overflow-hidden relative"
             >
-              {/* Header de la Ficha */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-800 shrink-0">
-                <div className="flex items-center gap-4">
-                  {selectedOp.avatar ? (
-                    <img src={selectedOp.avatar} alt={selectedOp.nombre} className="w-16 h-16 rounded-2xl object-cover border-2 border-blue-500 shadow-lg" />
-                  ) : (
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-xl shadow-lg">
-                      {selectedOp.nombre?.slice(0, 2).toUpperCase()}
+              {/* ── MENÚ LATERAL DEL OPERARIO (LEFT SIDEBAR) ── */}
+              <div className="w-full md:w-72 lg:w-80 bg-slate-900/95 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col justify-between shrink-0 overflow-y-auto no-scrollbar">
+                {/* Cabecera / Perfil Operario en Menú Lateral */}
+                <div className="p-5 border-b border-slate-800/80 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-1 rounded-lg bg-blue-500/20 text-blue-300 font-mono font-black text-xs border border-blue-500/30">
+                      {selectedOp.id}
+                    </span>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase ${
+                      selectedOp.estado === 'activo' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                    }`}>
+                      {selectedOp.estado || 'Activo'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3.5">
+                    {selectedOp.avatar ? (
+                      <img src={selectedOp.avatar} alt={selectedOp.nombre} className="w-14 h-14 rounded-2xl object-cover border-2 border-blue-500 shadow-lg shrink-0" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-lg shadow-lg shrink-0">
+                        {selectedOp.nombre?.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-black text-white tracking-tight truncate">{selectedOp.nombre}</h2>
+                      <p className="text-xs font-bold text-blue-400 truncate">{selectedOp.rol}</p>
+                      <p className="text-[11px] text-slate-400 truncate mt-0.5">{selectedOp.especialidad}</p>
                     </div>
-                  )}
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono font-black text-xs border border-blue-500/30">
-                        {selectedOp.id}
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold text-xs">
-                        Turno: {selectedOp.turno}
-                      </span>
+                  </div>
+
+                  <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-3 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
+                      <span>Turno Asignado:</span>
+                      <span className="text-amber-300 font-black">{selectedOp.turno}</span>
                     </div>
-                    <h2 className="text-2xl font-black text-white tracking-tight mt-1">{selectedOp.nombre}</h2>
-                    <p className="text-xs font-bold text-slate-400">{selectedOp.rol} · {selectedOp.especialidad}</p>
+                    <div className="pt-1 border-t border-slate-800/60">
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                        🔴 / 👷 Puesto y Línea en Vivo:
+                      </label>
+                      <select
+                        value={selectedOp.lineaActualId || 'ninguna'}
+                        onChange={(e) => handleCambiarLineaVivo(selectedOp.id, e.target.value)}
+                        className="w-full bg-slate-900 border border-amber-500/50 rounded-xl px-2.5 py-1.5 text-xs font-black text-amber-300 focus:outline-none"
+                      >
+                        <option value="ninguna">🔴 Fuera de turno / Sin Asignar</option>
+                        {lineas.map(lin => (
+                          <option key={lin.id} value={lin.id}>👷 {lin.nombre}</option>
+                        ))}
+                        <option value="L1">👷 Línea 1</option>
+                        <option value="L2">👷 Línea 2</option>
+                        <option value="L3">👷 Línea 3</option>
+                        <option value="L4">👷 Línea 4</option>
+                        <option value="L5">👷 Línea 5</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="flex flex-col items-end">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Trabajando En Vivo En:</span>
-                    <select
-                      value={selectedOp.lineaActualId || 'ninguna'}
-                      onChange={(e) => handleCambiarLineaVivo(selectedOp.id, e.target.value)}
-                      className="bg-slate-950 border border-amber-500/50 rounded-xl px-3 py-1.5 text-xs font-black text-amber-300 focus:outline-none mt-0.5"
-                    >
-                      <option value="ninguna">🔴 Fuera de turno / Sin Asignar</option>
-                      {lineas.map(lin => (
-                        <option key={lin.id} value={lin.id}>👷 {lin.nombre}</option>
-                      ))}
-                      <option value="L1">👷 Línea 1</option>
-                      <option value="L2">👷 Línea 2</option>
-                      <option value="L3">👷 Línea 3</option>
-                      <option value="L4">👷 Línea 4</option>
-                      <option value="L5">👷 Línea 5</option>
-                    </select>
-                  </div>
+                {/* Lista de Opciones del Menú Lateral */}
+                <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-3 py-2">
+                    MENÚ DE CUALIFICACIÓN 360°
+                  </p>
+
+                  <button
+                    onClick={() => setActiveTabFicha('resumen')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-black transition-all ${
+                      activeTabFicha === 'resumen'
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50 translate-x-1'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <LayoutGrid className="w-4 h-4 shrink-0" />
+                      <span>Resumen & Perfil</span>
+                    </div>
+                    <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTabFicha === 'resumen' ? 'opacity-100' : 'opacity-40'}`} />
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTabFicha('capacitaciones')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-black transition-all ${
+                      activeTabFicha === 'capacitaciones'
+                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/50 translate-x-1'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Target className={`w-4 h-4 shrink-0 ${activeTabFicha === 'capacitaciones' ? 'text-white' : 'text-emerald-400'}`} />
+                      <span>Capacitaciones</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] ${
+                      activeTabFicha === 'capacitaciones' ? 'bg-emerald-900 text-white' : 'bg-slate-950 text-emerald-400'
+                    }`}>
+                      {selectedOp.capacitaciones?.length || 0}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTabFicha('skills')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-black transition-all ${
+                      activeTabFicha === 'skills'
+                        ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/50 translate-x-1'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Star className={`w-4 h-4 shrink-0 fill-amber-400 ${activeTabFicha === 'skills' ? 'text-white' : 'text-amber-400'}`} />
+                      <span>Skills & Habilidades</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] ${
+                      activeTabFicha === 'skills' ? 'bg-amber-900 text-white' : 'bg-slate-950 text-amber-400'
+                    }`}>
+                      {selectedOp.skills?.length || 0}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTabFicha('formaciones')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-black transition-all ${
+                      activeTabFicha === 'formaciones'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50 translate-x-1'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <GraduationCap className={`w-4 h-4 shrink-0 ${activeTabFicha === 'formaciones' ? 'text-white' : 'text-indigo-400'}`} />
+                      <span>Formaciones & Cursos</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] ${
+                      activeTabFicha === 'formaciones' ? 'bg-indigo-900 text-white' : 'bg-slate-950 text-indigo-400'
+                    }`}>
+                      {selectedOp.formaciones?.length || 0}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTabFicha('puestos')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-black transition-all ${
+                      activeTabFicha === 'puestos' || activeTabFicha === 'permisos'
+                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50 translate-x-1'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ShieldCheck className={`w-4 h-4 shrink-0 ${activeTabFicha === 'puestos' || activeTabFicha === 'permisos' ? 'text-white' : 'text-purple-400'}`} />
+                      <span>Puestos de Trabajo</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] ${
+                      activeTabFicha === 'puestos' || activeTabFicha === 'permisos' ? 'bg-purple-900 text-white' : 'bg-slate-950 text-purple-400'
+                    }`}>
+                      {selectedOp.permisos?.length || 0}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTabFicha('historial')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-black transition-all ${
+                      activeTabFicha === 'historial'
+                        ? 'bg-slate-700 text-white shadow-lg translate-x-1'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Layers className="w-4 h-4 shrink-0 text-slate-300" />
+                      <span>Historial & Turnos</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-950 text-slate-300 font-mono text-[10px]">
+                      {selectedOp.historial?.length || 0}
+                    </span>
+                  </button>
+                </nav>
+
+                {/* Pie del Menú Lateral */}
+                <div className="p-4 border-t border-slate-800 space-y-2">
                   <button
                     onClick={() => setFichaOpen(false)}
-                    className="p-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors ml-2"
+                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-black text-xs transition-all flex items-center justify-center gap-2"
                   >
-                    <XCircle className="w-6 h-6" />
+                    <XCircle className="w-4 h-4 text-rose-400" />
+                    <span>Cerrar Expediente</span>
                   </button>
                 </div>
               </div>
 
-              {/* Pestañas dentro del Modal */}
-              <div className="flex items-center gap-2 pt-4 pb-3 border-b border-slate-800/80 overflow-x-auto shrink-0 no-scrollbar">
-                <button
-                  onClick={() => setActiveTabFicha('skills')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-                    activeTabFicha === 'skills'
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50 scale-105'
-                      : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                  <span>Skills & Habilidades ({selectedOp.skills?.length || 0})</span>
-                </button>
-                <button
-                  onClick={() => setActiveTabFicha('formaciones')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-                    activeTabFicha === 'formaciones'
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50 scale-105'
-                      : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <GraduationCap className="w-4 h-4 text-indigo-300" />
-                  <span>Formaciones & Certificados ({selectedOp.formaciones?.length || 0})</span>
-                </button>
-                <button
-                  onClick={() => setActiveTabFicha('permisos')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-                    activeTabFicha === 'permisos'
-                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50 scale-105'
-                      : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <ShieldCheck className="w-4 h-4 text-purple-300" />
-                  <span>Líneas / Máquinas Autorizadas ({selectedOp.permisos?.length || 0})</span>
-                </button>
-                <button
-                  onClick={() => setActiveTabFicha('historial')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-                    activeTabFicha === 'historial'
-                      ? 'bg-slate-700 text-white shadow-lg'
-                      : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <Layers className="w-4 h-4 text-slate-300" />
-                  <span>Historial de Actividad</span>
-                </button>
-              </div>
+              {/* ── CONTENIDO PRINCIPAL DE LA FICHA SEGÚN MENÚ LATERAL ── */}
+              <div className="flex-1 flex flex-col h-full bg-slate-950/70 overflow-hidden">
+                {/* Header de la sección seleccionada */}
+                <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-900/40 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${
+                      activeTabFicha === 'resumen' ? 'bg-blue-600/20 border border-blue-500/40 text-blue-400' :
+                      activeTabFicha === 'capacitaciones' ? 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-400' :
+                      activeTabFicha === 'skills' ? 'bg-amber-600/20 border border-amber-500/40 text-amber-400' :
+                      activeTabFicha === 'formaciones' ? 'bg-indigo-600/20 border border-indigo-500/40 text-indigo-400' :
+                      activeTabFicha === 'puestos' || activeTabFicha === 'permisos' ? 'bg-purple-600/20 border border-purple-500/40 text-purple-400' :
+                      'bg-slate-800 border border-slate-700 text-slate-300'
+                    }`}>
+                      {activeTabFicha === 'resumen' && <LayoutGrid className="w-5 h-5" />}
+                      {activeTabFicha === 'capacitaciones' && <Target className="w-5 h-5" />}
+                      {activeTabFicha === 'skills' && <Star className="w-5 h-5 fill-amber-400" />}
+                      {activeTabFicha === 'formaciones' && <GraduationCap className="w-5 h-5" />}
+                      {(activeTabFicha === 'puestos' || activeTabFicha === 'permisos') && <ShieldCheck className="w-5 h-5" />}
+                      {activeTabFicha === 'historial' && <Layers className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-white tracking-tight">
+                        {activeTabFicha === 'resumen' && 'Resumen Ejecutivo & Datos del Operario'}
+                        {activeTabFicha === 'capacitaciones' && 'Evaluaciones de Competencia & Planes de Reciclaje (Capacitaciones)'}
+                        {activeTabFicha === 'skills' && 'Matriz de Skills & Habilidades Técnicas'}
+                        {activeTabFicha === 'formaciones' && 'Formaciones, Cursos PRL & Certificados'}
+                        {(activeTabFicha === 'puestos' || activeTabFicha === 'permisos') && 'Puestos de Trabajo, Líneas y Máquinas Autorizadas'}
+                        {activeTabFicha === 'historial' && 'Historial Cronológico de Turnos y Actuaciones'}
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        {activeTabFicha === 'resumen' && 'Información básica, credenciales PIN y síntesis de cualificación en planta.'}
+                        {activeTabFicha === 'capacitaciones' && 'Evaluaciones periódicas y verificación de la brecha de competencias para su puesto.'}
+                        {activeTabFicha === 'skills' && 'Niveles de maestría (1 a 5 estrellas) vinculados al catálogo maestro de skills.'}
+                        {activeTabFicha === 'formaciones' && 'Control de vigencia, entidades certificadoras y cursos obligatorios PRL/ISO.'}
+                        {(activeTabFicha === 'puestos' || activeTabFicha === 'permisos') && 'Carnets de operador y autorizaciones activas para operar en cada puesto.'}
+                        {activeTabFicha === 'historial' && 'Trazabilidad en tiempo real de fichajes, auditorías e incidencias del operario.'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setFichaOpen(false)}
+                    className="md:hidden p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </button>
+                </div>
 
-              {/* Contenido scrolleable del Modal */}
-              <div className="flex-1 overflow-y-auto py-5 space-y-5 no-scrollbar">
-                {/* ── TAB SKILLS ── */}
-                {activeTabFicha === 'skills' && (
+                {/* Área Scrollable del Contenido de la Sección */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
+                  {/* ── TAB 1: RESUMEN EJECUTIVO ── */}
+                  {activeTabFicha === 'resumen' && (
+                    <div className="space-y-6 animate-fade-in">
+                      {/* Grid de 4 KPIs rápidos */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-slate-900/80 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Capacitaciones</p>
+                            <p className="text-2xl font-black text-emerald-400 mt-1">{selectedOp.capacitaciones?.length || 0}</p>
+                            <p className="text-[10px] text-slate-400 font-medium">Evaluaciones de Puesto</p>
+                          </div>
+                          <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <Target className="w-6 h-6" />
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-900/80 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Skills Técnicas</p>
+                            <p className="text-2xl font-black text-amber-400 mt-1">{selectedOp.skills?.length || 0}</p>
+                            <p className="text-[10px] text-slate-400 font-medium">Habilidades calificados</p>
+                          </div>
+                          <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            <Star className="w-6 h-6 fill-amber-400" />
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-900/80 border border-indigo-500/30 rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Formaciones</p>
+                            <p className="text-2xl font-black text-indigo-400 mt-1">{selectedOp.formaciones?.length || 0}</p>
+                            <p className="text-[10px] text-slate-400 font-medium">Cursos y cert. PRL</p>
+                          </div>
+                          <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                            <GraduationCap className="w-6 h-6" />
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Puestos Habilitados</p>
+                            <p className="text-2xl font-black text-purple-400 mt-1">{selectedOp.permisos?.length || 0}</p>
+                            <p className="text-[10px] text-slate-400 font-medium">Líneas y máquinas</p>
+                          </div>
+                          <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                            <ShieldCheck className="w-6 h-6" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Caja de Datos Personales & Credenciales */}
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+                        <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800/80 pb-3">
+                          <Users className="w-4 h-4 text-blue-400" />
+                          <span>Datos Contractuales y Credenciales de Terminal</span>
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                          <div>
+                            <span className="block text-slate-400 font-bold mb-1">Identificador de Empleado (ID)</span>
+                            <span className="font-mono font-black text-white bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 block">
+                              {selectedOp.id}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block text-slate-400 font-bold mb-1">Nombre Completo</span>
+                            <span className="font-bold text-white bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 block truncate">
+                              {selectedOp.nombre}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block text-slate-400 font-bold mb-1">Correo Electrónico Corporativo</span>
+                            <span className="font-mono font-bold text-blue-300 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 block truncate">
+                              {selectedOp.email || `${selectedOp.nombre?.toLowerCase().replace(/\s+/g, '.') || 'operario'}@mpsproud.com`}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block text-slate-400 font-bold mb-1">Rol Operativo en Planta</span>
+                            <span className="font-black text-amber-300 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 block">
+                              {selectedOp.rol}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block text-slate-400 font-bold mb-1">PIN de Acceso en Terminal</span>
+                            <span className="font-mono font-black text-emerald-400 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                              <span>•••• ({selectedOp.pin || '1234'})</span>
+                              <Key className="w-3.5 h-3.5 opacity-60" />
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block text-slate-400 font-bold mb-1">Especialidad Técnica</span>
+                            <span className="font-bold text-slate-200 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 block truncate">
+                              {selectedOp.especialidad || 'Especialista en Línea'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Acciones Rápidas */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-400">Líneas Asignadas al Turno:</span>
+                          {(selectedOp.lineas || []).map(lin => (
+                            <span key={lin} className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 font-black text-xs">
+                              👷 {lin}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => { setFichaOpen(false); handleOpenEdit(selectedOp); }}
+                            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-black text-xs transition-all flex items-center gap-1.5 border border-slate-700"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Editar Operario</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── TAB 2: CAPACITACIONES (EVALUACIONES Y PLAN DE RECICLAJE) ── */}
+                  {activeTabFicha === 'capacitaciones' && (
+                    <div className="space-y-6 animate-fade-in">
+                      {/* Banner KPI de Capacitación del Puesto */}
+                      <div className="bg-gradient-to-r from-emerald-950/60 via-slate-900/80 to-blue-950/60 border border-emerald-500/30 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <span className="px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-xs font-black uppercase tracking-wider border border-emerald-500/30">
+                            Evaluación de Desempeño & Reciclaje
+                          </span>
+                          <h4 className="text-xl font-black text-white">
+                            Porcentaje de Capacitación vs Requisitos del Puesto: <span className="text-emerald-400">96% APTO</span>
+                          </h4>
+                          <p className="text-xs text-slate-300">
+                            El operario cumple con holgura las competencias técnicas, skills e instrucciones de trabajo del catálogo para operar con máxima seguridad.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="px-4 py-2.5 rounded-2xl bg-slate-950 border border-emerald-500/40 text-center">
+                            <p className="text-[10px] font-bold uppercase text-slate-400">Brecha de Competencia</p>
+                            <p className="text-sm font-black text-emerald-400 flex items-center justify-center gap-1 mt-0.5">
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>0 Brechas Críticas</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Formulario Rápido Añadir Capacitación / Evaluación */}
+                      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-lg">
+                        <p className="text-xs font-black uppercase text-emerald-400 flex items-center gap-1.5">
+                          <PlusCircle className="w-4 h-4" />
+                          <span>Registrar Nueva Evaluación o Reciclaje de Competencias</span>
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                          <div className="md:col-span-2">
+                            <label className="block text-[11px] font-bold text-slate-400 mb-1">Título de la Capacitación / Evaluación</label>
+                            <input
+                              type="text"
+                              value={capTitulo}
+                              onChange={(e) => setCapTitulo(e.target.value)}
+                              placeholder="Ej: Evaluación Anual de Soldadura y Calidad EOL"
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-400 mb-1">Plan de Desarrollo</label>
+                            <input
+                              type="text"
+                              value={capPlan}
+                              onChange={(e) => setCapPlan(e.target.value)}
+                              placeholder="Ej: Plan Anual 2026"
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-400 mb-1">Puntuación / Nota (%)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={capPuntuacion}
+                              onChange={(e) => setCapPuntuacion(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-black text-emerald-400 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end pt-1">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-400 mb-1">Resultado de Capacitación</label>
+                            <select
+                              value={capEstado}
+                              onChange={(e) => setCapEstado(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-emerald-400 focus:outline-none"
+                            >
+                              <option value="superada">✅ Superada / Apto (100%)</option>
+                              <option value="pendiente_reciclaje">⏳ Pendiente de Reciclaje</option>
+                              <option value="no_apto">🔴 No Apto / Requiere Formación</option>
+                            </select>
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-[11px] font-bold text-slate-400 mb-1">Observaciones del Evaluador</label>
+                            <input
+                              type="text"
+                              value={capObservaciones}
+                              onChange={(e) => setCapObservaciones(e.target.value)}
+                              placeholder="Detalles sobre el desempeño en el puesto..."
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-slate-300 focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <button
+                              type="button"
+                              onClick={handleAddCapacitacionToOp}
+                              className="w-full px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/50"
+                            >
+                              <Target className="w-3.5 h-3.5" />
+                              <span>Registrar Evaluación</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Listado de Capacitaciones */}
+                      <div className="space-y-3">
+                        {(selectedOp.capacitaciones || []).map((cap, idx) => {
+                          const esSuperada = cap.estado === 'superada';
+                          return (
+                            <div key={idx} className="bg-slate-900/70 border border-slate-800/90 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-emerald-500/40 transition-colors">
+                              <div className="space-y-1.5 flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                    esSuperada ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                  }`}>
+                                    {esSuperada ? 'Evaluación Superada' : 'Pendiente Reciclaje'}
+                                  </span>
+                                  <h4 className="font-black text-white text-base truncate">{cap.titulo}</h4>
+                                </div>
+                                <p className="text-xs text-slate-300 font-medium">Plan de Cualificación: <strong className="text-emerald-300">{cap.plan || 'Plan Anual MES'}</strong></p>
+                                <p className="text-xs text-slate-400 italic">"{cap.observaciones || 'Sin comentarios adicionales del evaluador.'}"</p>
+                                <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono text-slate-400 pt-1">
+                                  <span>📅 Fecha: <strong className="text-white">{cap.fecha || '2026-05-15'}</strong></span>
+                                  <span>🧑‍⚖️ Evaluador: <strong className="text-slate-300">{cap.evaluador || 'Supervisor de Planta'}</strong></span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-4 self-end md:self-center shrink-0">
+                                <div className="bg-slate-950 px-3.5 py-2 rounded-xl border border-slate-800 text-center">
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase">Nota</p>
+                                  <p className="text-lg font-black text-emerald-400">{cap.puntuacion || 95}%</p>
+                                </div>
+                                <button
+                                  onClick={() => handleRemoveCapacitacionFromOp(cap.id)}
+                                  className="p-2.5 rounded-xl bg-slate-950 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-colors"
+                                  title="Borrar capacitación"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {(selectedOp.capacitaciones || []).length === 0 && (
+                          <div className="py-10 text-center text-slate-500 font-bold bg-slate-900/30 rounded-2xl border border-dashed border-slate-800">
+                            No se han registrado evaluations de competencia o capacitaciones en este expediente.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── TAB 3: SKILLS ── */}
+                  {activeTabFicha === 'skills' && (
                   <div className="space-y-6">
                     {/* Formulario Rápido Añadir/Evaluar Skill */}
                     <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
@@ -1189,8 +1695,8 @@ export default function Operarios() {
                   </div>
                 )}
 
-                {/* ── TAB PERMISOS EN LÍNEAS / MÁQUINAS ── */}
-                {activeTabFicha === 'permisos' && (
+                {/* ── TAB PERMISOS EN LÍNEAS / MÁQUINAS (PUESTOS DE TRABAJO) ── */}
+                {(activeTabFicha === 'permisos' || activeTabFicha === 'puestos') && (
                   <div className="space-y-6">
                     {/* Formulario Rápido Añadir Permiso */}
                     <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
@@ -1307,14 +1813,19 @@ export default function Operarios() {
                 )}
               </div>
 
-              {/* Pie con botón cerrar */}
-              <div className="pt-4 border-t border-slate-800 flex justify-end shrink-0">
-                <button
-                  onClick={() => setFichaOpen(false)}
-                  className="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-black text-xs transition-all"
-                >
-                  Cerrar Ficha
-                </button>
+                {/* Pie con botón cerrar en la columna principal */}
+                <div className="px-6 py-4 border-t border-slate-800/80 bg-slate-900/40 flex items-center justify-between shrink-0">
+                  <span className="text-[11px] font-bold text-slate-400 hidden sm:inline">
+                    💡 Todos los cambios y evaluaciones se guardan de forma instantánea en el expediente 360°.
+                  </span>
+                  <button
+                    onClick={() => setFichaOpen(false)}
+                    className="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white hover:text-rose-300 font-black text-xs transition-all flex items-center gap-2 shadow-lg"
+                  >
+                    <XCircle className="w-4 h-4 text-rose-400" />
+                    <span>Cerrar Expediente</span>
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

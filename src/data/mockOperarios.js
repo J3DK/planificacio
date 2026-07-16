@@ -16,6 +16,28 @@ export const operarios = [
       { id: 'SK-03', nombre: 'Programación & Diagnóstico de PLC Siemen / Beckhoff', valoracion: 4, nivel: 'Avanzado', ultimaEvaluacion: '2026-04-15' },
       { id: 'SK-05', nombre: 'Operación de Robot de Soldadura KUKA KR IONTEC', valoracion: 5, nivel: 'Maestro', ultimaEvaluacion: '2026-06-01' }
     ],
+    capacitaciones: [
+      {
+        id: 'CAP-101',
+        titulo: 'Evaluación Técnica Global de Soldadura & Seguridad BMS',
+        plan: 'Plan Maestro Anual de Cualificación 2026',
+        fecha: '2026-05-15',
+        evaluador: 'Comité Técnico / Dir. Operaciones',
+        puntuacion: 98,
+        estado: 'superada',
+        observaciones: 'Nivel sobresaliente en resolución de incidencias en celdas LFP y supervisión de células KUKA.'
+      },
+      {
+        id: 'CAP-102',
+        titulo: 'Reciclaje en Ciberseguridad Industrial & PLC Siemens S7-1500',
+        plan: 'Reciclaje Técnico de Mandos',
+        fecha: '2026-04-10',
+        evaluador: 'Soporte Ingeniería MES',
+        puntuacion: 94,
+        estado: 'superada',
+        observaciones: 'Apto para realizar backups y modificaciones de PLC en línea sin interrupción.'
+      }
+    ],
     formaciones: [
       { id: 'FM-01', nombre: 'PRL Riesgo Eléctrico Alta Tensión (>600V)', fechaObtencion: '2025-03-15', fechaCaducidad: '2027-03-15', estado: 'vigente', entidad: 'TÜV Rheinland Academy' },
       { id: 'FM-04', nombre: 'Operación y Seguridad en Células Robotizadas (Norma ISO 10218)', fechaObtencion: '2024-11-20', fechaCaducidad: '2026-11-20', estado: 'vigente', entidad: 'KUKA Robotics Spain' },
@@ -48,6 +70,18 @@ export const operarios = [
       { id: 'SK-04', nombre: 'Control de Calidad EOL (End of Line Test & Hi-Pot)', valoracion: 5, nivel: 'Maestro', ultimaEvaluacion: '2026-05-20' },
       { id: 'SK-06', nombre: 'Inspección Óptica AOI & Trazabilidad RFID', valoracion: 4, nivel: 'Avanzado', ultimaEvaluacion: '2026-03-11' }
     ],
+    capacitaciones: [
+      {
+        id: 'CAP-201',
+        titulo: 'Certificación en Protocolo Hi-Pot Test & Auditoría ISO 9001',
+        plan: 'Plan de Cualificación QA/QC 2026',
+        fecha: '2026-05-20',
+        evaluador: 'Jefe de Calidad Planta',
+        puntuacion: 96,
+        estado: 'superada',
+        observaciones: 'Excelente precisión en detección de fugas en módulos de potencia e inspección AOI.'
+      }
+    ],
     formaciones: [
       { id: 'FM-01', nombre: 'PRL Riesgo Eléctrico Alta Tensión (>600V)', fechaObtencion: '2025-04-10', fechaCaducidad: '2027-04-10', estado: 'vigente', entidad: 'TÜV Rheinland Academy' },
       { id: 'FM-02', nombre: 'Soldadura Electrónica Estándar IPC-A-610', fechaObtencion: '2024-09-15', fechaCaducidad: '2027-09-15', estado: 'vigente', entidad: 'IPC Official Training' }
@@ -78,6 +112,18 @@ export const operarios = [
       { id: 'SK-03', nombre: 'Programación & Diagnóstico de PLC Siemen / Beckhoff', valoracion: 5, nivel: 'Maestro', ultimaEvaluacion: '2026-06-10' },
       { id: 'SK-02', nombre: 'Montaje & Ensamblaje de Conectores MC4', valoracion: 4, nivel: 'Avanzado', ultimaEvaluacion: '2026-02-18' },
       { id: 'SK-07', nombre: 'Manejo de Carretilla Elevadora y Puente Grúa (5T)', valoracion: 4, nivel: 'Avanzado', ultimaEvaluacion: '2025-11-05' }
+    ],
+    capacitaciones: [
+      {
+        id: 'CAP-301',
+        titulo: 'Evaluación de Respuesta ante Paradas y Mantenimiento Correctivo',
+        plan: 'Plan Anual Electromecánico',
+        fecha: '2026-06-10',
+        evaluador: 'Dir. Mantenimiento',
+        puntuacion: 95,
+        estado: 'superada',
+        observaciones: 'Tiempo medio de resolución MTTR de los más bajos de la planta. Dominio de sensores inductivos y robótica.'
+      }
     ],
     formaciones: [
       { id: 'FM-01', nombre: 'PRL Riesgo Eléctrico Alta Tensión (>600V)', fechaObtencion: '2025-01-20', fechaCaducidad: '2027-01-20', estado: 'vigente', entidad: 'TÜV Rheinland Academy' },
@@ -110,6 +156,18 @@ export const operarios = [
       { id: 'SK-02', nombre: 'Montaje & Ensamblaje de Conectores MC4', valoracion: 5, nivel: 'Maestro', ultimaEvaluacion: '2026-05-02' },
       { id: 'SK-06', nombre: 'Inspección Óptica AOI & Trazabilidad RFID', valoracion: 3, nivel: 'Intermedio', ultimaEvaluacion: '2026-01-15' }
     ],
+    capacitaciones: [
+      {
+        id: 'CAP-401',
+        titulo: 'Cualificación en Ensamblaje Estanco de Módulos 48V',
+        plan: 'Plan Maestro Operario Especialista',
+        fecha: '2026-05-02',
+        evaluador: 'Jefe de Línea 2',
+        puntuacion: 90,
+        estado: 'superada',
+        observaciones: 'Alta velocidad en crimpado e interconexión sin generar retrabajos.'
+      }
+    ],
     formaciones: [
       { id: 'FM-01', nombre: 'PRL Riesgo Eléctrico Alta Tensión (>600V)', fechaObtencion: '2025-05-10', fechaCaducidad: '2027-05-10', estado: 'vigente', entidad: 'TÜV Rheinland Academy' },
       { id: 'FM-03', nombre: 'Manipulación Segura de Químicos y Electrolito de Litio', fechaObtencion: '2025-06-01', fechaCaducidad: '2027-06-01', estado: 'vigente', entidad: 'SGS Inspecciones' }
@@ -139,6 +197,18 @@ export const operarios = [
       { id: 'SK-02', nombre: 'Montaje & Ensamblaje de Conectores MC4', valoracion: 4, nivel: 'Avanzado', ultimaEvaluacion: '2026-04-10' },
       { id: 'SK-07', nombre: 'Manejo de Carretilla Elevadora y Puente Grúa (5T)', valoracion: 4, nivel: 'Avanzado', ultimaEvaluacion: '2025-10-20' }
     ],
+    capacitaciones: [
+      {
+        id: 'CAP-501',
+        titulo: 'Reciclaje Práctico en Conexión Dieléctrica Pack 400V',
+        plan: 'Plan Anual de Reciclaje MES 2026',
+        fecha: '2026-04-10',
+        evaluador: 'Responsable PRL & Operaciones',
+        puntuacion: 88,
+        estado: 'superada',
+        observaciones: 'Cumple el protocolo de verificación de ausencia de tensión.'
+      }
+    ],
     formaciones: [
       { id: 'FM-01', nombre: 'PRL Riesgo Eléctrico Alta Tensión (>600V)', fechaObtencion: '2025-02-01', fechaCaducidad: '2027-02-01', estado: 'vigente', entidad: 'TÜV Rheinland Academy' },
       { id: 'FM-05', nombre: 'Primeros Auxilios y Evacuación en Zonas con Riesgo Químico/Eléctrico', fechaObtencion: '2025-11-15', fechaCaducidad: '2026-11-15', estado: 'vigente', entidad: 'Mutua Universal' }
@@ -167,6 +237,18 @@ export const operarios = [
       { id: 'SK-06', nombre: 'Inspección Óptica AOI & Trazabilidad RFID', valoracion: 5, nivel: 'Maestro', ultimaEvaluacion: '2026-06-05' },
       { id: 'SK-04', nombre: 'Control de Calidad EOL (End of Line Test & Hi-Pot)', valoracion: 4, nivel: 'Avanzado', ultimaEvaluacion: '2026-03-25' }
     ],
+    capacitaciones: [
+      {
+        id: 'CAP-601',
+        titulo: 'Inspección de Prototipos e Identificación de Defectos Críticos',
+        plan: 'Plan de Cualificación QA/QC 2026',
+        fecha: '2026-06-05',
+        evaluador: 'Dir. Calidad',
+        puntuacion: 97,
+        estado: 'superada',
+        observaciones: 'Especial soltura en uso del software de visión artificial AOI.'
+      }
+    ],
     formaciones: [
       { id: 'FM-02', nombre: 'Soldadura Electrónica Estándar IPC-A-610', fechaObtencion: '2024-10-10', fechaCaducidad: '2027-10-10', estado: 'vigente', entidad: 'IPC Official Training' },
       { id: 'FM-06', nombre: 'Metodología 5S & TPM Básica para Operarios de Línea', fechaObtencion: '2025-01-15', fechaCaducidad: '2029-01-15', estado: 'vigente', entidad: 'MPS Academy Internal' }
@@ -194,6 +276,18 @@ export const operarios = [
     skills: [
       { id: 'SK-07', nombre: 'Manejo de Carretilla Elevadora y Puente Grúa (5T)', valoracion: 5, nivel: 'Maestro', ultimaEvaluacion: '2026-05-18' }
     ],
+    capacitaciones: [
+      {
+        id: 'CAP-701',
+        titulo: 'Evaluación de Logística y Seguridad en Movimiento de Cargas 5T',
+        plan: 'Plan de Reciclaje Logístico 2026',
+        fecha: '2026-05-18',
+        evaluador: 'Jefe Almacén & Logística',
+        puntuacion: 94,
+        estado: 'superada',
+        observaciones: 'Manejo seguro con cero incidencias en zona de carga pesada.'
+      }
+    ],
     formaciones: [
       { id: 'FM-03', nombre: 'Manipulación Segura de Químicos y Electrolito de Litio', fechaObtencion: '2025-04-01', fechaCaducidad: '2027-04-01', estado: 'vigente', entidad: 'SGS Inspecciones' },
       { id: 'FM-05', nombre: 'Primeros Auxilios y Evacuación en Zonas con Riesgo Químico/Eléctrico', fechaObtencion: '2025-08-10', fechaCaducidad: '2026-08-10', estado: 'vigente', entidad: 'Mutua Universal' }
@@ -219,6 +313,18 @@ export const operarios = [
     avatar: '',
     skills: [
       { id: 'SK-01', nombre: 'Soldadura Láser de Celdas LFP', valoracion: 3, nivel: 'Intermedio', ultimaEvaluacion: '2025-12-10' }
+    ],
+    capacitaciones: [
+      {
+        id: 'CAP-801',
+        titulo: 'Evaluación Inicial de Soldadura Estándar',
+        plan: 'Plan Maestro Operario Especialista',
+        fecha: '2025-12-10',
+        evaluador: 'Supervisor Turno Tarde',
+        puntuacion: 78,
+        estado: 'pendiente_reciclaje',
+        observaciones: 'Recomendado curso de reciclaje láser y renovación de carnet PRL.'
+      }
     ],
     formaciones: [
       { id: 'FM-01', nombre: 'PRL Riesgo Eléctrico Alta Tensión (>600V)', fechaObtencion: '2023-06-01', fechaCaducidad: '2025-06-01', estado: 'caducado', entidad: 'TÜV Rheinland Academy' }
