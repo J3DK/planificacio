@@ -492,7 +492,6 @@ export async function insertMaterial(material) {
   if (isSupabaseConfigured()) {
     try {
       const dbPayload = materialToDb(newMat);
-      delete dbPayload.imagen;
       const { data, error } = await supabase.from('materias_primas').insert([dbPayload]).select().single();
       if (!error && data) return { data: mapMaterial({ ...data, imagen: newMat.imagen }), error: null };
     } catch (e) {}
@@ -519,7 +518,6 @@ export async function updateMaterial(id, material) {
   if (isSupabaseConfigured()) {
     try {
       const dbPayload = materialToDb(material);
-      delete dbPayload.imagen;
       const { data, error } = await supabase.from('materias_primas').update(dbPayload).eq('id', id).select().single();
       if (!error && data) return { data: mapMaterial({ ...data, imagen: material.imagen }), error: null };
     } catch (e) {}
@@ -916,7 +914,6 @@ export async function insertProducto(producto) {
   if (isSupabaseConfigured()) {
     try {
       const dbPayload = { ...newItem };
-      delete dbPayload.imagen;
       const { data, error } = await supabase.from('productos').insert([dbPayload]).select().single();
       if (!error && data) return { data: mapProducto({ ...data, imagen: newItem.imagen, bom: newItem.bom }), error: null };
     } catch (e) {}
@@ -941,7 +938,6 @@ export async function updateProducto(id, producto) {
   if (isSupabaseConfigured()) {
     try {
       const dbPayload = { ...producto };
-      delete dbPayload.imagen;
       const { data, error } = await supabase.from('productos').update(dbPayload).eq('id', id).select().single();
       if (!error && data) return { data: mapProducto({ ...data, imagen: producto.imagen, bom: producto.bom }), error: null };
     } catch (e) {}
