@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Bell, RefreshCw, Clock, Cpu } from 'lucide-react';
-import { alertas } from '@/data/mockAlertas';
 import SupabaseStatus from '@/components/shared/SupabaseStatus';
-import { getCurrentShiftInfo } from '@/services/dataService';
+import { getCurrentShiftInfo, fetchAlertas } from '@/services/dataService';
 
 const routeTitles = {
   '/':              { title: 'Dashboard · Resumen',           sub: 'Plan Maestro de Producción — MPS' },
@@ -23,6 +22,19 @@ const routeTitles = {
 export default function Header() {
   const location = useLocation();
   const route = routeTitles[location.pathname] || { title: location.pathname, sub: '' };
+  const [alertas, setAlertas] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await fetchAlertas();
+      if (data) setAlertas(data);
+    };
+    load();
+    const h = () => load();
+    window.addEventListener('alertas_updated', h);
+    return () => window.removeEventListener('alertas_updated', h);
+  }, []);
+
   const alertasNoLeidas = alertas.filter(a => !a.leida).length;
   const now = new Date();
   const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });

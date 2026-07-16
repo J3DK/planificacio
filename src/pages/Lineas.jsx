@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Zap, AlertTriangle, Wrench, ChevronRight, RefreshCw, Plus, Pencil, Trash2 } from 'lucide-react';
-import { fetchLineas, insertLinea, updateLinea, deleteLinea, getCurrentShiftInfo } from '@/services/dataService';
+import { fetchLineas, insertLinea, updateLinea, deleteLinea, getCurrentShiftInfo, fetchOrdenesTrabajo, fetchParadas } from '@/services/dataService';
 import MiniGauge from '@/components/shared/MiniGauge';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CrudModal from '@/components/shared/CrudModal';
@@ -31,7 +31,9 @@ const LINEA_FIELDS = [
 ];
 
 export default function Lineas() {
-  const [lineas, setLineas] = useState([]);
+  const [lineasRaw, setLineasRaw] = useState([]);
+  const [ots, setOts] = useState([]);
+  const [paradasList, setParadasList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
 
@@ -46,12 +48,84 @@ export default function Lineas() {
 
   const loadData = async () => {
     setLoading(true);
-    const { data } = await fetchLineas();
-    setLineas(data || []);
+    const [resL, resO, resP] = await Promise.all([
+      fetchLineas(),
+      fetchOrdenesTrabajo(),
+      fetchParadas()
+    ]);
+    setLineasRaw(resL?.data || []);
+    setOts(resO?.data || []);
+    setParadasList(resP?.data || []);
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    const handler = () => loadData();
+    window.addEventListener('lineas_updated', handler);
+    window.addEventListener('mantenimiento_updated', handler);
+    window.addEventListener('paradas_updated', handler);
+    window.addEventListener('materiales_updated', handler);
+    return () => {
+      window.removeEventListener('lineas_updated', handler);
+      window.removeEventListener('mantenimiento_updated', handler);
+      window.removeEventListener('paradas_updated', handler);
+      window.removeEventListener('materiales_updated', handler);
+    };
+  }, []);
+
+  // Cálculo de estado en vivo / automático
+  const lineas = useMemo(() => {
+    return lineasRaw.map(l => {
+      // 1. OT crítica en mantenimiento
+      const otCritica = ots.find(ot => {
+        const matchLinea = ot.linea === l.nombre || ot.linea === l.id || ot.linea?.toLowerCase() === l.nombre?.toLowerCase();
+        const matchEstado = ['abierta', 'en curso'].includes((ot.estado || '').toLowerCase());
+        const matchPrioridad = (ot.prioridad || '').toLowerCase() === 'critica';
+        return matchLinea && matchEstado && matchPrioridad;
+      });
+
+      if (otCritica) {
+        return {
+          ...l,
+          _estadoManual: l.estado,
+          _motivoManual: l.motivoParada,
+          estado: 'mantenimiento',
+          motivoParada: otCritica.titulo || otCritica.causaRaiz || `OT Crítica activa (${otCritica.codigo || ''})`,
+          enVivo: true,
+          origenVivo: `OT Crítica Mantenimiento (${otCritica.codigo || 'Activa'})`
+        };
+      }
+
+      // 2. Parada activa de avería en Paradas
+      const paradaActiva = paradasList.find(p => {
+        const matchLinea = p.linea === l.nombre || p.linea === l.id || p.linea?.toLowerCase() === l.nombre?.toLowerCase();
+        const matchAbierta = p.fin === null || (p.estado || '').toLowerCase() === 'abierta' || (p.estado || '').toLowerCase() === 'en_curso';
+        const matchTipo = (p.tipo || '').toLowerCase() === 'averia';
+        return matchLinea && matchAbierta && matchTipo;
+      });
+
+      if (paradaActiva) {
+        return {
+          ...l,
+          _estadoManual: l.estado,
+          _motivoManual: l.motivoParada,
+          estado: 'parada',
+          motivoParada: paradaActiva.causa || 'Parada por avería activa en planta',
+          enVivo: true,
+          origenVivo: `Parada Avería Activa (${paradaActiva.causa || 'Sin cierre'})`
+        };
+      }
+
+      // 3. Estado base / manual
+      return {
+        ...l,
+        _estadoManual: l.estado,
+        _motivoManual: l.motivoParada,
+        enVivo: false
+      };
+    });
+  }, [lineasRaw, ots, paradasList]);
 
   const lineaSeleccionada = lineas.find(l => l.id === selected);
 
@@ -63,7 +137,11 @@ export default function Lineas() {
 
   const openEdit = (e, linea) => {
     e.stopPropagation();
-    setEditItem(linea);
+    setEditItem({
+      ...linea,
+      estado: linea._estadoManual || linea.estado,
+      motivoParada: linea._motivoManual || linea.motivoParada
+    });
     setModalMode('edit');
     setModalOpen(true);
   };
@@ -78,10 +156,10 @@ export default function Lineas() {
     setSaving(true);
     if (modalMode === 'create') {
       const { data: newItem, error } = await insertLinea(data);
-      if (!error) setLineas(prev => [...prev, newItem || data]);
+      if (!error) setLineasRaw(prev => [...prev, newItem || data]);
     } else {
       const { data: updated, error } = await updateLinea(editItem.id, data);
-      if (!error) setLineas(prev => prev.map(l => l.id === editItem.id ? (updated || { ...l, ...data }) : l));
+      if (!error) setLineasRaw(prev => prev.map(l => l.id === editItem.id ? (updated || { ...l, ...data }) : l));
     }
     setSaving(false);
     setModalOpen(false);
@@ -92,7 +170,7 @@ export default function Lineas() {
     setDeleting(true);
     const { error } = await deleteLinea(deleteTarget.id);
     if (!error) {
-      setLineas(prev => prev.filter(l => l.id !== deleteTarget.id));
+      setLineasRaw(prev => prev.filter(l => l.id !== deleteTarget.id));
       if (selected === deleteTarget.id) setSelected(null);
     }
     setDeleting(false);
@@ -136,16 +214,28 @@ export default function Lineas() {
                 </div>
                 <p className="text-xs text-slate-500">{linea.descripcion}</p>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
                 <button onClick={e => openEdit(e, linea)}
-                  className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-400/10 opacity-0 group-hover:opacity-100 transition-all">
+                  className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-400/10 opacity-0 group-hover:opacity-100 transition-all"
+                  title="Editar datos manuales de respaldo">
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
                 <button onClick={e => openDelete(e, linea)}
-                  className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover:opacity-100 transition-all">
+                  className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover:opacity-100 transition-all"
+                  title="Eliminar línea">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
                 <StatusBadge status={linea.estado} />
+                {linea.enVivo ? (
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-black animate-pulse shadow-sm" title={`Cálculo automático en vivo: ${linea.origenVivo}`}>
+                    <Zap className="w-2.5 h-2.5 text-blue-400" />
+                    En vivo
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded-md bg-slate-800 border border-slate-700/60 text-slate-400 text-[9px] font-medium" title="Estado manual / base del registro">
+                    Manual
+                  </span>
+                )}
               </div>
             </div>
 
@@ -175,7 +265,14 @@ export default function Lineas() {
             {(linea.estado === 'parada' || linea.estado === 'mantenimiento') && linea.motivoParada && (
               <div className="mt-3 flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5">
                 {linea.estado === 'parada' ? <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0" /> : <Wrench className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0" />}
-                <p className="text-xs text-amber-300">{linea.motivoParada}</p>
+                <div>
+                  <p className="text-xs text-amber-300 font-medium">{linea.motivoParada}</p>
+                  {linea.enVivo && (
+                    <p className="text-[10px] text-blue-400/90 font-bold mt-0.5 flex items-center gap-1">
+                      <Zap className="w-2.5 h-2.5 inline" /> {linea.origenVivo}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </motion.div>

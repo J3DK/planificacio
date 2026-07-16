@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { generarAlertasAutomaticas } from '@/services/dataService';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import Dashboard from '@/pages/Dashboard';
@@ -35,6 +36,27 @@ function Layout({ children }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    generarAlertasAutomaticas();
+    const handler = () => generarAlertasAutomaticas();
+    window.addEventListener('materiales_updated', handler);
+    window.addEventListener('mantenimiento_updated', handler);
+    window.addEventListener('planificacion_updated', handler);
+    window.addEventListener('secuencia_reordenada', handler);
+    window.addEventListener('secuencia_updated', handler);
+    window.addEventListener('paradas_updated', handler);
+    window.addEventListener('produccion_updated', handler);
+    return () => {
+      window.removeEventListener('materiales_updated', handler);
+      window.removeEventListener('mantenimiento_updated', handler);
+      window.removeEventListener('planificacion_updated', handler);
+      window.removeEventListener('secuencia_reordenada', handler);
+      window.removeEventListener('secuencia_updated', handler);
+      window.removeEventListener('paradas_updated', handler);
+      window.removeEventListener('produccion_updated', handler);
+    };
+  }, []);
+
   return (
     <Router>
       <Routes>

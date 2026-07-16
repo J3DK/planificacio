@@ -11,7 +11,7 @@ const tipoConfig = {
   advertencia:{ cls: 'border-amber-500/30 bg-amber-500/5', badge: 'badge-warn',   label: 'Advertencia', iconCls: 'text-amber-400' },
   info:       { cls: 'border-blue-500/20 bg-blue-500/5',   badge: 'badge-info',   label: 'Info',        iconCls: 'text-blue-400' },
 };
-const moduloLabel = { materias_primas: 'Materias Primas', paradas: 'Paradas', secuencia: 'Secuencia', lineas: 'Líneas', produccion: 'Producción' };
+const moduloLabel = { materias_primas: 'Materias Primas', paradas: 'Paradas', secuencia: 'Secuencia', lineas: 'Líneas', produccion: 'Producción', mantenimiento: 'Mantenimiento' };
 
 const ALERTA_FIELDS = [
   { key: 'tipo',        label: 'Tipo',        type: 'select', required: true,
@@ -19,7 +19,7 @@ const ALERTA_FIELDS = [
   { key: 'titulo',      label: 'Título',      type: 'text',   required: true, placeholder: 'Ruptura de stock...' },
   { key: 'descripcion', label: 'Descripción', type: 'textarea', placeholder: 'Descripción detallada...' },
   { key: 'modulo',      label: 'Módulo',      type: 'select',
-    options: [{ value: 'materias_primas', label: 'Materias Primas' }, { value: 'paradas', label: 'Paradas' }, { value: 'secuencia', label: 'Secuencia' }, { value: 'lineas', label: 'Líneas' }, { value: 'produccion', label: 'Producción' }] },
+    options: [{ value: 'materias_primas', label: 'Materias Primas' }, { value: 'paradas', label: 'Paradas' }, { value: 'secuencia', label: 'Secuencia' }, { value: 'lineas', label: 'Líneas' }, { value: 'produccion', label: 'Producción' }, { value: 'mantenimiento', label: 'Mantenimiento' }] },
   { key: 'linea',       label: 'Línea',       type: 'text',   placeholder: 'Línea 3' },
   { key: 'icono',       label: 'Icono',       type: 'select',
     options: ['AlertTriangle', 'Wrench', 'Clock', 'TrendingDown', 'Package', 'CheckCircle', 'BarChart2'] },
@@ -46,7 +46,26 @@ export default function Alertas() {
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    const handler = () => loadData();
+    window.addEventListener('alertas_updated', handler);
+    window.addEventListener('materiales_updated', handler);
+    window.addEventListener('mantenimiento_updated', handler);
+    window.addEventListener('paradas_updated', handler);
+    window.addEventListener('secuencia_updated', handler);
+    window.addEventListener('secuencia_reordenada', handler);
+    window.addEventListener('planificacion_updated', handler);
+    return () => {
+      window.removeEventListener('alertas_updated', handler);
+      window.removeEventListener('materiales_updated', handler);
+      window.removeEventListener('mantenimiento_updated', handler);
+      window.removeEventListener('paradas_updated', handler);
+      window.removeEventListener('secuencia_updated', handler);
+      window.removeEventListener('secuencia_reordenada', handler);
+      window.removeEventListener('planificacion_updated', handler);
+    };
+  }, []);
 
   const marcarLeida = async (id) => {
     await updateAlerta(id, { leida: true });

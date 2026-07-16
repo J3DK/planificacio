@@ -266,6 +266,9 @@ export async function fetchLineas() {
   return { data: mockLineas, fromSupabase: false };
 }
 
+function getAlertasLocal() { try { const r = localStorage.getItem('mes_alertas'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setAlertasLocal(d) { try { localStorage.setItem('mes_alertas', JSON.stringify(d)); } catch (_) {} }
+
 export async function fetchAlertas() {
   if (isSupabaseConfigured()) {
     try {
@@ -273,6 +276,9 @@ export async function fetchAlertas() {
       if (!error && data && data.length > 0) return { data, fromSupabase: true };
     } catch (e) {}
   }
+  const local = getAlertasLocal();
+  if (local) return { data: local, fromSupabase: false };
+  setAlertasLocal(mockAlertas);
   return { data: mockAlertas, fromSupabase: false };
 }
 
@@ -439,22 +445,171 @@ export async function deleteLinea(id) {
 // ─── WRITE — Alertas ─────────────────────────────────────────────────────────
 
 export async function insertAlerta(alerta) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { data, error } = await supabase.from('alertas').insert([alerta]).select().single();
-  return { data, error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('alertas').insert([alerta]).select().single();
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('alertas_updated'));
+        return { data, error: null };
+      }
+    } catch (e) {}
+  }
+  const current = getAlertasLocal() || mockAlertas;
+  const newItem = { ...alerta, id: alerta.id || Date.now() };
+  const updated = [newItem, ...current];
+  setAlertasLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('alertas_updated'));
+  return { data: newItem, error: null };
 }
 
 export async function updateAlerta(id, alerta) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { data, error } = await supabase.from('alertas').update(alerta).eq('id', id).select().single();
-  return { data, error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('alertas').update(alerta).eq('id', id).select().single();
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('alertas_updated'));
+        return { data, error: null };
+      }
+    } catch (e) {}
+  }
+  const current = getAlertasLocal() || mockAlertas;
+  const updated = current.map(a => a.id === id ? { ...a, ...alerta } : a);
+  setAlertasLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('alertas_updated'));
+  return { data: updated.find(a => a.id === id) || { id, ...alerta }, error: null };
 }
 
 export async function deleteAlerta(id) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { error } = await supabase.from('alertas').delete().eq('id', id);
-  return { error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('alertas').delete().eq('id', id);
+      if (!error) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('alertas_updated'));
+        return { error: null };
+      }
+    } catch (e) {}
+  }
+  const current = getAlertasLocal() || mockAlertas;
+  const updated = current.filter(a => a.id !== id);
+  setAlertasLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('alertas_updated'));
+  return { error: null };
 }
+
+let isGeneratingAlerts = false;
+
+export async function generarAlertasAutomaticas() {
+  if (isGeneratingAlerts) return;
+  isGeneratingAlerts = true;
+  try {
+    const { data: currentAlerts } = await fetchAlertas();
+    const alertas = currentAlerts || [];
+
+    // 1. Stock crítico (materias_primas)
+    const { data: materiales } = await fetchMateriasPrimas();
+    if (materiales && Array.isArray(materiales)) {
+      for (const mat of materiales) {
+        const stockActual = Number(mat.stockActual ?? mat.stock_actual ?? 0);
+        const stockMinimo = Number(mat.stockMinimo ?? mat.stock_minimo ?? 0);
+        const origenId = `stock_${mat.id}`;
+        const alertaExistente = alertas.find(a => a.origenId === origenId && !a.leida);
+
+        if (stockActual < stockMinimo) {
+          const isCritica = stockActual <= 0;
+          const targetTipo = isCritica ? 'critica' : 'advertencia';
+          const targetTitulo = `Stock bajo mínimo: ${mat.codigo || mat.descripcion || 'Componente'}`;
+          const targetDesc = `El stock actual de "${mat.descripcion || mat.codigo}" es de ${stockActual} ${mat.unidad || 'uds'} (Mínimo: ${stockMinimo}).`;
+
+          if (!alertaExistente) {
+            await insertAlerta({
+              tipo: targetTipo,
+              titulo: targetTitulo,
+              descripcion: targetDesc,
+              modulo: 'materias_primas',
+              linea: 'Almacén',
+              icono: 'Package',
+              timestamp: new Date().toISOString(),
+              leida: false,
+              origenId
+            });
+          } else if (alertaExistente.tipo !== targetTipo || alertaExistente.descripcion !== targetDesc) {
+            await updateAlerta(alertaExistente.id, {
+              tipo: targetTipo,
+              titulo: targetTitulo,
+              descripcion: targetDesc
+            });
+          }
+        } else if (alertaExistente) {
+          await updateAlerta(alertaExistente.id, { leida: true });
+        }
+      }
+    }
+
+    // 2. OT crítica abierta (mantenimiento)
+    const { data: ots } = await fetchOrdenesTrabajo();
+    if (ots && Array.isArray(ots)) {
+      for (const ot of ots) {
+        const isCritica = (ot.prioridad || '').toLowerCase() === 'critica';
+        const isOpen = ['abierta', 'en curso'].includes((ot.estado || '').toLowerCase());
+        const origenId = `ot_${ot.id || ot.codigo}`;
+        const alertaExistente = alertas.find(a => a.origenId === origenId && !a.leida);
+
+        if (isCritica && isOpen) {
+          if (!alertaExistente) {
+            await insertAlerta({
+              tipo: 'critica',
+              titulo: `OT Crítica en Mantenimiento: ${ot.codigo || 'Orden'}`,
+              descripcion: ot.titulo || ot.causaRaiz || 'Intervención crítica urgente requerida en línea',
+              modulo: 'mantenimiento',
+              linea: ot.linea || 'Planta',
+              icono: 'Wrench',
+              timestamp: new Date().toISOString(),
+              leida: false,
+              origenId
+            });
+          }
+        } else if (alertaExistente) {
+          await updateAlerta(alertaExistente.id, { leida: true });
+        }
+      }
+    }
+
+    // 3. Desviación de plan / retraso (secuencia)
+    const { data: ordenes } = await fetchSecuencia();
+    if (ordenes && Array.isArray(ordenes)) {
+      for (const o of ordenes) {
+        const isRetrasado = (o.estado || '').toLowerCase() === 'retrasado';
+        const desv = Number(o.producido || 0) - Number(o.objetivo || 0);
+        const isDesviada = desv <= -10;
+        const origenId = `sec_${o.id || o.codigo}`;
+        const alertaExistente = alertas.find(a => a.origenId === origenId && !a.leida);
+
+        if (isRetrasado || isDesviada) {
+          if (!alertaExistente) {
+            await insertAlerta({
+              tipo: 'advertencia',
+              titulo: `Desviación en Secuencia: ${o.codigo || o.producto || 'Orden'}`,
+              descripcion: `La orden ${o.codigo || ''} en ${o.linea || 'Línea'} muestra un retraso o desviación de ${desv} uds respecto al objetivo.`,
+              modulo: 'secuencia',
+              linea: o.linea || 'Planta',
+              icono: 'Clock',
+              timestamp: new Date().toISOString(),
+              leida: false,
+              origenId
+            });
+          }
+        } else if (alertaExistente) {
+          await updateAlerta(alertaExistente.id, { leida: true });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error generando alertas automáticas:', e);
+  } finally {
+    isGeneratingAlerts = false;
+  }
+}
+
 
 // ─── WRITE — Paradas ─────────────────────────────────────────────────────────
 
