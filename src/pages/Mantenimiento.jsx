@@ -480,6 +480,7 @@ export default function Mantenimiento() {
       const { data: updOt } = await updateOrdenTrabajo(editOtItem.id, otSave);
       if (updOt) setOts(prev => prev.map(o => o.id === editOtItem.id ? updOt : o));
     }
+    window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
     setSaving(false);
     setOtModalOpen(false);
   };
@@ -489,6 +490,7 @@ export default function Mantenimiento() {
     setDeleting(true);
     await deleteOrdenTrabajo(deleteOtTarget.id);
     setOts(prev => prev.filter(o => o.id !== deleteOtTarget.id));
+    window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
     setDeleting(false);
     setConfirmOtOpen(false);
     setDeleteOtTarget(null);
@@ -1151,6 +1153,7 @@ export default function Mantenimiento() {
                           costeTotal: 150,
                           causaRaiz: `PREV-CAL (${plan.codigo}) — Generación automática`
                         });
+                        window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
                         setActiveTab('ots');
                       }}
                       className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30 text-xs font-black transition-all flex items-center gap-2"

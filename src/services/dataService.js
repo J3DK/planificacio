@@ -1062,6 +1062,123 @@ export async function deleteProducto(id) {
   return { error: null };
 }
 
+// ─── READ/WRITE — Familias de Productos ──────────────────────────────────────
+const LS_KEY_FAMILIAS = 'mes_familias_productos';
+
+export const mockFamilias = [
+  { id: 'fam-1', nombre: 'Baterías 48V', descripcion: 'Sistemas de acumulación LFP de 48 Voltios', color: '#3b82f6' },
+  { id: 'fam-2', nombre: 'Baterías 24V', descripcion: 'Módulos compactos de 24 Voltios para AGV y solar', color: '#10b981' },
+  { id: 'fam-3', nombre: 'Cargadores', descripcion: 'Sistemas inteligentes de carga rápida y balanceo', color: '#f59e0b' },
+  { id: 'fam-4', nombre: 'Accesorios', descripcion: 'Kits de cableado, BMS y conectores de potencia', color: '#8b5cf6' },
+  { id: 'fam-5', nombre: 'General', descripcion: 'Productos de uso general y componentes estándar', color: '#64748b' }
+];
+
+function getFamiliasLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY_FAMILIAS);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function setFamiliasLocal(familias) {
+  try {
+    localStorage.setItem(LS_KEY_FAMILIAS, JSON.stringify(familias));
+  } catch (e) {}
+}
+
+export async function fetchFamilias() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('familias_productos').select('*').order('nombre', { ascending: true });
+      if (!error && data && data.length > 0) return { data, fromSupabase: true };
+    } catch (e) { console.warn('Fallback a localStorage en familias:', e); }
+  }
+  const local = getFamiliasLocal();
+  if (local && local.length > 0) return { data: local, fromSupabase: false };
+  setFamiliasLocal(mockFamilias);
+  return { data: mockFamilias, fromSupabase: false };
+}
+
+export async function insertFamilia(familia) {
+  const payload = { ...familia, id: familia.id || `fam_${Date.now()}` };
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('familias_productos').insert([payload]).select().single();
+      if (!error && data) {
+        const current = getFamiliasLocal() || mockFamilias;
+        setFamiliasLocal([...current, data]);
+        window.dispatchEvent(new CustomEvent('familias_updated'));
+        return { data, error: null };
+      }
+    } catch (e) {}
+  }
+  const current = getFamiliasLocal() || mockFamilias;
+  const updated = [...current, payload];
+  setFamiliasLocal(updated);
+  window.dispatchEvent(new CustomEvent('familias_updated'));
+  return { data: payload, error: null };
+}
+
+export async function updateFamilia(id, cambios) {
+  const current = getFamiliasLocal() || mockFamilias;
+  const oldFamilia = current.find(f => f.id === id);
+  const oldNombre = oldFamilia ? oldFamilia.nombre : null;
+
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('familias_productos').update(cambios).eq('id', id).select().single();
+      if (!error && data) {
+        const updated = current.map(f => f.id === id ? { ...f, ...cambios } : f);
+        setFamiliasLocal(updated);
+        if (oldNombre && cambios.nombre && oldNombre !== cambios.nombre) {
+          await sincronizarCambioNombreFamilia(oldNombre, cambios.nombre);
+        }
+        window.dispatchEvent(new CustomEvent('familias_updated'));
+        return { data, error: null };
+      }
+    } catch (e) {}
+  }
+  const updated = current.map(f => f.id === id ? { ...f, ...cambios } : f);
+  setFamiliasLocal(updated);
+  if (oldNombre && cambios.nombre && oldNombre !== cambios.nombre) {
+    await sincronizarCambioNombreFamilia(oldNombre, cambios.nombre);
+  }
+  window.dispatchEvent(new CustomEvent('familias_updated'));
+  return { data: updated.find(f => f.id === id), error: null };
+}
+
+async function sincronizarCambioNombreFamilia(oldNombre, newNombre) {
+  const prods = getProductosLocal() || mockProductos;
+  const modificados = prods.map(p => (p.familia === oldNombre) ? { ...p, familia: newNombre } : p);
+  setProductosLocal(modificados);
+  window.dispatchEvent(new CustomEvent('productos_updated'));
+  if (isSupabaseConfigured()) {
+    try {
+      await supabase.from('productos').update({ familia: newNombre }).eq('familia', oldNombre);
+    } catch (e) {}
+  }
+}
+
+export async function deleteFamilia(id) {
+  const current = getFamiliasLocal() || mockFamilias;
+  const target = current.find(f => f.id === id);
+  const targetNombre = target ? target.nombre : null;
+
+  if (isSupabaseConfigured()) {
+    try {
+      await supabase.from('familias_productos').delete().eq('id', id);
+    } catch (e) {}
+  }
+  const updated = current.filter(f => f.id !== id);
+  setFamiliasLocal(updated);
+
+  if (targetNombre) {
+    await sincronizarCambioNombreFamilia(targetNombre, 'General');
+  }
+  window.dispatchEvent(new CustomEvent('familias_updated'));
+  return { error: null };
+}
+
 // ─── CRUD genérico para catálogos de Calidad (localStorage + Supabase) ────────
 
 function makeCrudLocal(lsKey, mockData) {
@@ -1488,7 +1605,10 @@ export async function insertOrdenTrabajo(ot) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('ordenes_trabajo').insert([ot]).select().single();
-      if (!error && data) return { data, error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
+        return { data, error: null };
+      }
     } catch (e) {}
   }
   const current = getOrdenesTrabajoLocal() || ordenesTrabajoIniciales;
@@ -1500,6 +1620,7 @@ export async function insertOrdenTrabajo(ot) {
   };
   const updated = [newItem, ...current];
   setOrdenesTrabajoLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: newItem, error: null };
 }
 
@@ -1507,12 +1628,16 @@ export async function updateOrdenTrabajo(id, ot) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('ordenes_trabajo').update(ot).eq('id', id).select().single();
-      if (!error && data) return { data, error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
+        return { data, error: null };
+      }
     } catch (e) {}
   }
   const current = getOrdenesTrabajoLocal() || ordenesTrabajoIniciales;
   const updated = current.map(item => item.id === id ? { ...item, ...ot } : item);
   setOrdenesTrabajoLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: updated.find(i => i.id === id), error: null };
 }
 
@@ -1520,11 +1645,15 @@ export async function deleteOrdenTrabajo(id) {
   if (isSupabaseConfigured()) {
     try {
       const { error } = await supabase.from('ordenes_trabajo').delete().eq('id', id);
-      if (!error) return { error: null };
+      if (!error) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
+        return { error: null };
+      }
     } catch (e) {}
   }
   const current = getOrdenesTrabajoLocal() || ordenesTrabajoIniciales;
   setOrdenesTrabajoLocal(current.filter(item => item.id !== id));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { error: null };
 }
 

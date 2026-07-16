@@ -185,188 +185,194 @@ export default function MateriasPrimas() {
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-        {/* Tabla de materiales */}
-        <div className="xl:col-span-3 card overflow-hidden">
-          {/* Filtros */}
-          <div className="px-5 py-4 border-b border-slate-800 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-            <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
-              {['todos','alta','media','baja'].map(f => (
-                <button key={f} onClick={() => setFiltro(f)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${filtro === f ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>
-                  {f === 'todos' ? 'Todos' : f}
-                </button>
-              ))}
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600" />
-              <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar..."
-                className="bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 w-48" />
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-800">
-                  {['Código', 'Imagen', 'Descripción', 'Stock Actual', 'Comprometido / Disp. Real', 'Compromiso (%)', 'Mín/Máx', 'Criticidad', 'Proveedor', ''].map(h => (
-                    <th key={h} className={`table-header text-left ${h === 'Código' ? 'whitespace-nowrap min-w-[140px] w-[140px] shrink-0' : h === 'Imagen' ? 'w-[60px] text-center' : ''}`}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {materialFiltrado.map(m => {
-                  const clr = getStockColor(m);
-                  const pct = pctStock(m);
-                  const isHighlighted = busqueda && m.codigo?.toLowerCase() === busqueda?.toLowerCase();
-                  
-                  const comp = mapaConsumo[m.codigo] || Number(m.stockReservado) || 0;
-                  const dispReal = Number(m.stockActual || 0) - comp;
-                  const pctComp = Math.round((comp / Math.max(1, Number(m.stockActual || 0))) * 100);
-
-                  return (
-                    <tr key={m.id} className={`hover:bg-slate-800/30 transition-colors group ${isHighlighted ? 'bg-blue-500/10 border-l-4 border-blue-500' : ''}`}>
-                      <td className="table-cell font-mono text-xs text-blue-400 font-bold whitespace-nowrap min-w-[140px] w-[140px] shrink-0">{m.codigo}</td>
-                      <td className="table-cell text-center">
-                        <div className="relative inline-block group/img">
-                          {m.imagen ? (
-                            <img src={m.imagen} alt={m.codigo} className="w-10 h-10 rounded-xl object-cover border border-slate-700 shadow bg-slate-900 mx-auto" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-xl border border-dashed border-slate-700 bg-slate-800/40 flex items-center justify-center text-slate-500 text-[9px] font-semibold mx-auto">
-                              Sin foto
-                            </div>
-                          )}
-                          <label
-                            htmlFor={`mat-upload-${m.id}`}
-                            className="absolute -bottom-1 -right-1 p-1 rounded-full bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow-md opacity-0 group-hover/img:opacity-100 transition-all scale-75 group-hover/img:scale-100"
-                            title="Subir / cambiar foto"
-                          >
-                            <Pencil className="w-2.5 h-2.5" />
-                            <input
-                              id={`mat-upload-${m.id}`}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={async e => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                const reader = new FileReader();
-                                reader.onload = async event => {
-                                  const dataUrl = event.target.result;
-                                  await updateMaterial(m.id, { ...m, imagen: dataUrl });
-                                  loadData();
-                                  window.dispatchEvent(new CustomEvent('materiales_updated'));
-                                  window.dispatchEvent(new CustomEvent('bom_updated'));
-                                };
-                                reader.readAsDataURL(file);
-                              }}
-                            />
-                          </label>
-                        </div>
-                      </td>
-                      <td className="table-cell text-slate-300 text-xs max-w-[170px]">
-                        <p className="truncate font-semibold">{m.descripcion}</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{m.unidad}</p>
-                      </td>
-                      <td className="table-cell">
-                        <div className="flex items-baseline gap-2">
-                          <p className={`text-lg font-black ${clr.text}`}>{m.stockActual}</p>
-                        </div>
-                        <div className="w-20 h-1 bg-slate-800 rounded-full mt-1">
-                          <div className={`h-full rounded-full ${clr.bar}`} style={{ width: `${pct}%` }} />
-                        </div>
-                      </td>
-                      <td className="table-cell">
-                        <div className="space-y-1">
-                          <div className="text-xs font-mono text-slate-400">
-                            Comprometido: <strong className="text-amber-400">{comp}</strong> {m.unidad}
-                          </div>
-                          <div>
-                            {dispReal < 0 ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-red-400 bg-red-500/20 border border-red-500/40 px-2 py-0.5 rounded-md animate-pulse">
-                                🔴 Disp: {dispReal} (Falta)
-                              </span>
-                            ) : dispReal < (m.stockMinimo || 0) ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md">
-                                🟡 Disp: {dispReal} (Bajo)
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-                                🟢 Disp: {dispReal} (OK)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="table-cell">
-                        <div className="flex flex-col items-start gap-1">
-                          {pctComp >= 100 ? (
-                            <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-red-500/20 text-red-400 border border-red-500/40">
-                              🔴 {pctComp}% Crítico
-                            </span>
-                          ) : pctComp >= 75 ? (
-                            <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                              🟡 {pctComp}% Elevado
-                            </span>
-                          ) : (
-                            <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                              🟢 {pctComp}% Normal
-                            </span>
-                          )}
-                          <span className="text-[10px] text-slate-500 font-bold">del stock reservado</span>
-                        </div>
-                      </td>
-                      <td className="table-cell text-xs text-slate-400 font-mono">{m.stockMinimo} / {m.stockMaximo}</td>
-                      <td className="table-cell">
-                        <span className={`inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${m.criticidad === 'alta' ? 'badge-danger' : m.criticidad === 'media' ? 'badge-warn' : 'badge-neutral'}`}>
-                          {m.criticidad}
-                        </span>
-                      </td>
-                      <td className="table-cell text-xs text-slate-500 max-w-[110px]">
-                        <span className="truncate block">{m.proveedor}</span>
-                        {m.pedidoPendiente > 0 && (
-                          <span className="text-[9px] text-blue-400 font-bold">Pedido: {m.pedidoPendiente} uds</span>
-                        )}
-                      </td>
-                      <td className="table-cell">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                          <button onClick={() => openEdit(m)} className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-400/10 transition-all">
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => openDelete(m)} className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Consumo */}
-        <div className="card p-5">
-          <h3 className="section-title">Consumo Diario (Esta Semana)</h3>
-          <div className="space-y-4">
-            {[
-              { label: 'Cables (rollos)', key: 'cables', color: '#3b82f6' },
-              { label: 'Celdas LFP (ud)', key: 'celdas', color: '#10b981' },
-              { label: 'BMS (ud)',         key: 'bms',    color: '#8b5cf6' },
-            ].map(({ label, key, color }) => (
-              <div key={key}>
-                <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">{label}</p>
-                <ResponsiveContainer width="100%" height={50}>
-                  <BarChart data={consumoPorDia} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
-                    <XAxis dataKey="dia" tick={{ fill: '#64748b', fontSize: 9 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: '#64748b', fontSize: 9 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 10 }} />
-                    <Bar dataKey={key} fill={color} radius={[3,3,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+      {/* Tabla de materiales 100% de ancho */}
+      <div className="card overflow-hidden w-full shadow-2xl border border-slate-800">
+        {/* Filtros */}
+        <div className="px-5 py-4 border-b border-slate-800 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between bg-slate-950/60">
+          <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
+            {['todos','alta','media','baja'].map(f => (
+              <button key={f} onClick={() => setFiltro(f)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${filtro === f ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>
+                {f === 'todos' ? 'Todos' : f}
+              </button>
             ))}
           </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600" />
+            <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar por código..."
+              className="bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 w-56" />
+          </div>
+        </div>
+        <div className="overflow-x-auto no-scrollbar relative">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-slate-800 bg-slate-900/90 text-slate-400">
+                {['Código', 'Imagen', 'Descripción', 'Stock Actual', 'Comprometido / Disp. Real', 'Compromiso (%)', 'Mín/Máx', 'Criticidad', 'Proveedor', ''].map(h => (
+                  <th key={h} className={`table-header text-left py-3 px-4 ${
+                    h === 'Código' ? 'sticky left-0 z-20 bg-slate-900/95 backdrop-blur-md whitespace-nowrap min-w-[140px] w-[140px] shrink-0 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.6)] border-r border-slate-800/80' : 
+                    h === 'Imagen' ? 'w-[65px] text-center' : ''
+                  }`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {materialFiltrado.map(m => {
+                const clr = getStockColor(m);
+                const pct = pctStock(m);
+                const isHighlighted = busqueda && m.codigo?.toLowerCase() === busqueda?.toLowerCase();
+                
+                const comp = mapaConsumo[m.codigo] || Number(m.stockReservado) || 0;
+                const dispReal = Number(m.stockActual || 0) - comp;
+                const pctComp = Math.round((comp / Math.max(1, Number(m.stockActual || 0))) * 100);
+
+                return (
+                  <tr key={m.id} className={`hover:bg-slate-800/40 transition-colors group ${isHighlighted ? 'bg-blue-500/15 border-l-4 border-blue-500' : ''}`}>
+                    <td className="table-cell font-mono text-xs text-blue-400 font-bold whitespace-nowrap min-w-[140px] w-[140px] shrink-0 sticky left-0 z-10 bg-slate-950 group-hover:bg-slate-900 transition-colors shadow-[2px_0_6px_-2px_rgba(0,0,0,0.6)] border-r border-slate-800/80 py-3 px-4">
+                      {m.codigo}
+                    </td>
+                    <td className="table-cell text-center py-3 px-4">
+                      <div className="relative inline-block group/img">
+                        {m.imagen ? (
+                          <img src={m.imagen} alt={m.codigo} className="w-10 h-10 rounded-xl object-cover border border-slate-700 shadow bg-slate-900 mx-auto" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl border border-dashed border-slate-700 bg-slate-800/40 flex items-center justify-center text-slate-500 text-[9px] font-semibold mx-auto">
+                            Sin foto
+                          </div>
+                        )}
+                        <label
+                          htmlFor={`mat-upload-${m.id}`}
+                          className="absolute -bottom-1 -right-1 p-1 rounded-full bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow-md opacity-0 group-hover/img:opacity-100 transition-all scale-75 group-hover/img:scale-100"
+                          title="Subir / cambiar foto"
+                        >
+                          <Pencil className="w-2.5 h-2.5" />
+                          <input
+                            id={`mat-upload-${m.id}`}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async e => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = async event => {
+                                const dataUrl = event.target.result;
+                                await updateMaterial(m.id, { ...m, imagen: dataUrl });
+                                loadData();
+                                window.dispatchEvent(new CustomEvent('materiales_updated'));
+                                window.dispatchEvent(new CustomEvent('bom_updated'));
+                              };
+                              reader.readAsDataURL(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </td>
+                    <td className="table-cell text-slate-300 text-xs max-w-[200px] py-3 px-4">
+                      <p className="truncate font-semibold text-white">{m.descripcion}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">{m.unidad}</p>
+                    </td>
+                    <td className="table-cell py-3 px-4">
+                      <div className="flex items-baseline gap-2">
+                        <p className={`text-lg font-black ${clr.text}`}>{m.stockActual}</p>
+                      </div>
+                      <div className="w-24 h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
+                        <div className={`h-full rounded-full ${clr.bar}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </td>
+                    <td className="table-cell py-3 px-4">
+                      <div className="space-y-1.5">
+                        <div className="text-xs font-mono text-slate-400">
+                          Comprometido: <strong className="text-amber-400">{comp}</strong> {m.unidad}
+                        </div>
+                        <div>
+                          {dispReal < 0 ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-red-400 bg-red-500/20 border border-red-500/40 px-2 py-0.5 rounded-md animate-pulse">
+                              🔴 Disp: {dispReal} (Falta)
+                            </span>
+                          ) : dispReal < (m.stockMinimo || 0) ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md">
+                              🟡 Disp: {dispReal} (Bajo)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                              🟢 Disp: {dispReal} (OK)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="table-cell py-3 px-4">
+                      <div className="flex flex-col items-start gap-1">
+                        {pctComp >= 100 ? (
+                          <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-red-500/20 text-red-400 border border-red-500/40">
+                            🔴 {pctComp}% Crítico
+                          </span>
+                        ) : pctComp >= 75 ? (
+                          <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                            🟡 {pctComp}% Elevado
+                          </span>
+                        ) : (
+                          <span className="inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                            🟢 {pctComp}% Normal
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-500 font-bold">del stock reservado</span>
+                      </div>
+                    </td>
+                    <td className="table-cell text-xs text-slate-400 font-mono py-3 px-4">{m.stockMinimo} / {m.stockMaximo}</td>
+                    <td className="table-cell py-3 px-4">
+                      <span className={`inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${m.criticidad === 'alta' ? 'badge-danger' : m.criticidad === 'media' ? 'badge-warn' : 'badge-neutral'}`}>
+                        {m.criticidad}
+                      </span>
+                    </td>
+                    <td className="table-cell text-xs text-slate-500 max-w-[130px] py-3 px-4">
+                      <span className="truncate block font-semibold text-slate-300">{m.proveedor}</span>
+                      {m.pedidoPendiente > 0 && (
+                        <span className="text-[10px] text-blue-400 font-bold block mt-0.5">Pedido: {m.pedidoPendiente} uds</span>
+                      )}
+                    </td>
+                    <td className="table-cell py-3 px-4">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <button onClick={() => openEdit(m)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 transition-all" title="Editar">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => openDelete(m)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-all" title="Eliminar">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Consumo Diario (Esta Semana) debajo a ancho completo */}
+      <div className="card p-5 mt-6 w-full bg-slate-950 border border-slate-800 shadow-xl">
+        <h3 className="section-title text-white font-black mb-4">Consumo Diario (Esta Semana)</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { label: 'Cables (rollos)', key: 'cables', color: '#3b82f6' },
+            { label: 'Celdas LFP (ud)', key: 'celdas', color: '#10b981' },
+            { label: 'BMS (ud)',         key: 'bms',    color: '#8b5cf6' },
+          ].map(({ label, key, color }) => (
+            <div key={key} className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80">
+              <p className="text-xs font-black text-slate-300 uppercase tracking-wide mb-2 flex items-center justify-between">
+                <span>{label}</span>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+              </p>
+              <ResponsiveContainer width="100%" height={90}>
+                <BarChart data={consumoPorDia} margin={{ top: 5, right: 10, bottom: 0, left: -20 }}>
+                  <XAxis dataKey="dia" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, fontSize: 11, color: '#f8fafc' }} />
+                  <Bar dataKey={key} fill={color} radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ))}
         </div>
       </div>
 

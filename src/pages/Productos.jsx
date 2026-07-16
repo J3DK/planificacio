@@ -3,24 +3,35 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package, Plus, Search, Filter, Edit2, Trash2, CheckCircle2,
   XCircle, Clock, Zap, Weight, Building2, AlertCircle, RefreshCw,
-  FileText, Check, X, ArrowRight, Layers, Tag, Layers3, AlertTriangle
+  FileText, Check, X, ArrowRight, Layers, Tag, Layers3, AlertTriangle, Palette
 } from 'lucide-react';
-import { fetchProductos, insertProducto, updateProducto, deleteProducto, fetchMateriasPrimas } from '@/services/dataService';
+import {
+  fetchProductos, insertProducto, updateProducto, deleteProducto, fetchMateriasPrimas,
+  fetchFamilias, insertFamilia, updateFamilia, deleteFamilia
+} from '@/services/dataService';
 
 export default function Productos() {
   const [productos, setProductos] = useState([]);
   const [materias, setMaterias] = useState([]);
+  const [familias, setFamilias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [filtroFamilia, setFiltroFamilia] = useState('Todas');
   const [filtroEstado, setFiltroEstado] = useState('Todos'); // 'Todos' | 'Activos' | 'Discontinuados'
 
-  // Modal
+  // Modal Productos
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit'
   const [activeTab, setActiveTab] = useState('general'); // 'general' | 'bom'
   const [newBomMat, setNewBomMat] = useState('');
   const [newBomFactor, setNewBomFactor] = useState(1);
+
+  // Modal Familias CRUD
+  const [familiasModalOpen, setFamiliasModalOpen] = useState(false);
+  const [famMode, setFamMode] = useState('list'); // 'list' | 'create' | 'edit'
+  const [famForm, setFamForm] = useState({ id: null, nombre: '', descripcion: '', color: '#3b82f6' });
+  const [savingFam, setSavingFam] = useState(false);
+  const [deletingFamId, setDeletingFamId] = useState(null);
 
   const [form, setForm] = useState({
     codigo: '',
@@ -40,9 +51,10 @@ export default function Productos() {
 
   const loadData = async () => {
     setLoading(true);
-    const [resP, resM] = await Promise.all([fetchProductos(), fetchMateriasPrimas()]);
+    const [resP, resM, resF] = await Promise.all([fetchProductos(), fetchMateriasPrimas(), fetchFamilias()]);
     if (resP?.data) setProductos(resP.data);
     if (resM?.data) setMaterias(resM.data);
+    if (resF?.data) setFamilias(resF.data);
     setLoading(false);
   };
 
@@ -50,11 +62,61 @@ export default function Productos() {
     loadData();
     const handleUp = () => loadData();
     window.addEventListener('bom_updated', handleUp);
-    return () => window.removeEventListener('bom_updated', handleUp);
+    window.addEventListener('productos_updated', handleUp);
+    window.addEventListener('familias_updated', handleUp);
+    return () => {
+      window.removeEventListener('bom_updated', handleUp);
+      window.removeEventListener('productos_updated', handleUp);
+      window.removeEventListener('familias_updated', handleUp);
+    };
   }, []);
 
-  // Familias únicas para los filtros
-  const familiasUnicas = ['Todas', ...Array.from(new Set(productos.map(p => p.familia || 'General')))];
+  const handleSaveFamilia = async (e) => {
+    e.preventDefault();
+    if (!famForm.nombre.trim()) return;
+    setSavingFam(true);
+    if (famMode === 'create') {
+      await insertFamilia({
+        nombre: famForm.nombre.trim(),
+        descripcion: famForm.descripcion.trim(),
+        color: famForm.color || '#3b82f6'
+      });
+      setToast(`Familia "${famForm.nombre}" creada con éxito.`);
+    } else if (famMode === 'edit') {
+      await updateFamilia(famForm.id, {
+        nombre: famForm.nombre.trim(),
+        descripcion: famForm.descripcion.trim(),
+        color: famForm.color || '#3b82f6'
+      });
+      setToast(`Familia "${famForm.nombre}" actualizada.`);
+    }
+    setSavingFam(false);
+    setFamMode('list');
+    loadData();
+    setTimeout(() => setToast(''), 3000);
+  };
+
+  const handleDeleteFamilia = async (id, nombre) => {
+    const prodsAsociados = productos.filter(p => p.familia === nombre).length;
+    let msg = `¿Seguro que deseas eliminar la familia "${nombre}"?`;
+    if (prodsAsociados > 0) {
+      msg += `\nHay ${prodsAsociados} producto(s) vinculados que pasarán a "General".`;
+    }
+    if (!window.confirm(msg)) return;
+    setDeletingFamId(id);
+    await deleteFamilia(id);
+    setDeletingFamId(null);
+    setToast(`Familia "${nombre}" eliminada.`);
+    loadData();
+    setTimeout(() => setToast(''), 3000);
+  };
+
+  // Familias únicas para los filtros y selectores de vinculación
+  const familiasLista = Array.from(new Set([
+    ...familias.map(f => f.nombre),
+    ...productos.map(p => p.familia || 'General')
+  ])).filter(Boolean);
+  const familiasUnicas = ['Todas', ...familiasLista];
 
   // Filtrado
   const productosFiltrados = productos.filter(p => {
@@ -271,7 +333,7 @@ export default function Productos() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-start md:self-auto">
+        <div className="flex items-center gap-3 self-start md:self-auto flex-wrap">
           <button
             onClick={loadData}
             disabled={loading}
@@ -279,6 +341,14 @@ export default function Productos() {
             title="Recargar catálogo"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => { setFamMode('list'); setFamiliasModalOpen(true); }}
+            className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-white font-black text-sm rounded-2xl shadow flex items-center gap-2 transition-all active:scale-95 border border-slate-700 hover:border-blue-500/50"
+            title="Administrar Familias / Categorías de Productos"
+          >
+            <Tag className="w-4 h-4 text-blue-400" />
+            <span>Gestionar Familias</span>
           </button>
           <button
             onClick={openCreateModal}
@@ -370,9 +440,25 @@ export default function Productos() {
                     <span className="font-mono text-sm font-black text-blue-400 bg-blue-500/10 border border-blue-500/30 px-2.5 py-1 rounded-lg">
                       {p.codigo}
                     </span>
-                    <span className="text-[11px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
-                      {p.familia || 'General'}
-                    </span>
+                    <div className="relative inline-flex items-center bg-slate-800 hover:bg-slate-700 border border-slate-700/80 rounded-lg px-2 py-1 transition-colors group/famselect shadow-sm" title="Haz clic para vincular/cambiar la familia de este producto">
+                      <Tag className="w-3 h-3 text-blue-400 mr-1 shrink-0" />
+                      <select
+                        value={p.familia || 'General'}
+                        onChange={async e => {
+                          const val = e.target.value;
+                          await updateProducto(p.id, { ...p, familia: val });
+                          loadData();
+                          setToast(`Producto [${p.codigo}] vinculado a la familia "${val}".`);
+                          setTimeout(() => setToast(''), 3000);
+                        }}
+                        className="bg-transparent text-[11px] font-bold text-slate-300 hover:text-white focus:outline-none cursor-pointer pr-3 appearance-none max-w-[130px] truncate"
+                      >
+                        {familiasLista.map(f => (
+                          <option key={f} value={f} className="bg-slate-900 text-white font-bold">{f}</option>
+                        ))}
+                      </select>
+                      <span className="pointer-events-none absolute right-1.5 text-[8px] text-slate-400">▼</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Foto Producto + Subir */}
@@ -615,17 +701,33 @@ export default function Productos() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                          Familia / Categoría *
-                        </label>
-                        <input
-                          type="text"
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                            Familia / Categoría *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFamMode('create');
+                              setFamForm({ id: null, nombre: form.familia || '', descripcion: '', color: '#3b82f6' });
+                              setFamiliasModalOpen(true);
+                            }}
+                            className="text-[10px] font-bold text-blue-400 hover:text-blue-300 underline flex items-center gap-1"
+                          >
+                            + Nueva familia
+                          </button>
+                        </div>
+                        <select
                           required
-                          placeholder="ej: Baterías 48V"
-                          value={form.familia}
+                          value={form.familia || 'General'}
                           onChange={e => setForm({ ...form, familia: e.target.value })}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-blue-500"
-                        />
+                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          <option value="">- Seleccionar Familia -</option>
+                          {familiasLista.map(f => (
+                            <option key={f} value={f} className="bg-slate-900 text-white font-bold">{f}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
@@ -916,6 +1018,229 @@ export default function Productos() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL GESTIONAR FAMILIAS */}
+      <AnimatePresence>
+        {familiasModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="card p-6 md:p-8 max-w-3xl w-full bg-slate-900 border border-slate-700 shadow-2xl overflow-y-auto max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                    <Tag className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white">
+                      {famMode === 'list' && 'Familias y Categorías de Productos'}
+                      {famMode === 'create' && 'Añadir Nueva Familia de Productos'}
+                      {famMode === 'edit' && `Editar Familia [${famForm.nombre}]`}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      {famMode === 'list' && 'Administra, añade, modifica o borra las familias vinculables al catálogo'}
+                      {famMode !== 'list' && 'Define los atributos de clasificación e identificación visual para el MES'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFamiliasModalOpen(false)}
+                  className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {famMode === 'list' ? (
+                <div>
+                  <div className="flex items-center justify-between mb-4 gap-3">
+                    <span className="text-xs font-bold text-slate-400">
+                      Total: <strong className="text-white">{familias.length}</strong> familias disponibles
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFamMode('create');
+                        setFamForm({ id: null, nombre: '', descripcion: '', color: '#3b82f6' });
+                      }}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>+ Añadir Familia</span>
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950/60 max-h-[450px]">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-900/90 border-b border-slate-800 text-[10px] uppercase font-black text-slate-400 sticky top-0">
+                        <tr>
+                          <th className="py-3 px-4">Color</th>
+                          <th className="py-3 px-4">Nombre / Familia</th>
+                          <th className="py-3 px-4">Descripción</th>
+                          <th className="py-3 px-4 text-center">Productos Vinculados</th>
+                          <th className="py-3 px-4 text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {familias.length === 0 ? (
+                          <tr>
+                            <td colSpan="5" className="py-12 text-center text-slate-500">
+                              No hay familias definidas. Haz clic en "+ Añadir Familia" para crear la primera.
+                            </td>
+                          </tr>
+                        ) : (
+                          familias.map((f) => {
+                            const numProds = productos.filter(p => p.familia === f.nombre).length;
+                            return (
+                              <tr key={f.id || f.nombre} className="hover:bg-slate-800/40 transition-colors">
+                                <td className="py-3 px-4 w-12">
+                                  <span
+                                    className="w-6 h-6 rounded-lg block shadow border border-white/20"
+                                    style={{ backgroundColor: f.color || '#3b82f6' }}
+                                    title={f.color || '#3b82f6'}
+                                  />
+                                </td>
+                                <td className="py-3 px-4 font-black text-white text-sm">
+                                  {f.nombre}
+                                </td>
+                                <td className="py-3 px-4 text-slate-300 font-medium">
+                                  {f.descripcion || <span className="text-slate-600 italic">Sin descripción</span>}
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black ${
+                                    numProds > 0 ? 'bg-blue-500/10 text-blue-300 border border-blue-500/30' : 'bg-slate-800 text-slate-500'
+                                  }`}>
+                                    {numProds} ref(s)
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-right space-x-2 whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFamMode('edit');
+                                      setFamForm({
+                                        id: f.id,
+                                        nombre: f.nombre || '',
+                                        descripcion: f.descripcion || '',
+                                        color: f.color || '#3b82f6'
+                                      });
+                                    }}
+                                    className="p-2 rounded-xl bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 transition-all font-bold"
+                                    title="Editar familia"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={deletingFamId === f.id}
+                                    onClick={() => handleDeleteFamilia(f.id, f.nombre)}
+                                    className="p-2 rounded-xl bg-slate-800/80 hover:bg-red-600/30 text-slate-400 hover:text-red-300 transition-all"
+                                    title="Eliminar familia"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex justify-end pt-5 mt-5 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setFamiliasModalOpen(false)}
+                      className="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all"
+                    >
+                      Cerrar Panel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSaveFamilia} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                        Nombre de la Familia *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="ej: Baterías 48V"
+                        value={famForm.nombre}
+                        onChange={e => setFamForm({ ...famForm, nombre: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-black text-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                        Color Identificativo
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={famForm.color}
+                          onChange={e => setFamForm({ ...famForm, color: e.target.value })}
+                          className="w-12 h-10 rounded-xl bg-slate-950 border border-slate-700 cursor-pointer p-1 shrink-0"
+                        />
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b', '#ef4444'].map(c => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => setFamForm({ ...famForm, color: c })}
+                              className={`w-6 h-6 rounded-lg transition-transform ${famForm.color === c ? 'scale-125 border-2 border-white shadow' : 'hover:scale-110'}`}
+                              style={{ backgroundColor: c }}
+                              title={c}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                      Descripción y Alcance
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="ej: Sistemas de acumulación LFP de 48 Voltios para tracción e industrial..."
+                      value={famForm.descripcion}
+                      onChange={e => setFamForm({ ...famForm, descripcion: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-medium text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setFamMode('list')}
+                      className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all"
+                    >
+                      Volver a la lista
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={savingFam}
+                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-900/40 transition-all"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{savingFam ? 'Guardando...' : famMode === 'create' ? 'Crear Familia' : 'Guardar Cambios'}</span>
+                    </button>
+                  </div>
+                </form>
+              )}
             </motion.div>
           </div>
         )}

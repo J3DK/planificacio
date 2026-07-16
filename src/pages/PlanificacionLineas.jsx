@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Plus, Calendar, Move, Edit2, Trash2, X, Check, RefreshCw, AlertCircle, Clock, Package, FileText, ArrowRight, Layers, Filter, Search, ShieldAlert, Zap, ArrowLeftCircle } from 'lucide-react';
-import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, fetchProductos, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt } from '@/services/dataService';
+import { ChevronLeft, ChevronRight, Plus, Calendar, Move, Edit2, Trash2, X, Check, RefreshCw, AlertCircle, Clock, Package, FileText, ArrowRight, Layers, Filter, Search, ShieldAlert, Zap, ArrowLeftCircle, Wrench } from 'lucide-react';
+import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, fetchProductos, fetchOrdenesTrabajo, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt } from '@/services/dataService';
 
 
 const SEMANA_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -66,15 +66,17 @@ export default function PlanificacionLineas() {
 
   const [listaMateriales, setListaMateriales] = useState([]);
   const [listaProductos, setListaProductos] = useState([]);
+  const [listaOrdenesTrabajo, setListaOrdenesTrabajo] = useState([]);
   const [blockedDropInfo, setBlockedDropInfo] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
-    const [resL, resP, resM, resProd] = await Promise.all([fetchLineas(), fetchPlanificacion(), fetchMateriasPrimas(), fetchProductos()]);
+    const [resL, resP, resM, resProd, resOt] = await Promise.all([fetchLineas(), fetchPlanificacion(), fetchMateriasPrimas(), fetchProductos(), fetchOrdenesTrabajo()]);
     if (resL.data) setLineas(resL.data);
     if (resP.data) setOrdenes(resP.data);
     if (resM?.data) setListaMateriales(resM.data);
     if (resProd?.data) setListaProductos(resProd.data);
+    if (resOt?.data) setListaOrdenesTrabajo(resOt.data);
     setLoading(false);
   };
 
@@ -82,7 +84,7 @@ export default function PlanificacionLineas() {
     loadData();
   }, []);
 
-  // Escuchar reordenamiento desde Secuencia, actualización de materiales o BOM
+  // Escuchar reordenamiento desde Secuencia, actualización de materiales o BOM, y Mantenimiento
   useEffect(() => {
     const handler = () => loadData();
     window.addEventListener('secuencia_reordenada', handler);
@@ -90,14 +92,45 @@ export default function PlanificacionLineas() {
     window.addEventListener('planificacion_updated', handler);
     window.addEventListener('bom_updated', handler);
     window.addEventListener('productos_updated', handler);
+    window.addEventListener('mantenimiento_updated', handler);
     return () => {
       window.removeEventListener('secuencia_reordenada', handler);
       window.removeEventListener('materiales_updated', handler);
       window.removeEventListener('planificacion_updated', handler);
       window.removeEventListener('bom_updated', handler);
       window.removeEventListener('productos_updated', handler);
+      window.removeEventListener('mantenimiento_updated', handler);
     };
   }, []);
+
+  // Mapa de OTs Críticas Abiertas por línea (por id y por nombre)
+  const otsCriticasPorLinea = React.useMemo(() => {
+    const mapa = {};
+    const estadosAbiertos = ['abierta', 'en curso', 'pendiente', 'en proceso'];
+    (listaOrdenesTrabajo || []).forEach(ot => {
+      const estado = (ot.estado || '').toLowerCase().trim();
+      const prioridad = (ot.prioridad || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (estadosAbiertos.includes(estado) && prioridad === 'critica') {
+        const lineaStr = (ot.linea || '').trim();
+        if (lineaStr) {
+          const matchL = lineas.find(l => 
+            (l.nombre || '').toLowerCase().trim() === lineaStr.toLowerCase() ||
+            (l.id || '').toLowerCase().trim() === lineaStr.toLowerCase()
+          );
+          if (matchL) {
+            if (!mapa[matchL.nombre]) mapa[matchL.nombre] = [];
+            if (!mapa[matchL.id]) mapa[matchL.id] = [];
+            mapa[matchL.nombre].push(ot);
+            mapa[matchL.id].push(ot);
+          } else {
+            if (!mapa[lineaStr]) mapa[lineaStr] = [];
+            mapa[lineaStr].push(ot);
+          }
+        }
+      }
+    });
+    return mapa;
+  }, [listaOrdenesTrabajo, lineas]);
 
   // Calcular mapa global de consumo para semáforo de disponibilidad real
   const mapaConsumo = calcularTodosConsumosComprometidos({ products: listaProductos, productos: listaProductos });
@@ -154,14 +187,20 @@ export default function PlanificacionLineas() {
       return;
     }
 
-    // Si pasa de Backlog a Gantt o cambia, verificamos disponibilidad
+    // Si pasa de Backlog a Gantt o cambia, verificamos disponibilidad y OTs críticas en la línea
     const disp = calcularDisponibilidadOrden(draggedOrden, listaMateriales);
-    if ((!draggedOrden.linea || draggedOrden.linea === 'BACKLOG') && disp.estado === 'rojo' && !draggedOrden.forzar_asignacion) {
+    const otsLinea = otsCriticasPorLinea[lineaId] || [];
+    const faltaMaterial = (!draggedOrden.linea || draggedOrden.linea === 'BACKLOG') && disp.estado === 'rojo';
+    const hayOtCritica = otsLinea.length > 0;
+
+    if ((faltaMaterial || hayOtCritica) && !draggedOrden.forzar_asignacion) {
       setBlockedDropInfo({
         orden: draggedOrden,
         lineaId,
         horaIdx: horaFinal,
-        disp
+        disp,
+        otsCriticas: otsLinea,
+        motivo: faltaMaterial && hayOtCritica ? 'ambos' : hayOtCritica ? 'mantenimiento' : 'material'
       });
       setDraggedOrden(null);
       return;
@@ -215,7 +254,9 @@ export default function PlanificacionLineas() {
       forzar_asignacion: true
     });
 
-    await updateReservaMaterialesOrden(updated, 'reservar');
+    if (!orden.linea || orden.linea === 'BACKLOG' || blockedDropInfo.motivo === 'material' || blockedDropInfo.motivo === 'ambos') {
+      await updateReservaMaterialesOrden(updated, 'reservar');
+    }
     const resM = await fetchMateriasPrimas();
     if (resM?.data) setListaMateriales(resM.data);
     const resL = await fetchLineas();
@@ -286,13 +327,19 @@ export default function PlanificacionLineas() {
 
     if (!formOrden.sinAsignar && eraBacklog) {
       const disp = calcularDisponibilidadOrden(formOrden, listaMateriales);
-      if (disp.estado === 'rojo' && !formOrden.forzar_asignacion) {
+      const otsLinea = otsCriticasPorLinea[formOrden.linea] || [];
+      const faltaMaterial = disp.estado === 'rojo';
+      const hayOtCritica = otsLinea.length > 0;
+
+      if ((faltaMaterial || hayOtCritica) && !formOrden.forzar_asignacion) {
         setSaving(false);
         setBlockedDropInfo({
           orden: formOrden,
           lineaId: formOrden.linea,
           horaIdx: Number(formOrden.horaInicio),
-          disp
+          disp,
+          otsCriticas: otsLinea,
+          motivo: faltaMaterial && hayOtCritica ? 'ambos' : hayOtCritica ? 'mantenimiento' : 'material'
         });
         setModalOpen(false);
         return;
@@ -383,13 +430,19 @@ export default function PlanificacionLineas() {
     e.preventDefault();
     if (!assignOrden) return;
     const disp = calcularDisponibilidadOrden(assignOrden, listaMateriales);
-    if (disp.estado === 'rojo' && !assignOrden.forzar_asignacion) {
+    const otsLinea = otsCriticasPorLinea[assignForm.linea] || [];
+    const faltaMaterial = disp.estado === 'rojo';
+    const hayOtCritica = otsLinea.length > 0;
+
+    if ((faltaMaterial || hayOtCritica) && !assignOrden.forzar_asignacion) {
       setAssignModalOpen(false);
       setBlockedDropInfo({
         orden: assignOrden,
         lineaId: assignForm.linea,
         horaIdx: Number(assignForm.horaInicio),
-        disp
+        disp,
+        otsCriticas: otsLinea,
+        motivo: faltaMaterial && hayOtCritica ? 'ambos' : hayOtCritica ? 'mantenimiento' : 'material'
       });
       return;
     }
@@ -794,14 +847,25 @@ export default function PlanificacionLineas() {
               {/* Filas de Líneas */}
               {lineas.map(l => {
                 const ordenesDia = ordenesGantt.filter(o => o.linea === l.id && Number(o.dia) === diaSeleccionado);
+                const otsCriticas = otsCriticasPorLinea[l.nombre] || otsCriticasPorLinea[l.id] || [];
+                const motivoParadaBadge = l.motivoParada || (otsCriticas.length > 0 ? otsCriticas.map(ot => `${ot.tipo?.toUpperCase() || 'OT'}: ${ot.titulo || ot.descripcion || 'Parada de línea'}`).join(' / ') : null);
+
                 return (
                   <div key={l.id} className="flex border-b border-slate-800/60 hover:bg-slate-900/40 transition-colors group relative">
                     {/* Cabecera de línea */}
-                    <div className="w-28 flex-shrink-0 flex flex-col justify-center px-3 py-3 border-r border-slate-800 bg-slate-950/80">
-                      <span className="text-xs font-black text-white">{l.nombre}</span>
-                      <span className={`text-[10px] font-bold mt-0.5 ${l.estado === 'en_marcha' ? 'text-emerald-400' : l.estado === 'parada' ? 'text-red-400' : 'text-amber-400'}`}>
-                        {l.estado === 'en_marcha' ? 'En marcha' : l.estado === 'parada' ? 'Parada' : 'Mant.'}
+                    <div className={`w-28 sm:w-32 flex-shrink-0 flex flex-col justify-center px-3 py-2.5 border-r border-slate-800 transition-colors ${otsCriticas.length > 0 ? 'bg-red-950/70 border-r-red-500/60' : 'bg-slate-950/80'}`}>
+                      <div className="flex items-center gap-1.5">
+                        {otsCriticas.length > 0 && <Wrench className="w-3.5 h-3.5 text-red-400 animate-bounce flex-shrink-0" title="OT Crítica Abierta" />}
+                        <span className="text-xs font-black text-white truncate">{l.nombre}</span>
+                      </div>
+                      <span className={`text-[10px] font-bold mt-0.5 ${otsCriticas.length > 0 ? 'text-red-400 font-black' : l.estado === 'en_marcha' ? 'text-emerald-400' : l.estado === 'parada' ? 'text-red-400' : 'text-amber-400'}`}>
+                        {otsCriticas.length > 0 ? 'Mantenimiento' : l.estado === 'en_marcha' ? 'En marcha' : l.estado === 'parada' ? 'Parada' : 'Mant.'}
                       </span>
+                      {(otsCriticas.length > 0 || l.motivoParada) && (
+                        <div className="mt-1 bg-red-900/40 border border-red-500/40 rounded px-1.5 py-0.5 text-[9px] text-red-200 font-bold leading-tight line-clamp-2" title={motivoParadaBadge}>
+                          🔧 {motivoParadaBadge}
+                        </div>
+                      )}
                     </div>
 
                     {/* Contenedor temporal de celdas y barras */}
@@ -826,6 +890,20 @@ export default function PlanificacionLineas() {
                       {/* Línea de tiempo actual dentro de la fila (si es HOY y está en rango) */}
                       {diaSeleccionado === 0 && isTimeInRange && (
                         <div className="absolute top-0 bottom-0 w-0.5 bg-red-500/80 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 pointer-events-none transition-all duration-1000" style={{ left: currentTimeX }} />
+                      )}
+
+                      {/* Overlay de bloqueo visual en el Gantt si la línea tiene OT crítica */}
+                      {otsCriticas.length > 0 && (
+                        <div
+                          className="absolute inset-0 bg-red-950/35 border-y border-red-500/30 z-5 pointer-events-none flex items-center justify-center overflow-hidden"
+                          style={{
+                            backgroundImage: 'repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.08) 0px, rgba(239, 68, 68, 0.08) 10px, transparent 10px, transparent 20px)'
+                          }}
+                        >
+                          <span className="text-[10px] font-black tracking-widest uppercase text-red-300 bg-red-950/90 px-2.5 py-0.5 rounded border border-red-500/50 shadow flex items-center gap-1.5">
+                            <ShieldAlert className="w-3.5 h-3.5 text-red-400" /> LÍNEA EN MANTENIMIENTO CRÍTICO ({otsCriticas.length} OT)
+                          </span>
+                        </div>
                       )}
 
                       {/* Barras de Órdenes */}
@@ -858,6 +936,11 @@ export default function PlanificacionLineas() {
                                   }`}>
                                     {disp.label}
                                   </span>
+                                  {otsCriticas.length > 0 && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-black bg-red-600 text-white border border-red-400 flex items-center gap-0.5 animate-pulse" title="¡Orden programada en línea con OT Crítica!">
+                                      🔧 OT CRÍTICA
+                                    </span>
+                                  )}
                                   <p className="text-xs font-black text-white truncate leading-tight" style={{ color: o.color || '#60a5fa' }}>
                                     {o.codigo ? `[${o.codigo}] ` : ''}{o.ref}
                                   </p>
@@ -1231,49 +1314,89 @@ export default function PlanificacionLineas() {
             >
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <h3 className="text-base font-black text-white flex items-center gap-2">
-                  <ShieldAlert className="w-5 h-5 text-red-500 animate-bounce" /> Bloqueo de Asignación por Stock Crítico
+                  <ShieldAlert className="w-5 h-5 text-red-500 animate-bounce" />
+                  {blockedDropInfo.motivo === 'mantenimiento' ? 'Bloqueo de Asignación por Mantenimiento Crítico' : blockedDropInfo.motivo === 'ambos' ? 'Bloqueo por Stock y Mantenimiento Crítico' : 'Bloqueo de Asignación por Stock Crítico'}
                 </h3>
                 <button onClick={() => setBlockedDropInfo(null)} className="text-slate-400 hover:text-white">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="bg-red-950/40 border border-red-500/40 rounded-xl p-3 text-xs text-red-200">
-                <p className="font-bold mb-1">⚠️ No se puede programar la orden <span className="font-mono text-white">{blockedDropInfo.orden.codigo || blockedDropInfo.orden.ref}</span> en la línea seleccionada.</p>
-                <p className="text-[11px] text-red-300">
-                  El semáforo de disponibilidad está en <strong className="text-white">🔴 Falta Crítica</strong> de materias primas/componentes. La asignación directa por Drag & Drop ha sido bloqueada para prevenir paradas en planta.
-                </p>
+              <div className="bg-red-950/40 border border-red-500/40 rounded-xl p-3 text-xs text-red-200 space-y-2">
+                <p className="font-bold">⚠️ No se puede programar la orden <span className="font-mono text-white">{blockedDropInfo.orden.codigo || blockedDropInfo.orden.ref}</span> en la línea seleccionada.</p>
+                {(blockedDropInfo.motivo === 'material' || blockedDropInfo.motivo === 'ambos' || !blockedDropInfo.motivo) && (
+                  <p className="text-[11px] text-red-300">
+                    • El semáforo de disponibilidad está en <strong className="text-white">🔴 Falta Crítica</strong> de materias primas/componentes. La asignación directa ha sido bloqueada para prevenir paradas en planta.
+                  </p>
+                )}
+                {(blockedDropInfo.motivo === 'mantenimiento' || blockedDropInfo.motivo === 'ambos') && (
+                  <p className="text-[11px] text-red-300">
+                    • La <strong className="text-white">{lineas.find(l => l.id === blockedDropInfo.lineaId)?.nombre || blockedDropInfo.lineaId}</strong> tiene una Orden de Trabajo crítica abierta: <strong className="text-white">{(blockedDropInfo.otsCriticas || []).map(ot => ot.titulo || ot.descripcion || 'Incidencia en curso').join(' // ')}</strong>. La asignación ha sido bloqueada para prevenir una parada no planificada.
+                  </p>
+                )}
               </div>
 
-              <div>
-                <span className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Componentes con Falta de Stock en BOM:</span>
-                <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-800 max-h-40 overflow-y-auto">
-                  {blockedDropInfo.disp.componentes.filter(c => c.estadoItem === 'Falta').map((comp, idx) => (
-                    <div key={idx} className="p-2.5 text-xs flex items-center justify-between">
-                      <div>
-                        <span className="font-bold text-slate-200 block">{comp.nombre}</span>
-                        <span className="text-[10px] text-slate-500 font-mono">{comp.codigo}</span>
+              {(blockedDropInfo.motivo === 'material' || blockedDropInfo.motivo === 'ambos' || !blockedDropInfo.motivo) && blockedDropInfo.disp && (
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Componentes con Falta de Stock en BOM:</span>
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-800 max-h-40 overflow-y-auto">
+                    {(blockedDropInfo.disp.componentes || []).filter(c => c.estadoItem === 'Falta').map((comp, idx) => (
+                      <div key={idx} className="p-2.5 text-xs flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-slate-200 block">{comp.nombre}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">{comp.codigo}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-red-400 font-mono font-black text-xs block">{comp.disponible} / {comp.necesario} {comp.unidad}</span>
+                          <Link
+                            to={`/materias-primas?codigo=${comp.codigo}`}
+                            className="text-indigo-400 hover:text-indigo-300 underline font-mono text-[10px]"
+                          >
+                            Ir a stock →
+                          </Link>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-red-400 font-mono font-black text-xs block">{comp.disponible} / {comp.necesario} {comp.unidad}</span>
-                        <Link
-                          to={`/materias-primas?codigo=${comp.codigo}`}
-                          className="text-indigo-400 hover:text-indigo-300 underline font-mono text-[10px]"
-                        >
-                          Ir a stock →
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {(blockedDropInfo.motivo === 'mantenimiento' || blockedDropInfo.motivo === 'ambos') && (blockedDropInfo.otsCriticas || []).length > 0 && (
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Órdenes de Trabajo Críticas Abiertas en la Línea:</span>
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-800 max-h-40 overflow-y-auto">
+                    {(blockedDropInfo.otsCriticas || []).map((ot, idx) => (
+                      <div key={idx} className="p-2.5 text-xs flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-slate-200 block flex items-center gap-1.5">
+                            <Wrench className="w-3.5 h-3.5 text-red-400" /> {ot.titulo || ot.descripcion || 'Incidencia de línea'}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono">{ot.codigo} — {ot.tipo ? ot.tipo.toUpperCase() : 'CORRECTIVO'}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-red-400 font-mono font-black text-[10px] uppercase block bg-red-950/80 px-1.5 py-0.5 rounded border border-red-500/40">{ot.estado}</span>
+                          <Link
+                            to={`/mantenimiento`}
+                            className="text-amber-400 hover:text-amber-300 underline font-mono text-[10px] block mt-1"
+                          >
+                            Ver en Mantenimiento →
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80 text-xs text-slate-300">
                 <p className="flex items-center gap-2 font-bold text-amber-400 mb-1">
                   <Zap className="w-4 h-4" /> Autorización de Supervisor Requerida
                 </p>
                 <p className="text-[11px] text-slate-400">
-                  Si ya existe una orden de aprovisionamiento en curso o un traspaso de almacén urgente, el supervisor puede forzar la programación bajo su responsabilidad.
+                  {blockedDropInfo.motivo === 'mantenimiento' ?
+                    'El supervisor puede decidir programar la orden asumiendo el riesgo operacional y en coordinación directa con el equipo de mantenimiento de planta.' :
+                    'Si ya existe una orden de aprovisionamiento en curso o un traspaso de almacén urgente, el supervisor puede forzar la programación bajo su responsabilidad.'
+                  }
                 </p>
               </div>
 
