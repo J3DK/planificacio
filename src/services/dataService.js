@@ -38,6 +38,36 @@ export function getImagenGuardada(key) {
   return null;
 }
 
+export async function compressImageHelper(dataUrl, maxDim = 400, quality = 0.65) {
+  if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image')) return dataUrl;
+  if (dataUrl.length < 35000) return dataUrl;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width;
+      let h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
+        }
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', quality);
+      resolve(compressed);
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 export function setImagenGuardada(key, dataUrl) {
   if (!key) return;
   try {
@@ -48,7 +78,19 @@ export function setImagenGuardada(key, dataUrl) {
     } else {
       delete map[key];
     }
-    localStorage.setItem('mes_imagenes_asociadas', JSON.stringify(map));
+    try {
+      localStorage.setItem('mes_imagenes_asociadas', JSON.stringify(map));
+    } catch (e) {
+      // QuotaExceededError: Liberar espacio borrando las entradas más pesadas y antiguas (excepto la actual)
+      const keys = Object.keys(map).filter(k => k !== key && k !== String(key));
+      keys.sort((a, b) => (map[b]?.length || 0) - (map[a]?.length || 0));
+      for (let i = 0; i < Math.ceil(keys.length / 2); i++) {
+        if (keys[i]) delete map[keys[i]];
+      }
+      try {
+        localStorage.setItem('mes_imagenes_asociadas', JSON.stringify(map));
+      } catch (_) {}
+    }
   } catch (e) {
     console.warn('Error al guardar imagen en localStorage:', e);
   }
@@ -480,7 +522,11 @@ export async function deleteSecuencia(id) {
 // ─── WRITE — Materias Primas ─────────────────────────────────────────────────
 
 export async function insertMaterial(material) {
-  const newMat = mapMaterial({ ...material, id: material.id || Date.now(), stockReservado: material.stockReservado || 0 });
+  let img = material.imagen;
+  if (img && typeof img === 'string' && img.startsWith('data:image')) {
+    img = await compressImageHelper(img, 400, 0.65);
+  }
+  const newMat = mapMaterial({ ...material, imagen: img, id: material.id || Date.now(), stockReservado: material.stockReservado || 0 });
   if (newMat.imagen !== undefined) {
     setImagenGuardada(newMat.codigo, newMat.imagen);
     setImagenGuardada(newMat.id, newMat.imagen);
@@ -492,23 +538,37 @@ export async function insertMaterial(material) {
   if (isSupabaseConfigured()) {
     try {
       const dbPayload = materialToDb(newMat);
-      const { data, error } = await supabase.from('materias_primas').insert([dbPayload]).select().single();
+      let { data, error } = await supabase.from('materias_primas').insert([dbPayload]).select().single();
+      if (error && (error.code === 'PGRST204' || error.message?.includes('column'))) {
+        delete dbPayload.imagen;
+        delete dbPayload.stock_reservado;
+        const fallback = await supabase.from('materias_primas').insert([dbPayload]).select().single();
+        data = fallback.data;
+        error = fallback.error;
+      }
       if (!error && data) return { data: mapMaterial({ ...data, imagen: newMat.imagen }), error: null };
-    } catch (e) {}
+    } catch (e) { console.warn('Supabase insert error:', e); }
   }
   return { data: newMat, error: null };
 }
 
 export async function updateMaterial(id, material) {
-  if (material.imagen !== undefined) {
-    setImagenGuardada(material.codigo, material.imagen);
-    setImagenGuardada(id, material.imagen);
+  let img = material.imagen;
+  if (img && typeof img === 'string' && img.startsWith('data:image')) {
+    img = await compressImageHelper(img, 400, 0.65);
+  }
+  const nextMat = { ...material };
+  if (img !== undefined) nextMat.imagen = img;
+
+  if (nextMat.imagen !== undefined) {
+    setImagenGuardada(nextMat.codigo || material.codigo, nextMat.imagen);
+    setImagenGuardada(id, nextMat.imagen);
   }
   const local = (getMateriasLocal() || mockMateriasPrimas.map(mapMaterial));
   let updated = null;
   const next = local.map(m => {
     if (m.id === id) {
-      updated = mapMaterial({ ...m, ...material });
+      updated = mapMaterial({ ...m, ...nextMat });
       return updated;
     }
     return m;
@@ -517,12 +577,21 @@ export async function updateMaterial(id, material) {
 
   if (isSupabaseConfigured()) {
     try {
-      const dbPayload = materialToDb(material);
-      const { data, error } = await supabase.from('materias_primas').update(dbPayload).eq('id', id).select().single();
-      if (!error && data) return { data: mapMaterial({ ...data, imagen: material.imagen }), error: null };
-    } catch (e) {}
+      const dbPayload = materialToDb(nextMat);
+      delete dbPayload.id; // Evitar conflictos al actualizar primary key en PATCH
+      let { data, error } = await supabase.from('materias_primas').update(dbPayload).eq('id', id).select().single();
+      if (error && (error.code === 'PGRST204' || error.message?.includes('column') || error.status === 400)) {
+        console.warn('Supabase PATCH 400/PGRST204 (columna faltante en tabla materias_primas o payload largo). Intentando fallback sin columnas nuevas...');
+        delete dbPayload.imagen;
+        delete dbPayload.stock_reservado;
+        const fallback = await supabase.from('materias_primas').update(dbPayload).eq('id', id).select().single();
+        data = fallback.data;
+        error = fallback.error;
+      }
+      if (!error && data) return { data: mapMaterial({ ...data, imagen: nextMat.imagen }), error: null };
+    } catch (e) { console.warn('Supabase update error:', e); }
   }
-  return { data: updated || mapMaterial({ id, ...material }), error: null };
+  return { data: updated || mapMaterial({ id, ...nextMat }), error: null };
 }
 
 export async function deleteMaterial(id) {
@@ -897,52 +966,86 @@ export async function fetchProductos() {
 }
 
 export async function insertProducto(producto) {
-  if (producto.imagen !== undefined) {
-    setImagenGuardada(producto.codigo, producto.imagen);
-    if (producto.id) setImagenGuardada(producto.id, producto.imagen);
+  let img = producto.imagen;
+  if (img && typeof img === 'string' && img.startsWith('data:image')) {
+    img = await compressImageHelper(img, 400, 0.65);
   }
-  if (Array.isArray(producto.bom)) {
-    producto.bom.forEach(b => {
+  const nextProd = { ...producto };
+  if (img !== undefined) nextProd.imagen = img;
+
+  if (nextProd.imagen !== undefined) {
+    setImagenGuardada(nextProd.codigo, nextProd.imagen);
+    if (nextProd.id) setImagenGuardada(nextProd.id, nextProd.imagen);
+  }
+  if (Array.isArray(nextProd.bom)) {
+    nextProd.bom.forEach(b => {
       if (b.imagen !== undefined) setImagenGuardada(b.codigo, b.imagen);
     });
   }
   const current = getProductosLocal() || mockProductos.map(mapProducto);
-  const newItem = mapProducto({ ...producto, id: producto.id || `P${Date.now()}` });
+  const newItem = mapProducto({ ...nextProd, id: nextProd.id || `P${Date.now()}` });
   const updated = [...current, newItem];
   setProductosLocal(updated);
 
   if (isSupabaseConfigured()) {
     try {
       const dbPayload = { ...newItem };
-      const { data, error } = await supabase.from('productos').insert([dbPayload]).select().single();
+      let { data, error } = await supabase.from('productos').insert([dbPayload]).select().single();
+      if (error && (error.code === 'PGRST204' || error.message?.includes('column') || error.status === 400)) {
+        delete dbPayload.imagen;
+        delete dbPayload.bom;
+        delete dbPayload.bomPendiente;
+        delete dbPayload.tiempoCiclo;
+        delete dbPayload.objetivoHora;
+        const fallback = await supabase.from('productos').insert([dbPayload]).select().single();
+        data = fallback.data;
+        error = fallback.error;
+      }
       if (!error && data) return { data: mapProducto({ ...data, imagen: newItem.imagen, bom: newItem.bom }), error: null };
-    } catch (e) {}
+    } catch (e) { console.warn('Supabase insertProducto error:', e); }
   }
   return { data: newItem, error: null };
 }
 
 export async function updateProducto(id, producto) {
-  if (producto.imagen !== undefined) {
-    setImagenGuardada(producto.codigo, producto.imagen);
-    setImagenGuardada(id, producto.imagen);
+  let img = producto.imagen;
+  if (img && typeof img === 'string' && img.startsWith('data:image')) {
+    img = await compressImageHelper(img, 400, 0.65);
   }
-  if (Array.isArray(producto.bom)) {
-    producto.bom.forEach(b => {
+  const nextProd = { ...producto };
+  if (img !== undefined) nextProd.imagen = img;
+
+  if (nextProd.imagen !== undefined) {
+    setImagenGuardada(nextProd.codigo || producto.codigo, nextProd.imagen);
+    setImagenGuardada(id, nextProd.imagen);
+  }
+  if (Array.isArray(nextProd.bom)) {
+    nextProd.bom.forEach(b => {
       if (b.imagen !== undefined) setImagenGuardada(b.codigo, b.imagen);
     });
   }
   const current = getProductosLocal() || mockProductos.map(mapProducto);
-  const updated = current.map(p => p.id === id ? mapProducto({ ...p, ...producto }) : p);
+  const updated = current.map(p => p.id === id ? mapProducto({ ...p, ...nextProd }) : p);
   setProductosLocal(updated);
 
   if (isSupabaseConfigured()) {
     try {
-      const dbPayload = { ...producto };
-      const { data, error } = await supabase.from('productos').update(dbPayload).eq('id', id).select().single();
-      if (!error && data) return { data: mapProducto({ ...data, imagen: producto.imagen, bom: producto.bom }), error: null };
-    } catch (e) {}
+      const dbPayload = { ...nextProd };
+      delete dbPayload.id; // Evitar conflictos al actualizar primary key en PATCH
+      let { data, error } = await supabase.from('productos').update(dbPayload).eq('id', id).select().single();
+      if (error && (error.code === 'PGRST204' || error.message?.includes('column') || error.status === 400)) {
+        console.warn('Supabase PATCH 400/PGRST204 en productos. Intentando fallback sin columnas nuevas...');
+        delete dbPayload.imagen;
+        delete dbPayload.bom;
+        delete dbPayload.bomPendiente;
+        const fallback = await supabase.from('productos').update(dbPayload).eq('id', id).select().single();
+        data = fallback.data;
+        error = fallback.error;
+      }
+      if (!error && data) return { data: mapProducto({ ...data, imagen: nextProd.imagen, bom: nextProd.bom }), error: null };
+    } catch (e) { console.warn('Supabase updateProducto error:', e); }
   }
-  return { data: updated.find(p => p.id === id) || mapProducto({ id, ...producto }), error: null };
+  return { data: updated.find(p => p.id === id) || mapProducto({ id, ...nextProd }), error: null };
 }
 
 export async function deleteProducto(id) {
