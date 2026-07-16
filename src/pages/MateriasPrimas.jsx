@@ -131,7 +131,7 @@ export default function MateriasPrimas() {
     : [];
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto">
+    <div className="space-y-6 w-full max-w-full">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-black text-white">Materias Primas</h2>
@@ -184,9 +184,9 @@ export default function MateriasPrimas() {
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
         {/* Tabla de materiales */}
-        <div className="xl:col-span-2 card overflow-hidden">
+        <div className="xl:col-span-3 card overflow-hidden">
           {/* Filtros */}
           <div className="px-5 py-4 border-b border-slate-800 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
             <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
@@ -208,7 +208,7 @@ export default function MateriasPrimas() {
               <thead>
                 <tr className="border-b border-slate-800">
                   {['Código', 'Descripción', 'Stock Actual', 'Comprometido / Disp. Real', 'Compromiso (%)', 'Mín/Máx', 'Criticidad', 'Proveedor', ''].map(h => (
-                    <th key={h} className="table-header text-left">{h}</th>
+                    <th key={h} className={`table-header text-left ${h === 'Código' ? 'whitespace-nowrap min-w-[140px] w-[140px] shrink-0' : ''}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -224,7 +224,7 @@ export default function MateriasPrimas() {
 
                   return (
                     <tr key={m.id} className={`hover:bg-slate-800/30 transition-colors group ${isHighlighted ? 'bg-blue-500/10 border-l-4 border-blue-500' : ''}`}>
-                      <td className="table-cell font-mono text-xs text-blue-400 font-bold">{m.codigo}</td>
+                      <td className="table-cell font-mono text-xs text-blue-400 font-bold whitespace-nowrap min-w-[140px] w-[140px] shrink-0">{m.codigo}</td>
                       <td className="table-cell text-slate-300 text-xs max-w-[170px]">
                         <p className="truncate font-semibold">{m.descripcion}</p>
                         <p className="text-[10px] text-slate-500 mt-0.5">{m.unidad}</p>
@@ -359,7 +359,7 @@ export default function MateriasPrimas() {
                       const itemBom = (p.bom || []).find(x => x.codigo === editItem.codigo);
                       return (
                         <tr key={p.codigo} className="hover:bg-slate-900/60">
-                          <td className="py-1.5 px-2 font-mono font-bold text-blue-300">{p.codigo}</td>
+                          <td className="py-1.5 px-2 font-mono font-bold text-blue-300 whitespace-nowrap min-w-[120px]">{p.codigo}</td>
                           <td className="py-1.5 px-2 text-slate-300 truncate max-w-[160px]">{p.descripcion}</td>
                           <td className="py-1.5 px-2 text-center font-mono font-bold text-emerald-400">
                             {itemBom?.factor || 1} {editItem.unidad}
