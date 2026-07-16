@@ -7,7 +7,8 @@ import {
   fetchSecuencia,
   fetchAlertas,
   fetchMateriasPrimas,
-  fetchCalidad
+  fetchCalidad,
+  getCurrentShiftInfo
 } from './dataService';
 import { getAppConfig } from './configService';
 import { paradasPorTipo } from '@/data/mockParadas';
@@ -121,7 +122,7 @@ export const generarInformeTurno = async (format = 'PDF') => {
 
   // Generar PDF
   const doc = new jsPDF();
-  renderPdfHeaderAndFooter(doc, 'INFORME DE TURNO (MAÑANA)');
+  renderPdfHeaderAndFooter(doc, `INFORME DE TURNO (${getCurrentShiftInfo().shift.toUpperCase()})`);
 
   // Resumen KPIs
   const oeeAvg = lineas.length ? (lineas.reduce((acc, l) => acc + Number(l.oee || 0), 0) / lineas.length).toFixed(1) : '0';

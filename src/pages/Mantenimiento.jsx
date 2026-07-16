@@ -441,7 +441,16 @@ export default function Mantenimiento() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadAllData(); }, [loadAllData]);
+  useEffect(() => {
+    loadAllData();
+    const handler = () => loadAllData();
+    window.addEventListener('mantenimiento_updated', handler);
+    window.addEventListener('lineas_updated', handler);
+    return () => {
+      window.removeEventListener('mantenimiento_updated', handler);
+      window.removeEventListener('lineas_updated', handler);
+    };
+  }, [loadAllData]);
 
   // Campo repuestos con equipos dinámicos
   const REPUESTO_FIELDS_DYNAMIC = [

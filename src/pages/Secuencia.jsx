@@ -12,7 +12,7 @@ import {
   fetchLineas, updateOrdenPlanificacion, fetchPlanificacion,
   reordenarSecuenciaEnGantt, saveIncidenciaSecuencia,
   insertOrdenTrabajoDesdeSecuencia,
-  fetchMateriasPrimas, fetchProductos, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden
+  fetchMateriasPrimas, fetchProductos, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, getCurrentShiftInfo
 } from '@/services/dataService';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CrudModal from '@/components/shared/CrudModal';
@@ -743,7 +743,7 @@ export default function Secuencia() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-black text-white">Secuencia de Fabricación</h2>
-          <p className="text-slate-500 text-sm">Órdenes MTO · Turno Mañana · Sincronizado con Planificación</p>
+          <p className="text-slate-500 text-sm">Órdenes MTO · Turno {getCurrentShiftInfo().shift} · Sincronizado con Planificación</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={loadData} disabled={loading}

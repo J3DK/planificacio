@@ -21,15 +21,14 @@ import {
   fetchSecuencia, updateSecuencia,
   insertAlerta,
   fetchHistorial,
-  fetchProductos, insertProducto, updateProducto, deleteProducto,
-  fetchOperarios
+  fetchOperarios, getCurrentShiftInfo
 } from '@/services/dataService';
 
 export default function PanelOperario() {
   const navigate = useNavigate();
   // Configuración del Puesto / Operario
   const [lineaSelId, setLineaSelId] = useState('L1');
-  const [turnoSel, setTurnoSel] = useState('Mañana');
+  const [turnoSel, setTurnoSel] = useState(() => getCurrentShiftInfo().shift);
   const [operarioNombre, setOperarioNombre] = useState('Carlos Mendoza');
   const [operarioSelId, setOperarioSelId] = useState('OP-001');
   const [modalOperarioOpen, setModalOperarioOpen] = useState(false);
@@ -111,6 +110,25 @@ export default function PanelOperario() {
 
   useEffect(() => {
     loadAllData();
+    const handler = () => loadAllData();
+    window.addEventListener('lineas_updated', handler);
+    window.addEventListener('paradas_updated', handler);
+    window.addEventListener('materiales_updated', handler);
+    window.addEventListener('secuencia_updated', handler);
+    window.addEventListener('secuencia_reordenada', handler);
+    window.addEventListener('productos_updated', handler);
+    window.addEventListener('produccion_updated', handler);
+    window.addEventListener('mantenimiento_updated', handler);
+    return () => {
+      window.removeEventListener('lineas_updated', handler);
+      window.removeEventListener('paradas_updated', handler);
+      window.removeEventListener('materiales_updated', handler);
+      window.removeEventListener('secuencia_updated', handler);
+      window.removeEventListener('secuencia_reordenada', handler);
+      window.removeEventListener('productos_updated', handler);
+      window.removeEventListener('produccion_updated', handler);
+      window.removeEventListener('mantenimiento_updated', handler);
+    };
   }, []);
 
   // ─── FILTROS DE HISTORIAL ────────────────────────────────────────────────────
@@ -182,6 +200,7 @@ export default function PanelOperario() {
       const { data } = await insertProducto(prodForm);
       if (data) setProductos(prev => [...prev, data]);
     }
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('productos_updated'));
     setProdSaving(false);
     setProdModal(false);
     setProdSuccess(true);
@@ -191,6 +210,7 @@ export default function PanelOperario() {
   const confirmarBorrarProducto = async (id) => {
     await deleteProducto(id);
     setProductos(prev => prev.filter(p => p.id !== id));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('productos_updated'));
     setProdConfirmDel(null);
   };
 
@@ -223,6 +243,11 @@ export default function PanelOperario() {
 
     // Guardar en Supabase
     await updateLinea(lineaSelId, { ...lineaActiva, produccionHoy: nuevaProd, oee: newOEE });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('produccion_updated'));
+      window.dispatchEvent(new CustomEvent('lineas_updated'));
+      window.dispatchEvent(new CustomEvent('productos_updated'));
+    }
   };
 
   const declararScrap = async () => {
@@ -239,6 +264,11 @@ export default function PanelOperario() {
     const nuevaCalidad = Math.max(70, Number(lineaActiva.calidad || 98) - 0.5);
     setLineas(prev => prev.map(l => l.id === lineaSelId ? { ...l, calidad: Number(nuevaCalidad.toFixed(1)) } : l));
     await updateLinea(lineaSelId, { ...lineaActiva, calidad: Number(nuevaCalidad.toFixed(1)) });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('produccion_updated'));
+      window.dispatchEvent(new CustomEvent('lineas_updated'));
+      window.dispatchEvent(new CustomEvent('calidad_updated'));
+    }
 
     setScrapSuccess(true);
     setTimeout(() => setScrapSuccess(false), 2500);
@@ -289,6 +319,14 @@ export default function PanelOperario() {
       });
     }
 
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('paradas_updated'));
+      window.dispatchEvent(new CustomEvent('lineas_updated'));
+      if (paradaTipo === 'averia' || paradaTipo === 'mantenimiento') {
+        window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
+      }
+    }
+
     setParadaSuccess(true);
     setTimeout(() => setParadaSuccess(false), 2500);
     setParadaCausa('');
@@ -310,6 +348,11 @@ export default function PanelOperario() {
     // Devolver línea a estado 'en_marcha'
     setLineas(prev => prev.map(l => l.id === lineaSelId ? { ...l, estado: 'en_marcha', motivoParada: null } : l));
     await updateLinea(lineaSelId, { ...lineaActiva, estado: 'en_marcha', motivoParada: null });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('paradas_updated'));
+      window.dispatchEvent(new CustomEvent('lineas_updated'));
+    }
   };
 
   // ─── 3. ACCIONES DE ALMACÉN / CONSUMO ───────────────────────────────────────
@@ -336,6 +379,11 @@ export default function PanelOperario() {
         leida: false
       });
     }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('materiales_updated'));
+      window.dispatchEvent(new CustomEvent('bom_updated'));
+    }
   };
 
   const solicitarMaterialUrgente = async (mat) => {
@@ -351,6 +399,9 @@ export default function PanelOperario() {
     });
     setMatAvisoUrgente(true);
     setTimeout(() => setMatAvisoUrgente(false), 3000);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('materiales_updated'));
+    }
   };
 
   // ─── 4. ACCIONES DE SECUENCIA ───────────────────────────────────────────────
@@ -361,6 +412,12 @@ export default function PanelOperario() {
     
     setSecuencia(prev => prev.map(o => o.id === orden.id ? { ...o, progreso: nuevoProgreso, estado: nuevoEstado } : o));
     await updateSecuencia(orden.id, { ...orden, progreso: nuevoProgreso, estado: nuevoEstado });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('secuencia_updated'));
+      window.dispatchEvent(new CustomEvent('secuencia_reordenada'));
+      window.dispatchEvent(new CustomEvent('planificacion_updated'));
+    }
   };
 
   return (

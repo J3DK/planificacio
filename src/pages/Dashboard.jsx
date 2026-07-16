@@ -16,7 +16,7 @@ import {
 } from '@/data/mockDashboard';
 import { alertas as mockAlertas } from '@/data/mockAlertas';
 import KPICard from '@/components/shared/KPICard';
-import { fetchLineas, fetchMateriasPrimas, fetchCalidad, fetchSecuencia, updateLinea } from '@/services/dataService';
+import { fetchLineas, fetchMateriasPrimas, fetchCalidad, fetchSecuencia, updateLinea, getCurrentShiftInfo } from '@/services/dataService';
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 16 },
@@ -71,20 +71,25 @@ export default function Dashboard() {
   const [lineasData, setLineasData] = useState([]);
   const [guardandoLineas, setGuardandoLineas] = useState(false);
 
-  const [kpisMain, setKpisMain] = useState({
-    cumplimientoPlan: kpis.cumplimientoPlan,
-    cumplimientoPlanObjetivo: kpis.cumplimientoPlanObjetivo,
-    cumplimientoPlanVsAyer: kpis.cumplimientoPlanVsAyer,
-    produccionPlanificada: kpis.produccionPlanificada,
-    produccionReal: kpis.produccionReal,
-    desviacionAcumulada: kpis.desviacionAcumulada,
-    desviacionPct: kpis.desviacionPct,
-    ritmoReal: kpis.ritmoReal,
-    ritmoObjetivo: kpis.ritmoObjetivo,
-    tiempoRestante: kpis.tiempoRestante,
-    tiempoRestanteLabel: kpis.tiempoRestanteLabel,
-    ordenesDia: kpis.ordenesDia,
-    unidad: kpis.unidad,
+  const [kpisMain, setKpisMain] = useState(() => {
+    const shiftInfo = getCurrentShiftInfo();
+    return {
+      cumplimientoPlan: kpis.cumplimientoPlan,
+      cumplimientoPlanObjetivo: kpis.cumplimientoPlanObjetivo,
+      cumplimientoPlanVsAyer: kpis.cumplimientoPlanVsAyer,
+      produccionPlanificada: kpis.produccionPlanificada,
+      produccionReal: kpis.produccionReal,
+      desviacionAcumulada: kpis.desviacionAcumulada,
+      desviacionPct: kpis.desviacionPct,
+      ritmoReal: kpis.ritmoReal,
+      ritmoObjetivo: kpis.ritmoObjetivo,
+      tiempoRestante: shiftInfo.tiempoRestante,
+      tiempoRestanteLabel: shiftInfo.tiempoRestanteLabel,
+      turno: shiftInfo.label,
+      horarioTurno: `${shiftInfo.horario} (Rotativo según reloj)`,
+      ordenesDia: kpis.ordenesDia,
+      unidad: kpis.unidad,
+    };
   });
 
   const [indicadores, setIndicadores] = useState({
@@ -133,25 +138,7 @@ export default function Dashboard() {
             ? Math.round(activas.reduce((acc, l) => acc + Number(l.velocidadNominal ?? l.velocidad_nominal), 0) / activas.length)
             : kpis.ritmoObjetivo;
 
-          const now = new Date();
-          const hrs = now.getHours();
-          const mins = now.getMinutes();
-          let endHr = 14;
-          let shiftName = 'Turno Mañana';
-          if (hrs >= 14 && hrs < 22) {
-            endHr = 22;
-            shiftName = 'Turno Tarde';
-          } else if (hrs >= 22 || hrs < 6) {
-            endHr = 6;
-            shiftName = 'Turno Noche';
-          }
-          let remMins = (endHr - hrs) * 60 - mins;
-          if (remMins < 0) remMins += 24 * 60;
-          const remH = Math.floor(remMins / 60);
-          const remM = remMins % 60;
-          const tRest = remH > 0 || remM > 0 ? `${remH}h ${remM.toString().padStart(2, '0')}m` : 'Completado';
-          const tLabel = `Fin de ${shiftName} (${endHr}:00)`;
-
+          const shiftInfo = getCurrentShiftInfo();
           const ordCount = secuenciaList.length > 0 ? secuenciaList.length : kpis.ordenesDia;
 
           setKpisMain({
@@ -164,8 +151,10 @@ export default function Dashboard() {
             desviacionPct: totalPlan > 0 ? desvPct : kpis.desviacionPct,
             ritmoReal: velReal || kpis.ritmoReal,
             ritmoObjetivo: velObj || kpis.ritmoObjetivo,
-            tiempoRestante: tRest,
-            tiempoRestanteLabel: tLabel,
+            tiempoRestante: shiftInfo.tiempoRestante,
+            tiempoRestanteLabel: shiftInfo.tiempoRestanteLabel,
+            turno: shiftInfo.label,
+            horarioTurno: `${shiftInfo.horario} (Rotativo según reloj)`,
             ordenesDia: ordCount,
             unidad: 'uds',
           });
@@ -228,6 +217,9 @@ export default function Dashboard() {
     window.addEventListener('materiales_updated', handler);
     window.addEventListener('calidad_updated', handler);
     window.addEventListener('secuencia_updated', handler);
+    window.addEventListener('mantenimiento_updated', handler);
+    window.addEventListener('paradas_updated', handler);
+    window.addEventListener('produccion_updated', handler);
 
     return () => {
       mounted = false;
@@ -235,6 +227,9 @@ export default function Dashboard() {
       window.removeEventListener('materiales_updated', handler);
       window.removeEventListener('calidad_updated', handler);
       window.removeEventListener('secuencia_updated', handler);
+      window.removeEventListener('mantenimiento_updated', handler);
+      window.removeEventListener('paradas_updated', handler);
+      window.removeEventListener('produccion_updated', handler);
     };
   }, []);
 
@@ -869,15 +864,15 @@ export default function Dashboard() {
             <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-800 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-slate-400">Turno en curso:</span>
-                <span className="text-sm font-black text-white">{kpisMain.tiempoRestanteLabel.replace('Hasta fin de turno ', '').replace('Fin de ', '')}</span>
+                <span className="text-sm font-black text-white">Turno {getCurrentShiftInfo().shift}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-slate-400">Tiempo restante:</span>
-                <span className="text-lg font-black text-amber-400 font-mono">{kpisMain.tiempoRestante}</span>
+                <span className="text-lg font-black text-amber-400 font-mono">{kpisMain.tiempoRestante || getCurrentShiftInfo().tiempoRestante}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-slate-400">Horario oficial:</span>
-                <span className="text-xs font-bold text-slate-300">06:00 — 14:00 (Rotativo según reloj)</span>
+                <span className="text-xs font-bold text-slate-300">{kpisMain.horarioTurno || `${getCurrentShiftInfo().horario} (Rotativo según reloj)`}</span>
               </div>
             </div>
 

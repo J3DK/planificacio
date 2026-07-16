@@ -3,6 +3,7 @@ import { useLocation, Link } from 'react-router-dom';
 import { Bell, RefreshCw, Clock, Cpu } from 'lucide-react';
 import { alertas } from '@/data/mockAlertas';
 import SupabaseStatus from '@/components/shared/SupabaseStatus';
+import { getCurrentShiftInfo } from '@/services/dataService';
 
 const routeTitles = {
   '/':              { title: 'Dashboard · Resumen',           sub: 'Plan Maestro de Producción — MPS' },
@@ -25,6 +26,7 @@ export default function Header() {
   const alertasNoLeidas = alertas.filter(a => !a.leida).length;
   const now = new Date();
   const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const shiftInfo = getCurrentShiftInfo();
 
   return (
     <header className="fixed top-0 right-0 left-0 lg:left-60 z-20 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 lg:px-6 py-3 flex items-center gap-4 transition-all duration-300">
@@ -69,9 +71,17 @@ export default function Header() {
         <SupabaseStatus />
 
         {/* Turno badge */}
-        <div className="hidden md:flex items-center gap-2 bg-blue-600/20 border border-blue-500/30 rounded-lg px-3 py-1.5">
-          <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
-          <span className="text-blue-400 text-xs font-bold">Turno Mañana</span>
+        <div className={`hidden md:flex items-center gap-2 border rounded-lg px-3 py-1.5 ${
+          shiftInfo.shift === 'Mañana' ? 'bg-amber-500/20 border-amber-500/30 text-amber-300' :
+          shiftInfo.shift === 'Tarde'  ? 'bg-blue-500/20 border-blue-500/30 text-blue-300' :
+                                         'bg-purple-500/20 border-purple-500/30 text-purple-300'
+        }`}>
+          <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+            shiftInfo.shift === 'Mañana' ? 'bg-amber-400' :
+            shiftInfo.shift === 'Tarde'  ? 'bg-blue-400' :
+                                           'bg-purple-400'
+          }`} />
+          <span className="text-xs font-bold">Turno {shiftInfo.shift}</span>
         </div>
       </div>
     </header>

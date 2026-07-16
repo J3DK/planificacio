@@ -13,7 +13,7 @@ import {
   fetchDefectos, insertDefecto, updateDefecto, deleteDefecto,
   fetchRetrabajos, insertRetrabajo, updateRetrabajo, deleteRetrabajo,
   fetchReclamaciones, insertReclamacion, updateReclamacion, deleteReclamacion,
-  fetchScraps, insertScrap, updateScrap, deleteScrap,
+  fetchScraps, insertScrap, updateScrap, deleteScrap, getCurrentShiftInfo
 } from '@/services/dataService';
 import { kpisCalidad, evolucionCalidad, calidadPorLinea } from '@/data/mockCalidad';
 import KPICard from '@/components/shared/KPICard';
@@ -25,7 +25,7 @@ const COLORS_PIE = ['#ef4444', '#f59e0b', '#8b5cf6', '#3b82f6', '#10b981', '#647
 const EMPTY_DEFECTO      = { causa: '', categoria: 'Proceso', cantidad: '', pct: '', linea: '', gravedad: 'media' };
 const EMPTY_RETRABAJO    = { descripcion: '', causa: '', cantidad: '', tiempoUnitario: '', linea: '', fecha: new Date().toISOString().slice(0,10), operario: '', estado: 'pendiente' };
 const EMPTY_RECLAMACION  = { referencia: '', cliente: '', producto: '', descripcion: '', cantidad: '', gravedad: 'media', estado: 'abierta', fechaApertura: new Date().toISOString().slice(0,10), fechaCierre: '', responsable: '', accionCorrectora: '' };
-const EMPTY_SCRAP        = { descripcion: '', causa: '', cantidad: '', unidad: 'ud', costeUnitario: '', linea: '', fecha: new Date().toISOString().slice(0,10), turno: 'Mañana', destino: 'Chatarra' };
+const EMPTY_SCRAP        = { descripcion: '', causa: '', cantidad: '', unidad: 'ud', costeUnitario: '', linea: '', fecha: new Date().toISOString().slice(0,10), turno: getCurrentShiftInfo().shift, destino: 'Chatarra' };
 
 // ─── Modal genérico ──────────────────────────────────────────────────────────
 function CrudModal({ title, icon: Icon, iconColor, onClose, onSave, saving, children }) {

@@ -14,6 +14,52 @@ import { ordenesTrabajoIniciales, activosJerarquia as mockActivos, planesPrevent
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
+export function getCurrentShiftInfo() {
+  const now = new Date();
+  const hrs = now.getHours();
+  const mins = now.getMinutes();
+
+  let shift = 'Mañana';
+  let startHr = 6;
+  let endHr = 14;
+  let label = 'Mañana (06:00 - 14:00)';
+  let shortLabel = 'Mañana 06:00-14:00';
+
+  if (hrs >= 14 && hrs < 22) {
+    shift = 'Tarde';
+    startHr = 14;
+    endHr = 22;
+    label = 'Tarde (14:00 - 22:00)';
+    shortLabel = 'Tarde 14:00-22:00';
+  } else if (hrs >= 22 || hrs < 6) {
+    shift = 'Noche';
+    startHr = 22;
+    endHr = 6;
+    label = 'Noche (22:00 - 06:00)';
+    shortLabel = 'Noche 22:00-06:00';
+  }
+
+  let remMins = (endHr - hrs) * 60 - mins;
+  if (remMins < 0) remMins += 24 * 60;
+  const remH = Math.floor(remMins / 60);
+  const remM = remMins % 60;
+  const tiempoRestante = remH > 0 || remM > 0 ? `${remH}h ${remM.toString().padStart(2, '0')}m` : 'Completado';
+
+  const dateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  return {
+    shift,        // 'Mañana' | 'Tarde' | 'Noche'
+    startHr,      // 6 | 14 | 22
+    endHr,        // 14 | 22 | 6
+    label,        // 'Mañana (06:00 - 14:00)' | 'Tarde (14:00 - 22:00)' | 'Noche (22:00 - 06:00)'
+    shortLabel,   // 'Mañana 06:00-14:00' | 'Tarde 14:00-22:00' | 'Noche 22:00-06:00'
+    horario: `${startHr.toString().padStart(2, '0')}:00 — ${endHr.toString().padStart(2, '0')}:00`,
+    tiempoRestante,
+    tiempoRestanteLabel: `Hasta fin de turno ${endHr.toString().padStart(2, '0')}:00`,
+    dateStr
+  };
+}
+
 function mapLinea(l) {
   return {
     ...l,
@@ -343,13 +389,17 @@ export async function insertLinea(linea) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('lineas').insert([lineaToDb(linea)]).select().single();
-      if (!error && data) return { data: mapLinea(data), error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lineas_updated'));
+        return { data: mapLinea(data), error: null };
+      }
     } catch (e) {}
   }
   const current = getLineasLocal() || mockLineas;
   const newItem = { ...linea, id: linea.id || `L${Date.now()}` };
   const updated = [...current, newItem];
   setLineasLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lineas_updated'));
   return { data: newItem, error: null };
 }
 
@@ -357,12 +407,16 @@ export async function updateLinea(id, linea) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('lineas').update(lineaToDb(linea)).eq('id', id).select().single();
-      if (!error && data) return { data: mapLinea(data), error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lineas_updated'));
+        return { data: mapLinea(data), error: null };
+      }
     } catch (e) {}
   }
   const current = getLineasLocal() || mockLineas;
   const updated = current.map(l => l.id === id ? { ...l, ...linea } : l);
   setLineasLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lineas_updated'));
   return { data: updated.find(l => l.id === id), error: null };
 }
 
@@ -370,11 +424,15 @@ export async function deleteLinea(id) {
   if (isSupabaseConfigured()) {
     try {
       const { error } = await supabase.from('lineas').delete().eq('id', id);
-      if (!error) return { error: null };
+      if (!error) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lineas_updated'));
+        return { error: null };
+      }
     } catch (e) {}
   }
   const current = getLineasLocal() || mockLineas;
   setLineasLocal(current.filter(l => l.id !== id));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lineas_updated'));
   return { error: null };
 }
 
@@ -404,13 +462,17 @@ export async function insertParada(parada) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('paradas').insert([parada]).select().single();
-      if (!error && data) return { data, error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
+        return { data, error: null };
+      }
     } catch (e) {}
   }
   const current = getParadasTurnoLocal() || mockParadas;
   const newItem = { ...parada, id: parada.id || Date.now() };
   const updated = [...current, newItem];
   setParadasTurnoLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
   return { data: newItem, error: null };
 }
 
@@ -418,12 +480,16 @@ export async function updateParada(id, parada) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('paradas').update(parada).eq('id', id).select().single();
-      if (!error && data) return { data, error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
+        return { data, error: null };
+      }
     } catch (e) {}
   }
   const current = getParadasTurnoLocal() || mockParadas;
   const updated = current.map(p => p.id === id ? { ...p, ...parada } : p);
   setParadasTurnoLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
   return { data: updated.find(p => p.id === id), error: null };
 }
 
@@ -431,11 +497,15 @@ export async function deleteParada(id) {
   if (isSupabaseConfigured()) {
     try {
       const { error } = await supabase.from('paradas').delete().eq('id', id);
-      if (!error) return { error: null };
+      if (!error) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
+        return { error: null };
+      }
     } catch (e) {}
   }
   const current = getParadasTurnoLocal() || mockParadas;
   setParadasTurnoLocal(current.filter(p => p.id !== id));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
   return { error: null };
 }
 
@@ -443,13 +513,17 @@ export async function insertParadaPredeterminada(item) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('paradas_predeterminadas').insert([item]).select().single();
-      if (!error && data) return { data, error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
+        return { data, error: null };
+      }
     } catch (e) {}
   }
   const current = getParadasPredeterminadasLocal() || paradasPredeterminadasIniciales;
   const newItem = { ...item, id: item.id || `PP_${Date.now()}` };
   const updated = [...current, newItem];
   setParadasPredeterminadasLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
   return { data: newItem, error: null };
 }
 
@@ -457,12 +531,16 @@ export async function updateParadaPredeterminada(id, item) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('paradas_predeterminadas').update(item).eq('id', id).select().single();
-      if (!error && data) return { data, error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
+        return { data, error: null };
+      }
     } catch (e) {}
   }
   const current = getParadasPredeterminadasLocal() || paradasPredeterminadasIniciales;
   const updated = current.map(p => p.id === id ? { ...p, ...item } : p);
   setParadasPredeterminadasLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
   return { data: updated.find(p => p.id === id), error: null };
 }
 
@@ -470,11 +548,15 @@ export async function deleteParadaPredeterminada(id) {
   if (isSupabaseConfigured()) {
     try {
       const { error } = await supabase.from('paradas_predeterminadas').delete().eq('id', id);
-      if (!error) return { error: null };
+      if (!error) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
+        return { error: null };
+      }
     } catch (e) {}
   }
   const current = getParadasPredeterminadasLocal() || paradasPredeterminadasIniciales;
   setParadasPredeterminadasLocal(current.filter(p => p.id !== id));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('paradas_updated'));
   return { error: null };
 }
 
@@ -484,13 +566,23 @@ export async function insertSecuencia(orden) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('secuencia').insert([secuenciaToDb(orden)]).select().single();
-      if (!error && data) return { data: mapSecuencia(data), error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('secuencia_updated'));
+          window.dispatchEvent(new CustomEvent('secuencia_reordenada'));
+        }
+        return { data: mapSecuencia(data), error: null };
+      }
     } catch (e) {}
   }
   const current = getSecuenciaLocal() || mockSecuencia;
   const newItem = { ...orden, id: orden.id || Date.now(), secuencia: orden.secuencia || current.length + 1 };
   const updated = [...current, newItem];
   setSecuenciaLocal(updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('secuencia_updated'));
+    window.dispatchEvent(new CustomEvent('secuencia_reordenada'));
+  }
   return { data: newItem, error: null };
 }
 
@@ -498,12 +590,22 @@ export async function updateSecuencia(id, orden) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('secuencia').update(secuenciaToDb(orden)).eq('id', id).select().single();
-      if (!error && data) return { data: mapSecuencia(data), error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('secuencia_updated'));
+          window.dispatchEvent(new CustomEvent('secuencia_reordenada'));
+        }
+        return { data: mapSecuencia(data), error: null };
+      }
     } catch (e) {}
   }
   const current = getSecuenciaLocal() || mockSecuencia;
   const updated = current.map(o => o.id === id ? { ...o, ...orden } : o);
   setSecuenciaLocal(updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('secuencia_updated'));
+    window.dispatchEvent(new CustomEvent('secuencia_reordenada'));
+  }
   return { data: updated.find(o => o.id === id), error: null };
 }
 
@@ -511,11 +613,21 @@ export async function deleteSecuencia(id) {
   if (isSupabaseConfigured()) {
     try {
       const { error } = await supabase.from('secuencia').delete().eq('id', id);
-      if (!error) return { error: null };
+      if (!error) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('secuencia_updated'));
+          window.dispatchEvent(new CustomEvent('secuencia_reordenada'));
+        }
+        return { error: null };
+      }
     } catch (e) {}
   }
   const current = getSecuenciaLocal() || mockSecuencia;
   setSecuenciaLocal(current.filter(o => o.id !== id));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('secuencia_updated'));
+    window.dispatchEvent(new CustomEvent('secuencia_reordenada'));
+  }
   return { error: null };
 }
 
@@ -546,9 +658,13 @@ export async function insertMaterial(material) {
         data = fallback.data;
         error = fallback.error;
       }
-      if (!error && data) return { data: mapMaterial({ ...data, imagen: newMat.imagen }), error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('materiales_updated'));
+        return { data: mapMaterial({ ...data, imagen: newMat.imagen }), error: null };
+      }
     } catch (e) { console.warn('Supabase insert error:', e); }
   }
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('materiales_updated'));
   return { data: newMat, error: null };
 }
 
@@ -588,9 +704,13 @@ export async function updateMaterial(id, material) {
         data = fallback.data;
         error = fallback.error;
       }
-      if (!error && data) return { data: mapMaterial({ ...data, imagen: nextMat.imagen }), error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('materiales_updated'));
+        return { data: mapMaterial({ ...data, imagen: nextMat.imagen }), error: null };
+      }
     } catch (e) { console.warn('Supabase update error:', e); }
   }
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('materiales_updated'));
   return { data: updated || mapMaterial({ id, ...nextMat }), error: null };
 }
 
@@ -600,6 +720,7 @@ export async function deleteMaterial(id) {
   }
   const local = (getMateriasLocal() || mockMateriasPrimas.map(mapMaterial)).filter(m => m.id !== id);
   setMateriasLocal(local);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('materiales_updated'));
   return { error: null };
 }
 
@@ -868,27 +989,38 @@ export async function updateReservaMaterialesOrden(orden, accion = 'reservar') {
 export async function insertCalidad(defecto) {
   if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
   const { data, error } = await supabase.from('calidad').insert([defecto]).select().single();
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('calidad_updated'));
   return { data, error };
 }
 
 export async function updateCalidad(id, defecto) {
   if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
   const { data, error } = await supabase.from('calidad').update(defecto).eq('id', id).select().single();
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('calidad_updated'));
   return { data, error };
 }
 
 export async function deleteCalidad(id) {
   if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
   const { error } = await supabase.from('calidad').delete().eq('id', id);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('calidad_updated'));
   return { error };
 }
 
 // ─── WRITE — Produccion ──────────────────────────────────────────────────────
 
 export async function insertProduccion(item) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
-  const { data, error } = await supabase.from('produccion').insert([item]).select().single();
-  return { data, error };
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('produccion').insert([item]).select().single();
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('produccion_updated'));
+        return { data, error: null };
+      }
+    } catch (e) {}
+  }
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('produccion_updated'));
+  return { data: item, error: null };
 }
 
 // ─── WRITE — Métricas Config ─────────────────────────────────────────────────
@@ -1001,9 +1133,13 @@ export async function insertProducto(producto) {
         data = fallback.data;
         error = fallback.error;
       }
-      if (!error && data) return { data: mapProducto({ ...data, imagen: newItem.imagen, bom: newItem.bom }), error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('productos_updated'));
+        return { data: mapProducto({ ...data, imagen: newItem.imagen, bom: newItem.bom }), error: null };
+      }
     } catch (e) { console.warn('Supabase insertProducto error:', e); }
   }
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('productos_updated'));
   return { data: newItem, error: null };
 }
 
@@ -1042,9 +1178,13 @@ export async function updateProducto(id, producto) {
         data = fallback.data;
         error = fallback.error;
       }
-      if (!error && data) return { data: mapProducto({ ...data, imagen: nextProd.imagen, bom: nextProd.bom }), error: null };
+      if (!error && data) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('productos_updated'));
+        return { data: mapProducto({ ...data, imagen: nextProd.imagen, bom: nextProd.bom }), error: null };
+      }
     } catch (e) { console.warn('Supabase updateProducto error:', e); }
   }
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('productos_updated'));
   return { data: updated.find(p => p.id === id) || mapProducto({ id, ...nextProd }), error: null };
 }
 
@@ -1059,6 +1199,7 @@ export async function deleteProducto(id) {
   const current = getProductosLocal() || mockProductos;
   const updated = current.filter(p => p.id !== id);
   setProductosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('productos_updated'));
   return { error: null };
 }
 
@@ -1707,6 +1848,7 @@ export async function insertRepuesto(rep) {
   const newItem = { ...rep, id: rep.id || `REP-${Date.now()}` };
   const updated = [...current, newItem];
   setRepuestosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: newItem, error: null };
 }
 
@@ -1714,12 +1856,14 @@ export async function updateRepuesto(id, rep) {
   const current = getRepuestosLocal() || repuestosAlmacenIniciales;
   const updated = current.map(item => item.id === id ? { ...item, ...rep } : item);
   setRepuestosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: updated.find(i => i.id === id), error: null };
 }
 
 export async function deleteRepuesto(id) {
   const current = getRepuestosLocal() || repuestosAlmacenIniciales;
   setRepuestosLocal(current.filter(item => item.id !== id));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { error: null };
 }
 
@@ -1737,6 +1881,7 @@ export async function updatePlanPreventivo(id, plan) {
   const current = getPlanesPreventivosLocal() || planesPreventivosIniciales;
   const updated = current.map(item => item.id === id ? { ...item, ...plan } : item);
   setPlanesPreventivosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: updated.find(i => i.id === id), error: null };
 }
 
@@ -1757,6 +1902,7 @@ export async function insertSensorPredictivo(sensor) {
   const newItem = { ...sensor, id: sensor.id || `SENS-${Date.now()}` };
   const updated = [...current, newItem];
   setSensoresLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: newItem, error: null };
 }
 
@@ -1764,12 +1910,14 @@ export async function updateSensorPredictivo(id, sensor) {
   const current = getSensoresLocal() || sensoresPredictivosIniciales;
   const updated = current.map(item => item.id === id ? { ...item, ...sensor } : item);
   setSensoresLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: updated.find(i => i.id === id), error: null };
 }
 
 export async function deleteSensorPredictivo(id) {
   const current = getSensoresLocal() || sensoresPredictivosIniciales;
   setSensoresLocal(current.filter(item => item.id !== id));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { error: null };
 }
 
@@ -1784,12 +1932,14 @@ export async function insertPlanPreventivo(plan) {
   };
   const updated = [...current, newItem];
   setPlanesPreventivosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: newItem, error: null };
 }
 
 export async function deletePlanPreventivo(id) {
   const current = getPlanesPreventivosLocal() || planesPreventivosIniciales;
   setPlanesPreventivosLocal(current.filter(item => item.id !== id));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { error: null };
 }
 
@@ -1801,6 +1951,7 @@ export async function addChecklistItem(planId, tarea) {
       : plan
   );
   setPlanesPreventivosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: updated.find(p => p.id === planId), error: null };
 }
 
@@ -1814,6 +1965,7 @@ export async function updateChecklistItem(planId, index, tarea) {
     return { ...plan, checklist: newChecklist };
   });
   setPlanesPreventivosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: updated.find(p => p.id === planId), error: null };
 }
 
@@ -1825,6 +1977,7 @@ export async function removeChecklistItem(planId, index) {
     return { ...plan, checklist: newChecklist };
   });
   setPlanesPreventivosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: updated.find(p => p.id === planId), error: null };
 }
 
@@ -1884,6 +2037,7 @@ export async function insertEquipoEnLinea(lineaId, equipo) {
 
   const updated = addToLinea(arbol);
   setActivosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: newEquipo, error: null };
 }
 
@@ -1901,6 +2055,7 @@ export async function updateEquipoEnArbol(equipoId, cambios) {
 
   const updated = editInTree(arbol);
   setActivosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: updated, error: null };
 }
 
@@ -1919,6 +2074,7 @@ export async function deleteEquipoEnArbol(equipoId) {
 
   const updated = removeFromTree(arbol);
   setActivosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { error: null };
 }
 
@@ -1943,5 +2099,6 @@ export async function insertComponenteEnEquipo(equipoId, componente) {
 
   const updated = addToEquipo(arbol);
   setActivosLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: newComp, error: null };
 }

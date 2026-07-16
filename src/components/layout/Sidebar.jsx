@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { alertas } from '@/data/mockAlertas';
 import { useAppConfig } from '@/services/configService';
+import { getCurrentShiftInfo } from '@/services/dataService';
 
 const ICON_MAP = {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users, Boxes,
@@ -39,6 +40,7 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const appConfig = useAppConfig();
+  const shiftInfo = getCurrentShiftInfo();
 
   const activeNavList = (appConfig.menuOrder && Array.isArray(appConfig.menuOrder) && appConfig.menuOrder.length > 0)
     ? appConfig.menuOrder.filter(i => i.visible !== false)
@@ -139,8 +141,8 @@ export default function Sidebar() {
         <div className="p-4 border-t border-slate-800">
           <div className="bg-slate-900 rounded-xl p-3">
             <p className="text-[9px] font-black uppercase tracking-widest text-slate-600 mb-1">Turno Activo</p>
-            <p className="text-xs font-bold text-blue-400">Mañana 06:00-14:00</p>
-            <p className="text-[10px] text-slate-500 mt-0.5">31/05/2024 · Planta 1</p>
+            <p className={`text-xs font-bold ${shiftInfo.shift === 'Mañana' ? 'text-amber-400' : shiftInfo.shift === 'Tarde' ? 'text-blue-400' : 'text-purple-400'}`}>{shiftInfo.shortLabel}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">{shiftInfo.dateStr} · Planta 1</p>
           </div>
         </div>
       )}

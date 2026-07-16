@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Zap, AlertTriangle, Wrench, ChevronRight, RefreshCw, Plus, Pencil, Trash2 } from 'lucide-react';
-import { fetchLineas, insertLinea, updateLinea, deleteLinea } from '@/services/dataService';
+import { fetchLineas, insertLinea, updateLinea, deleteLinea, getCurrentShiftInfo } from '@/services/dataService';
 import MiniGauge from '@/components/shared/MiniGauge';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CrudModal from '@/components/shared/CrudModal';
@@ -105,7 +105,7 @@ export default function Lineas() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-black text-white">Líneas de Producción</h2>
-          <p className="text-slate-500 text-sm">Estado en tiempo real · Turno Mañana</p>
+          <p className="text-slate-500 text-sm">Estado en tiempo real · Turno {getCurrentShiftInfo().shift}</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={loadData} disabled={loading}

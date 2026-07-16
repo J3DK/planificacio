@@ -9,6 +9,7 @@ import {
   Bell, Cpu, History, Menu, Wrench
 } from 'lucide-react';
 import { getAppConfig, updateAppConfig, DEFAULT_APP_CONFIG, DEFAULT_MENU_ITEMS } from '@/services/configService';
+import { getCurrentShiftInfo } from '@/services/dataService';
 
 export default function Configuracion() {
   const [config, setConfig] = useState(getAppConfig());
@@ -379,7 +380,7 @@ export default function Configuracion() {
                       <span className="text-[10px] font-black uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">
                         INFORME DE PRODUCCIÓN
                       </span>
-                      <p className="text-[9px] text-slate-500 font-mono mt-1">Fecha: 14/07/2026 · Turno: Mañana</p>
+                      <p className="text-[9px] text-slate-500 font-mono mt-1">Fecha: {getCurrentShiftInfo().dateStr} · Turno: {getCurrentShiftInfo().shift}</p>
                     </div>
                   </div>
                   <p className="text-[10px] text-slate-400 italic">

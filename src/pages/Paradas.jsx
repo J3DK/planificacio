@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   fetchParadas, insertParada, updateParada, deleteParada,
   fetchParadasPredeterminadas, insertParadaPredeterminada, updateParadaPredeterminada, deleteParadaPredeterminada,
-  generarOtDesdeParada
+  generarOtDesdeParada, getCurrentShiftInfo
 } from '@/services/dataService';
 import { paradasPorTipo, oeeWaterfall } from '@/data/mockParadas';
 import {
@@ -92,7 +92,18 @@ export default function Paradas() {
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    const handler = () => loadData();
+    window.addEventListener('paradas_updated', handler);
+    window.addEventListener('mantenimiento_updated', handler);
+    window.addEventListener('lineas_updated', handler);
+    return () => {
+      window.removeEventListener('paradas_updated', handler);
+      window.removeEventListener('mantenimiento_updated', handler);
+      window.removeEventListener('lineas_updated', handler);
+    };
+  }, []);
 
   // Handlers Turno
   const openCreate = () => { setEditItem({ estado: 'abierta', duracion: 0, impacto: 0, tipo: 'averia' }); setModalMode('create'); setModalOpen(true); };
@@ -252,7 +263,7 @@ export default function Paradas() {
                   OEE
                 </div>
                 <div>
-                  <h3 className="text-white font-black text-sm">Monitoreo de Pérdidas por Parada — Turno Mañana</h3>
+                  <h3 className="text-white font-black text-sm">Monitoreo de Pérdidas por Parada — Turno {getCurrentShiftInfo().shift}</h3>
                   <p className="text-xs text-slate-400">Las paradas abiertas impactan dinámicamente en el KPI de Disponibilidad de la planta</p>
                 </div>
               </div>
@@ -336,7 +347,7 @@ export default function Paradas() {
             {/* Tabla de paradas del turno */}
             <div className="card overflow-hidden border border-slate-800 bg-slate-950">
               <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
-                <h3 className="section-title mb-0 text-white font-black">Registro de Paradas — Turno Mañana</h3>
+                <h3 className="section-title mb-0 text-white font-black">Registro de Paradas — Turno {getCurrentShiftInfo().shift}</h3>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-400">{paradas.filter(p => p.estado === 'abierta').length} paradas activas</span>
                   <div className="w-2 h-2 bg-red-400 rounded-full animate-ping" />
