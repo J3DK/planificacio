@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -15,6 +15,7 @@ import {
 } from '@/data/mockDashboard';
 import { alertas as mockAlertas } from '@/data/mockAlertas';
 import KPICard from '@/components/shared/KPICard';
+import { fetchLineas, fetchMateriasPrimas, fetchCalidad } from '@/services/dataService';
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 16 },
@@ -36,8 +37,123 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
+const SemiCircleGauge = ({ value = 0, color = '#84cc16' }) => {
+  const r = 44;
+  const arcLength = Math.PI * r;
+  const dash = Math.min(1, Math.max(0, value / 100)) * arcLength;
+
+  return (
+    <div className="relative w-28 h-16 mx-auto my-1 flex items-end justify-center">
+      <svg viewBox="0 0 120 65" className="w-full h-full absolute inset-0">
+        <path d="M 16 55 A 44 44 0 0 1 104 55" fill="none" stroke="#334155" strokeWidth="10" strokeLinecap="round" />
+        <path
+          d="M 16 55 A 44 44 0 0 1 104 55"
+          fill="none"
+          stroke={color}
+          strokeWidth="10"
+          strokeLinecap="round"
+          strokeDasharray={`${dash} ${arcLength}`}
+          className="transition-all duration-1000 ease-out"
+        />
+      </svg>
+      <span className="relative z-10 text-xl font-black text-white pb-0.5 tracking-tight">
+        {Number(value).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+      </span>
+    </div>
+  );
+};
+
 export default function Dashboard() {
   const alertasMtoCriticas = mockAlertas.filter(a => a.modulo === 'mantenimiento' && a.tipo === 'critica' && !a.leida);
+
+  const [indicadores, setIndicadores] = useState({
+    disponibilidad: 92.6,
+    rendimiento: 97.4,
+    calidad: 98.8,
+    oee: 88.7,
+    tiempoCiclo: 6.2,
+    scrap: 640,
+    disponibilidadMaterial: 96.5,
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    const cargarIndicadores = async () => {
+      try {
+        const [resLineas, resMat, resCal] = await Promise.all([
+          fetchLineas(),
+          fetchMateriasPrimas(),
+          fetchCalidad()
+        ]);
+        if (!mounted) return;
+
+        const lineas = resLineas?.data || [];
+        const materiales = resMat?.data || [];
+        const calidadList = resCal?.data || [];
+
+        let disp = 92.6;
+        let rend = 97.4;
+        let cal = 98.8;
+        let oee = 88.7;
+        let tiempoCiclo = 6.2;
+        let scrap = 640;
+        let dispMat = 96.5;
+
+        if (lineas.length > 0 && resLineas?.fromSupabase) {
+          const sumDisp = lineas.reduce((acc, l) => acc + (Number(l.disponibilidad) || 0), 0);
+          const sumRend = lineas.reduce((acc, l) => acc + (Number(l.rendimiento) || 0), 0);
+          const sumCal = lineas.reduce((acc, l) => acc + (Number(l.calidad) || 0), 0);
+          const sumOee = lineas.reduce((acc, l) => acc + (Number(l.oee) || 0), 0);
+
+          disp = Number((sumDisp / lineas.length).toFixed(1));
+          rend = Number((sumRend / lineas.length).toFixed(1));
+          cal = Number((sumCal / lineas.length).toFixed(1));
+          oee = Number((sumOee / lineas.length).toFixed(1));
+
+          const activas = lineas.filter(l => Number(l.velocidadActual) > 0);
+          if (activas.length > 0) {
+            const avgVel = activas.reduce((acc, l) => acc + Number(l.velocidadActual), 0) / activas.length;
+            if (avgVel > 0) tiempoCiclo = Number((60 / (avgVel / 35)).toFixed(1));
+          }
+        }
+
+        if (calidadList.length > 0 && resCal?.fromSupabase) {
+          const def = calidadList.reduce((acc, c) => acc + (Number(c.defectos) || 0), 0);
+          if (def > 0) scrap = Math.round((def / 1250) * 10000);
+        }
+
+        if (materiales.length > 0 && resMat?.fromSupabase) {
+          const dispList = materiales.filter(m => (Number(m.stockActual || 0) - (Number(m.stockReservado) || 0)) >= (Number(m.stockMinimo) || 0));
+          dispMat = Number(((dispList.length / materiales.length) * 100).toFixed(1));
+        }
+
+        setIndicadores({
+          disponibilidad: disp,
+          rendimiento: rend,
+          calidad: cal,
+          oee: oee,
+          tiempoCiclo: tiempoCiclo,
+          scrap: scrap,
+          disponibilidadMaterial: dispMat,
+        });
+      } catch (e) {
+        console.error('Error al cargar indicadores en vivo:', e);
+      }
+    };
+
+    cargarIndicadores();
+    const handler = () => cargarIndicadores();
+    window.addEventListener('lineas_updated', handler);
+    window.addEventListener('materiales_updated', handler);
+    window.addEventListener('calidad_updated', handler);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('lineas_updated', handler);
+      window.removeEventListener('materiales_updated', handler);
+      window.removeEventListener('calidad_updated', handler);
+    };
+  }, []);
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
@@ -63,8 +179,111 @@ export default function Dashboard() {
         </motion.div>
       )}
 
+      {/* ── SECCIÓN: INDICADORES CLAVE DE RENDIMIENTO (En vivo) ──────────────── */}
+      <motion.div {...fadeUp(0)} className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-indigo-300 flex items-center gap-2">
+            Indicadores Clave de Rendimiento
+          </h3>
+          <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Datos sincronizados en vivo
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+          {/* 1. DISPONIBILIDAD */}
+          <div className="card p-3 flex flex-col justify-between text-center border-slate-800/80 bg-slate-900 hover:border-slate-700 transition-all">
+            <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-300 min-h-[28px] flex items-center justify-center">Disponibilidad</p>
+            <SemiCircleGauge value={indicadores.disponibilidad} color="#84cc16" />
+            <div className="mt-1 text-center border-t border-slate-800/60 pt-1.5">
+              <p className="text-[11px] font-bold text-slate-300">Obj: 90%</p>
+              <p className="text-[11px] font-bold text-emerald-400 flex items-center justify-center gap-0.5 mt-0.5">
+                vs ayer: ▲ +1,2 pp
+              </p>
+            </div>
+          </div>
+
+          {/* 2. RENDIMIENTO (PERFORMANCE) */}
+          <div className="card p-3 flex flex-col justify-between text-center border-slate-800/80 bg-slate-900 hover:border-slate-700 transition-all">
+            <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-300 min-h-[28px] flex items-center justify-center">Rendimiento (Performance)</p>
+            <SemiCircleGauge value={indicadores.rendimiento} color="#84cc16" />
+            <div className="mt-1 text-center border-t border-slate-800/60 pt-1.5">
+              <p className="text-[11px] font-bold text-slate-300">Obj: 95%</p>
+              <p className="text-[11px] font-bold text-emerald-400 flex items-center justify-center gap-0.5 mt-0.5">
+                vs ayer: ▲ +0,9 pp
+              </p>
+            </div>
+          </div>
+
+          {/* 3. CALIDAD (FIRST PASS YIELD) */}
+          <div className="card p-3 flex flex-col justify-between text-center border-slate-800/80 bg-slate-900 hover:border-slate-700 transition-all">
+            <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-300 min-h-[28px] flex items-center justify-center">Calidad (First Pass Yield)</p>
+            <SemiCircleGauge value={indicadores.calidad} color="#84cc16" />
+            <div className="mt-1 text-center border-t border-slate-800/60 pt-1.5">
+              <p className="text-[11px] font-bold text-slate-300">Obj: 98%</p>
+              <p className="text-[11px] font-bold text-emerald-400 flex items-center justify-center gap-0.5 mt-0.5">
+                vs ayer: ▲ +0,4 pp
+              </p>
+            </div>
+          </div>
+
+          {/* 4. OEE */}
+          <div className="card p-3 flex flex-col justify-between text-center border-slate-800/80 bg-slate-900 hover:border-slate-700 transition-all">
+            <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-300 min-h-[28px] flex items-center justify-center">OEE</p>
+            <SemiCircleGauge value={indicadores.oee} color="#6366f1" />
+            <div className="mt-1 text-center border-t border-slate-800/60 pt-1.5">
+              <p className="text-[11px] font-bold text-slate-300">Obj: 85%</p>
+              <p className="text-[11px] font-bold text-emerald-400 flex items-center justify-center gap-0.5 mt-0.5">
+                vs ayer: ▲ +1,6 pp
+              </p>
+            </div>
+          </div>
+
+          {/* 5. TIEMPO CICLO PROMEDIO */}
+          <div className="card p-3 flex flex-col justify-between text-center border-slate-800/80 bg-slate-900 hover:border-slate-700 transition-all">
+            <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-300 min-h-[28px] flex items-center justify-center">Tiempo Ciclo Promedio</p>
+            <div className="h-16 flex items-baseline justify-center gap-1.5 my-1">
+              <span className="text-2xl font-black text-white tracking-tight">{indicadores.tiempoCiclo.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+              <span className="text-xs font-bold text-slate-300">min/ud</span>
+            </div>
+            <div className="mt-1 text-center border-t border-slate-800/60 pt-1.5">
+              <p className="text-[11px] font-bold text-slate-300">Obj: 6,5 min/ud</p>
+              <p className="text-[11px] font-bold text-emerald-400 flex items-center justify-center gap-0.5 mt-0.5">
+                vs ayer: ▲ -0,2 min
+              </p>
+            </div>
+          </div>
+
+          {/* 6. SCRAP (PPM) */}
+          <div className="card p-3 flex flex-col justify-between text-center border-slate-800/80 bg-slate-900 hover:border-slate-700 transition-all">
+            <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-300 min-h-[28px] flex items-center justify-center">Scrap (PPM)</p>
+            <div className="h-16 flex items-center justify-center my-1">
+              <span className="text-3xl font-black text-red-400 tracking-tight">{indicadores.scrap}</span>
+            </div>
+            <div className="mt-1 text-center border-t border-slate-800/60 pt-1.5">
+              <p className="text-[11px] font-bold text-slate-300">Obj: &lt; 800</p>
+              <p className="text-[11px] font-bold text-emerald-400 flex items-center justify-center gap-0.5 mt-0.5">
+                vs ayer: ▲ -120
+              </p>
+            </div>
+          </div>
+
+          {/* 7. DISPONIBILIDAD MATERIAL */}
+          <div className="card p-3 flex flex-col justify-between text-center border-slate-800/80 bg-slate-900 hover:border-slate-700 transition-all">
+            <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-300 min-h-[28px] flex items-center justify-center">Disponibilidad Material</p>
+            <SemiCircleGauge value={indicadores.disponibilidadMaterial} color="#84cc16" />
+            <div className="mt-1 text-center border-t border-slate-800/60 pt-1.5">
+              <p className="text-[11px] font-bold text-slate-300">Obj: 95%</p>
+              <p className="text-[11px] font-bold text-emerald-400 flex items-center justify-center gap-0.5 mt-0.5">
+                vs ayer: ▲ +2,1 pp
+              </p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* ── ROW 1: KPIs principales ─────────────────────────── */}
-      <motion.div {...fadeUp(0)} className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+      <motion.div {...fadeUp(0.05)} className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
         {/* Cumplimiento plan — grande */}
         <div className="col-span-2 md:col-span-1 xl:col-span-1 card p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent" />
