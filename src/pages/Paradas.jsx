@@ -69,6 +69,9 @@ export default function Paradas() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [otConfirmOpen, setOtConfirmOpen] = useState(false);
+  const [otTarget, setOtTarget] = useState(null);
+  const [generatingOt, setGeneratingOt] = useState(false);
 
   // Modales Paradas Predeterminadas
   const [predModalOpen, setPredModalOpen] = useState(false);
@@ -110,10 +113,15 @@ export default function Paradas() {
   const openCreate = () => { setEditItem({ estado: 'abierta', duracion: 0, impacto: 0, tipo: 'averia' }); setModalMode('create'); setModalOpen(true); };
   const openEdit = (parada) => { setEditItem(parada); setModalMode('edit'); setModalOpen(true); };
   const openDelete = (parada) => { setDeleteTarget(parada); setConfirmOpen(true); };
+  const openConfirmOt = (parada) => { setOtTarget(parada); setOtConfirmOpen(true); };
 
-  const handleGenerarOt = async (parada) => {
-    const { data: newOt } = await generarOtDesdeParada(parada);
-    alert(`✅ Orden de Trabajo (${newOt?.codigo || 'OT'}) generada y vinculada en Mantenimiento para la parada #${parada.id}.`);
+  const handleConfirmGenerarOt = async () => {
+    if (!otTarget) return;
+    setGeneratingOt(true);
+    const { data: newOt } = await generarOtDesdeParada(otTarget);
+    setGeneratingOt(false);
+    setOtConfirmOpen(false);
+    alert(`✅ Orden de Trabajo (${newOt?.codigo || 'OT'}) generada y vinculada en Mantenimiento para la parada #${otTarget.id}.`);
   };
 
   const handleSave = async (data) => {
@@ -387,7 +395,7 @@ export default function Paradas() {
                         </td>
                         <td className="table-cell px-4">
                           <div className="flex items-center gap-1">
-                            <button onClick={() => handleGenerarOt(p)} className="p-2 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 transition-all" title="Vincular / Generar OT en Mantenimiento">
+                            <button onClick={() => openConfirmOt(p)} className="p-2 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 transition-all" title="Vincular / Generar OT en Mantenimiento">
                               <Wrench className="w-3.5 h-3.5" />
                             </button>
                             <button onClick={() => openEdit(p)} className="p-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 transition-all" title="Editar parada">
@@ -687,6 +695,87 @@ export default function Paradas() {
         message={`Se eliminará la parada "${deleteTarget?.causa}" registrada en ${deleteTarget?.linea}. ¿Confirmas?`}
         deleting={deleting}
       />
+
+      {/* Modal / Popup Confirmar Generar OT en Mantenimiento */}
+      <AnimatePresence>
+        {otConfirmOpen && otTarget && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => !generatingOt && setOtConfirmOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 12 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="relative w-full max-w-md bg-slate-900 border border-amber-500/30 rounded-2xl shadow-2xl shadow-amber-900/20 overflow-hidden z-10"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="h-1.5 w-full bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400" />
+              <div className="p-6">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                    <Wrench className="w-6 h-6 text-amber-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-white font-black text-base leading-tight">¿Vincular / Generar OT en Mantenimiento?</h3>
+                    <p className="text-slate-300 text-xs mt-1.5 leading-relaxed">
+                      Se generará automáticamente una nueva Orden de Trabajo (OT) en el módulo de Mantenimiento para atender esta parada:
+                    </p>
+                  </div>
+                  <button
+                    disabled={generatingOt}
+                    onClick={() => setOtConfirmOpen(false)}
+                    className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 mb-5 text-xs space-y-1">
+                  <div className="flex justify-between text-slate-400 font-bold">
+                    <span>Línea: <strong className="text-white">{otTarget.linea}</strong></span>
+                    <span className="text-amber-400 uppercase tracking-wider">{otTarget.tipo}</span>
+                  </div>
+                  <div className="text-slate-300 font-medium">Causa: {otTarget.causa}</div>
+                  {otTarget.duracion > 0 && <div className="text-slate-500 text-[11px]">Duración acumulada: {otTarget.duracion} min</div>}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={generatingOt}
+                    onClick={() => setOtConfirmOpen(false)}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white font-bold text-xs transition-colors disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={generatingOt}
+                    onClick={handleConfirmGenerarOt}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {generatingOt ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" /> Generando OT...
+                      </>
+                    ) : (
+                      <>
+                        <Wrench className="w-4 h-4" /> Sí, Generar OT
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
