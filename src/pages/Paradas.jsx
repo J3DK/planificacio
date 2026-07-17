@@ -9,7 +9,7 @@ import {
 import { paradasPorTipo, oeeWaterfall } from '@/data/mockParadas';
 import {
   Clock, AlertTriangle, Wrench, Filter, Plus, Pencil, Trash2, RefreshCw,
-  Settings, Layers, Tag, Search, CheckCircle2, Sliders, ArrowRight, ShieldAlert, Sparkles, LayoutGrid, List
+  Settings, Layers, Tag, Search, CheckCircle2, Sliders, ArrowRight, ShieldAlert, Sparkles, LayoutGrid, List, X
 } from 'lucide-react';
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
