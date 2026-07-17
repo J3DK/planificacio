@@ -81,3 +81,73 @@ export const capacitacionesMasterIniciales = [
   }
 ];
 
+export const autorizacionesMasterIniciales = [
+  {
+    id: 'AUT-01',
+    codigo: 'AUTH-L1-OPS',
+    nombre: 'Autorización Operativa y Rearme · Línea 1',
+    tipo: 'linea',
+    targetId: 'L-01',
+    targetNombre: 'Línea 1 — Montaje Rápido',
+    nivelRequerido: 'Maestro (5) + PRL Alta Tensión',
+    validezMeses: 24,
+    descripcion: 'Habilita para operar la línea en todos sus turnos, realizar rearme tras paradas técnicas y ajuste de parámetros de celda LFP.'
+  },
+  {
+    id: 'AUT-02',
+    codigo: 'AUTH-L3-OPS',
+    nombre: 'Autorización Operativa · Línea 3 (Pack Industrial)',
+    tipo: 'linea',
+    targetId: 'L-03',
+    targetNombre: 'Línea 3 — Ensamblaje Pesado',
+    nivelRequerido: 'Avanzado (4) + ISO 10218',
+    validezMeses: 12,
+    descripcion: 'Autorización para manipulación de packs de alta tensión (400V/800V) y control de test final EOL en Línea 3.'
+  },
+  {
+    id: 'AUT-03',
+    codigo: 'AUTH-L2-OPS',
+    nombre: 'Autorización Operativa · Línea 2 (Módulos 48V)',
+    tipo: 'linea',
+    targetId: 'L-02',
+    targetNombre: 'Línea 2 — Módulos de Potencia 48V',
+    nivelRequerido: 'Intermedio (3)',
+    validezMeses: 36,
+    descripcion: 'Permite el ensamblaje, crimpado y test de interconexiones en puestos de la Línea 2.'
+  },
+  {
+    id: 'AUT-04',
+    codigo: 'AUTH-MQ101-MANT',
+    nombre: 'Autorización Intervención Mantenimiento · Soldadura por Onda (MQ-101)',
+    tipo: 'subparte',
+    targetId: 'MQ-101',
+    targetNombre: 'Estación de Soldadura por Onda automática #1 (Máquina L1)',
+    nivelRequerido: 'Especialista Electromecánico + PRL Riesgo Eléctrico',
+    validezMeses: 12,
+    descripcion: 'Autoriza el mantenimiento preventivo, diagnóstico correctivo y rearme sobre la estación de soldadura y sus subcomponentes.'
+  },
+  {
+    id: 'AUT-05',
+    codigo: 'AUTH-COMP101A-MANT',
+    nombre: 'Habilitación Subparte Mantenimiento · Crisol y Bomba de Estaño',
+    tipo: 'subparte',
+    targetId: 'COMP-101-A',
+    targetNombre: 'Crisol y Bomba de Estaño (Subparte de MQ-101)',
+    nivelRequerido: 'Técnico Especialista en Soldadura',
+    validezMeses: 24,
+    descripcion: 'Autorización específica para vaciado, recarga química y calibración térmica en la subparte Crisol y Bomba de Estaño.'
+  },
+  {
+    id: 'AUT-06',
+    codigo: 'AUTH-COMP102A-MANT',
+    nombre: 'Habilitación Subparte Mantenimiento · Cabezal Rotativo 12 Boquillas',
+    tipo: 'subparte',
+    targetId: 'COMP-102-A',
+    targetNombre: 'Cabezal Rotativo 12 Boquillas (Subparte de MQ-102)',
+    nivelRequerido: 'Robótica y Mecánica Precisión',
+    validezMeses: 18,
+    descripcion: 'Autoriza tareas de calibración de precisión, cambio rápido de boquillas y mantenimiento autónomo en la subparte del cabezal SMD.'
+  }
+];
+
+

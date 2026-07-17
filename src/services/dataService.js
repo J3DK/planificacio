@@ -10,7 +10,7 @@ import { kpis as mockKpis } from '@/data/mockDashboard';
 import { historialProduccion as mockHistorial } from '@/data/mockHistorial';
 import { mockProductos } from '@/data/mockProductos';
 import { operarios as mockOperarios } from '@/data/mockOperarios';
-import { skillsMasterIniciales, formacionesMasterIniciales, permisosMasterIniciales, capacitacionesMasterIniciales } from '@/data/mockCualificaciones';
+import { skillsMasterIniciales, formacionesMasterIniciales, permisosMasterIniciales, capacitacionesMasterIniciales, autorizacionesMasterIniciales } from '@/data/mockCualificaciones';
 import { ordenesTrabajoIniciales, activosJerarquia as mockActivos, planesPreventivosIniciales, sensoresPredictivosIniciales, repuestosAlmacenIniciales } from '@/data/mockMantenimiento';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -1831,13 +1831,15 @@ export async function fetchOperarios() {
         .from('operarios')
         .select('*')
         .order('id', { ascending: true });
-      if (!error && data && data.length > 0) return { data, fromSupabase: true };
+      if (!error && data && data.length > 0) {
+        return { data: data.map(o => ({ ...o, autorizaciones: o.autorizaciones || [] })), fromSupabase: true };
+      }
     } catch (e) { console.warn('Fallback a localStorage/mock operarios:', e); }
   }
   const local = getOperariosLocal();
-  if (local) return { data: local, fromSupabase: false };
+  if (local) return { data: local.map(o => ({ ...o, autorizaciones: o.autorizaciones || [] })), fromSupabase: false };
   setOperariosLocal(mockOperarios);
-  return { data: mockOperarios, fromSupabase: false };
+  return { data: mockOperarios.map(o => ({ ...o, autorizaciones: o.autorizaciones || [] })), fromSupabase: false };
 }
 
 export async function insertOperario(operario) {
@@ -1938,6 +1940,19 @@ export function getCatalogoCapacitaciones() {
 export function saveCatalogoCapacitaciones(lista) {
   try {
     localStorage.setItem('mes_catalogo_capacitaciones', JSON.stringify(lista));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('cualificaciones_updated'));
+  } catch (_) {}
+}
+
+export function getCatalogoAutorizaciones() {
+  try {
+    const r = localStorage.getItem('mes_catalogo_autorizaciones');
+    return r ? JSON.parse(r) : autorizacionesMasterIniciales;
+  } catch (_) { return autorizacionesMasterIniciales; }
+}
+export function saveCatalogoAutorizaciones(lista) {
+  try {
+    localStorage.setItem('mes_catalogo_autorizaciones', JSON.stringify(lista));
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('cualificaciones_updated'));
   } catch (_) {}
 }

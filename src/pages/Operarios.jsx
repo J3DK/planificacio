@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import {
   fetchOperarios, insertOperario, updateOperario, deleteOperario,
-  fetchLineas, getCatalogoSkills, getCatalogoFormaciones, getCatalogoPermisos, getCatalogoCapacitaciones
+  fetchLineas, getCatalogoSkills, getCatalogoFormaciones, getCatalogoPermisos, getCatalogoCapacitaciones, getCatalogoAutorizaciones
 } from '@/services/dataService';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 
@@ -20,6 +20,7 @@ export default function Operarios() {
   const [catalogoFormaciones, setCatalogoFormaciones] = useState([]);
   const [catalogoPermisos, setCatalogoPermisos] = useState([]);
   const [catalogoCapacitaciones, setCatalogoCapacitaciones] = useState([]);
+  const [catalogoAutorizaciones, setCatalogoAutorizaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 
@@ -47,6 +48,7 @@ export default function Operarios() {
     skills: [],
     formaciones: [],
     permisos: [],
+    autorizaciones: [],
     historial: []
   });
   const [saving, setSaving] = useState(false);
@@ -69,6 +71,9 @@ export default function Operarios() {
   const [permisoToAdd, setPermisoToAdd] = useState('');
   const [permisoNivelAcceso, setPermisoNivelAcceso] = useState('Operador Principal');
 
+  const [autorizacionToAdd, setAutorizacionToAdd] = useState('');
+  const [autorizacionNivelConcedido, setAutorizacionNivelConcedido] = useState('Operador Maestro / Rearme');
+
   // Estado para form rápido de Capacitaciones y recertificaciones
   const [capTitulo, setCapTitulo] = useState('Evaluación Técnica Periódica y Seguridad MES');
   const [capPlan, setCapPlan] = useState('Plan Anual de Reciclaje y Cualificación 2026');
@@ -89,6 +94,11 @@ export default function Operarios() {
     setCatalogoFormaciones(getCatalogoFormaciones() || []);
     setCatalogoPermisos(getCatalogoPermisos() || []);
     setCatalogoCapacitaciones(getCatalogoCapacitaciones() || []);
+    const auths = getCatalogoAutorizaciones() || [];
+    setCatalogoAutorizaciones(auths);
+    if (auths.length > 0 && !autorizacionToAdd) {
+      setAutorizacionToAdd(auths[0].nombre);
+    }
     setLoading(false);
   };
 
@@ -153,6 +163,7 @@ export default function Operarios() {
       skills: [],
       formaciones: [],
       permisos: [],
+      autorizaciones: [],
       historial: [{ id: `HS-${Date.now()}`, fecha: new Date().toLocaleString(), tipo: 'alta', descripcion: 'Alta inicial del operario en el sistema MES', linea: 'L1', piezas: 0 }]
     });
     setModalOpen(true);
@@ -209,6 +220,7 @@ export default function Operarios() {
       skills: op.skills || [],
       formaciones: op.formaciones || [],
       permisos: op.permisos || [],
+      autorizaciones: op.autorizaciones || [],
       historial: op.historial || []
     });
     setModalOpen(true);
@@ -453,6 +465,44 @@ export default function Operarios() {
       setOperarios(prev => prev.map(o => o.id === selectedOp.id ? data : o));
       setSelectedOp(data);
       triggerSuccess('🛡️ Permiso revocado');
+    }
+  };
+
+  const handleAddAutorizacionToOp = async () => {
+    if (!selectedOp || !autorizacionToAdd) return;
+    const master = catalogoAutorizaciones.find(a => a.nombre === autorizacionToAdd || a.codigo === autorizacionToAdd || a.id === autorizacionToAdd);
+    const newAuth = {
+      id: master ? master.id : `AUT-${Date.now().toString().slice(-4)}`,
+      autorizacionId: master ? master.id : `AUT-${Date.now().toString().slice(-4)}`,
+      codigo: master ? master.codigo : `AUTH-EXT-${Date.now().toString().slice(-4)}`,
+      nombre: master ? master.nombre : autorizacionToAdd,
+      tipo: master ? master.tipo : 'subparte',
+      targetId: master ? master.targetId : 'GEN-01',
+      targetNombre: master ? master.targetNombre : autorizacionToAdd,
+      nivelConcedido: autorizacionNivelConcedido,
+      fechaAsignacion: new Date().toISOString().slice(0, 10)
+    };
+    const actuales = selectedOp.autorizaciones || [];
+    const updatedAutorizaciones = [...actuales.filter(a => a.id !== newAuth.id && a.autorizacionId !== newAuth.autorizacionId), newAuth];
+    const newHist = [{ id: `HS-${Date.now()}`, fecha: new Date().toLocaleString(), tipo: 'autorizacion', descripcion: `Concedida autorización / carnet [${newAuth.nombre}] (${newAuth.targetNombre}) con nivel ${autorizacionNivelConcedido}`, linea: newAuth.targetId, piezas: 0 }, ...(selectedOp.historial || [])];
+    const updatedOp = { ...selectedOp, autorizaciones: updatedAutorizaciones, historial: newHist };
+    const { data } = await updateOperario(selectedOp.id, updatedOp);
+    if (data) {
+      setOperarios(prev => prev.map(o => o.id === selectedOp.id ? data : o));
+      setSelectedOp(data);
+      triggerSuccess(`🛡️ Autorización asignada a ${selectedOp.nombre}`);
+    }
+  };
+
+  const handleRemoveAutorizacionFromOp = async (authId) => {
+    if (!selectedOp) return;
+    const updatedAutorizaciones = (selectedOp.autorizaciones || []).filter(a => a.id !== authId && a.autorizacionId !== authId);
+    const updatedOp = { ...selectedOp, autorizaciones: updatedAutorizaciones };
+    const { data } = await updateOperario(selectedOp.id, updatedOp);
+    if (data) {
+      setOperarios(prev => prev.map(o => o.id === selectedOp.id ? data : o));
+      setSelectedOp(data);
+      triggerSuccess('🛡️ Autorización revocada');
     }
   };
 
@@ -1163,12 +1213,12 @@ export default function Operarios() {
                   >
                     <div className="flex items-center gap-3">
                       <ShieldCheck className={`w-4 h-4 shrink-0 ${activeTabFicha === 'puestos' || activeTabFicha === 'permisos' ? 'text-white' : 'text-purple-400'}`} />
-                      <span>Puestos de Trabajo</span>
+                      <span>Puestos & Autorizaciones</span>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] ${
                       activeTabFicha === 'puestos' || activeTabFicha === 'permisos' ? 'bg-purple-900 text-white' : 'bg-slate-950 text-purple-400'
                     }`}>
-                      {selectedOp.permisos?.length || 0}
+                      {(selectedOp.permisos?.length || 0) + (selectedOp.autorizaciones?.length || 0)}
                     </span>
                   </button>
 
@@ -1228,7 +1278,7 @@ export default function Operarios() {
                         {activeTabFicha === 'capacitaciones' && 'Evaluaciones de Competencia & Planes de Reciclaje (Capacitaciones)'}
                         {activeTabFicha === 'skills' && 'Matriz de Skills & Habilidades Técnicas'}
                         {activeTabFicha === 'formaciones' && 'Formaciones, Cursos PRL & Certificados'}
-                        {(activeTabFicha === 'puestos' || activeTabFicha === 'permisos') && 'Puestos de Trabajo, Líneas y Máquinas Autorizadas'}
+                        {(activeTabFicha === 'puestos' || activeTabFicha === 'permisos') && 'Puestos de Trabajo, Permisos & Autorizaciones Maestras'}
                         {activeTabFicha === 'historial' && 'Historial Cronológico de Turnos y Actuaciones'}
                       </h3>
                       <p className="text-xs text-slate-400">
@@ -1236,7 +1286,7 @@ export default function Operarios() {
                         {activeTabFicha === 'capacitaciones' && 'Evaluaciones periódicas y verificación de la brecha de competencias para su puesto.'}
                         {activeTabFicha === 'skills' && 'Niveles de maestría (1 a 5 estrellas) vinculados al catálogo maestro de skills.'}
                         {activeTabFicha === 'formaciones' && 'Control de vigencia, entidades certificadoras y cursos obligatorios PRL/ISO.'}
-                        {(activeTabFicha === 'puestos' || activeTabFicha === 'permisos') && 'Carnets de operador y autorizaciones activas para operar en cada puesto.'}
+                        {(activeTabFicha === 'puestos' || activeTabFicha === 'permisos') && 'Carnets de operador, permisos en líneas y autorizaciones para subpartes de mantenimiento.'}
                         {activeTabFicha === 'historial' && 'Trazabilidad en tiempo real de fichajes, auditorías e incidencias del operario.'}
                       </p>
                     </div>
@@ -1799,6 +1849,109 @@ export default function Operarios() {
                           Aún no se han configurado permisos específicos de operación para este operario.
                         </div>
                       )}
+                    </div>
+
+                    {/* ── AUTORIZACIONES DE OPERACIÓN & SUBPARTES DE MANTENIMIENTO ── */}
+                    <div className="pt-6 border-t border-slate-800 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <h4 className="text-sm font-black text-white flex items-center gap-2">
+                            <Briefcase className="w-4 h-4 text-rose-400" />
+                            <span>Autorizaciones del Operario (Líneas & Subpartes Mantenimiento)</span>
+                          </h4>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Carnets y habilitaciones para intervención preventiva/correctiva o rearme según las líneas y subpartes asignadas.
+                          </p>
+                        </div>
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 self-start sm:self-auto">
+                          {(selectedOp.autorizaciones || []).length} autorizaciones activas
+                        </span>
+                      </div>
+
+                      {/* Formulario rápido para asignar Autorización */}
+                      <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+                        <p className="text-xs font-black uppercase text-rose-400 flex items-center gap-1.5">
+                          <PlusCircle className="w-4 h-4" />
+                          <span>Asignar Autorización / Habilitación Técnica</span>
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                          <div className="md:col-span-2">
+                            <label className="block text-[11px] font-bold text-slate-400 mb-1">Autorización del Catálogo 360</label>
+                            <select
+                              value={autorizacionToAdd}
+                              onChange={(e) => setAutorizacionToAdd(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-rose-500"
+                            >
+                              <option value="">Selecciona autorización...</option>
+                              {catalogoAutorizaciones.map(a => (
+                                <option key={a.id} value={a.nombre}>
+                                  [{a.codigo}] {a.nombre} · ({a.targetNombre})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-400 mb-1">Nivel / Rol Concedido</label>
+                            <input
+                              type="text"
+                              value={autorizacionNivelConcedido}
+                              onChange={(e) => setAutorizacionNivelConcedido(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-rose-300 focus:outline-none focus:border-rose-500"
+                              placeholder="ej: Operador Maestro / Rearme"
+                            />
+                          </div>
+                          <div>
+                            <button
+                              type="button"
+                              onClick={handleAddAutorizacionToOp}
+                              disabled={!autorizacionToAdd}
+                              className="w-full px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs transition-all flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Conceder Autorización</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Listado de Autorizaciones Asignadas */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {(selectedOp.autorizaciones || []).map((auth, idx) => (
+                          <div key={idx} className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-between gap-3 hover:border-rose-500/40 transition-colors">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase font-mono ${
+                                  auth.tipo === 'linea' ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30' : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                                }`}>
+                                  {auth.codigo || auth.id}
+                                </span>
+                                <h4 className="font-black text-white text-sm leading-snug">{auth.nombre}</h4>
+                              </div>
+                              <p className="text-xs text-rose-300 font-bold">
+                                Ámbito: <span className="text-white">{auth.targetNombre || auth.targetId}</span>
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                Nivel Concedido: <strong className="text-slate-200">{auth.nivelConcedido || 'Intervención Completa'}</strong>
+                              </p>
+                              <p className="text-[10px] text-slate-500 font-mono">
+                                Asignada el: {auth.fechaAsignacion || new Date().toISOString().slice(0,10)}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveAutorizacionFromOp(auth.id || auth.autorizacionId)}
+                              className="p-2 rounded-xl bg-slate-900 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-colors shrink-0"
+                              title="Revocar autorización"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        {(selectedOp.autorizaciones || []).length === 0 && (
+                          <div className="col-span-full py-8 text-center text-slate-500 font-bold bg-slate-950/30 rounded-2xl border border-dashed border-slate-800">
+                            No se han concedido autorizaciones específicas para líneas ni subpartes de mantenimiento a este operario.
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

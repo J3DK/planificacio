@@ -48,6 +48,10 @@ export const operarios = [
       { id: 'PER-102', equipoId: 'L2', equipoNombre: 'Línea 2 · Módulos de Potencia 48V', tipo: 'linea', nivelAcceso: 'Jefe de Turno', autorizadoPor: 'Dir. Operaciones' },
       { id: 'PER-103', equipoId: 'MQ-102', equipoNombre: 'Robot Soldador Láser KUKA KR-20', tipo: 'maquina', nivelAcceso: 'Especialista Calificado', autorizadoPor: 'Jefe Mantenimiento' }
     ],
+    autorizaciones: [
+      { id: 'AUT-01', autorizacionId: 'AUT-01', codigo: 'AUTH-L1-OPS', nombre: 'Autorización Operativa y Rearme · Línea 1', tipo: 'linea', targetId: 'L-01', targetNombre: 'Línea 1 — Montaje Rápido', nivelConcedido: 'Operador Maestro / Rearme', fechaAsignacion: '2026-01-15' },
+      { id: 'AUT-04', autorizacionId: 'AUT-04', codigo: 'AUTH-MQ101-MANT', nombre: 'Autorización Intervención Mantenimiento · Soldadura por Onda (MQ-101)', tipo: 'subparte', targetId: 'MQ-101', targetNombre: 'Estación de Soldadura por Onda automática #1', nivelConcedido: 'Intervención Preventiva & Correctiva', fechaAsignacion: '2026-03-01' }
+    ],
     historial: [
       { id: 'HS-101', fecha: '2026-07-16 06:00', tipo: 'turno_inicio', descripcion: 'Inicio de turno Mañana en Línea 1 como Jefe de Línea', linea: 'L1', piezas: 0 },
       { id: 'HS-102', fecha: '2026-07-15 14:00', tipo: 'turno_fin', descripcion: 'Cierre de turno Mañana en Línea 1 con OEE 94.2% y 480 uds completadas', linea: 'L1', piezas: 480 },
@@ -90,6 +94,10 @@ export const operarios = [
       { id: 'PER-201', equipoId: 'L1', equipoNombre: 'Línea 1 · Ensamblaje Baterías LFP', tipo: 'linea', nivelAcceso: 'Inspector de Calidad', autorizadoPor: 'Jefe de Calidad' },
       { id: 'PER-202', equipoId: 'L3', equipoNombre: 'Línea 3 · Pack Industrial 400V/800V', tipo: 'linea', nivelAcceso: 'Inspector de Calidad', autorizadoPor: 'Jefe de Calidad' },
       { id: 'PER-203', equipoId: 'MQ-103', equipoNombre: 'Banco de Pruebas EOL & Hi-Pot Test', tipo: 'maquina', nivelAcceso: 'Operador Certificado', autorizadoPor: 'Jefe de Calidad' }
+    ],
+    autorizaciones: [
+      { id: 'AUT-01', autorizacionId: 'AUT-01', codigo: 'AUTH-L1-OPS', nombre: 'Autorización Operativa y Rearme · Línea 1', tipo: 'linea', targetId: 'L-01', targetNombre: 'Línea 1 — Montaje Rápido', nivelConcedido: 'Calidad QA/QC & Test EOL', fechaAsignacion: '2026-02-10' },
+      { id: 'AUT-02', autorizacionId: 'AUT-02', codigo: 'AUTH-L3-OPS', nombre: 'Autorización Operativa · Línea 3 (Pack Industrial)', tipo: 'linea', targetId: 'L-03', targetNombre: 'Línea 3 — Ensamblaje Pesado', nivelConcedido: 'Auditoría EOL Alta Tensión', fechaAsignacion: '2026-04-12' }
     ],
     historial: [
       { id: 'HS-201', fecha: '2026-07-16 06:05', tipo: 'turno_inicio', descripcion: 'Fichaje e inicio en estación EOL Test de Línea 1', linea: 'L1', piezas: 0 },
@@ -134,6 +142,12 @@ export const operarios = [
       { id: 'PER-301', equipoId: 'L2', equipoNombre: 'Línea 2 · Módulos de Potencia 48V', tipo: 'linea', nivelAcceso: 'Electromecánico / Ajustador', autorizadoPor: 'Dir. Mantenimiento' },
       { id: 'PER-302', equipoId: 'MQ-101', equipoNombre: 'Ensambladora Automática Celdas LFP', tipo: 'maquina', nivelAcceso: 'Ajustador Técnico', autorizadoPor: 'Dir. Mantenimiento' },
       { id: 'PER-303', equipoId: 'MQ-102', equipoNombre: 'Robot Soldador Láser KUKA KR-20', tipo: 'maquina', nivelAcceso: 'Ajustador Técnico', autorizadoPor: 'Dir. Mantenimiento' }
+    ],
+    autorizaciones: [
+      { id: 'AUT-03', autorizacionId: 'AUT-03', codigo: 'AUTH-L2-OPS', nombre: 'Autorización Operativa · Línea 2 (Módulos 48V)', tipo: 'linea', targetId: 'L-02', targetNombre: 'Línea 2 — Módulos de Potencia 48V', nivelConcedido: 'Ajustador Electromecánico', fechaAsignacion: '2026-01-20' },
+      { id: 'AUT-04', autorizacionId: 'AUT-04', codigo: 'AUTH-MQ101-MANT', nombre: 'Autorización Intervención Mantenimiento · Soldadura por Onda (MQ-101)', tipo: 'subparte', targetId: 'MQ-101', targetNombre: 'Estación de Soldadura por Onda automática #1', nivelConcedido: 'Especialista Electromecánico Integral', fechaAsignacion: '2026-02-15' },
+      { id: 'AUT-05', autorizacionId: 'AUT-05', codigo: 'AUTH-COMP101A-MANT', nombre: 'Habilitación Subparte Mantenimiento · Crisol y Bomba de Estaño', tipo: 'subparte', targetId: 'COMP-101-A', targetNombre: 'Crisol y Bomba de Estaño (Subparte MQ-101)', nivelConcedido: 'Técnico Soldadura y Vaciado', fechaAsignacion: '2026-03-10' },
+      { id: 'AUT-06', autorizacionId: 'AUT-06', codigo: 'AUTH-COMP102A-MANT', nombre: 'Habilitación Subparte Mantenimiento · Cabezal Rotativo 12 Boquillas', tipo: 'subparte', targetId: 'COMP-102-A', targetNombre: 'Cabezal Rotativo 12 Boquillas (Subparte MQ-102)', nivelConcedido: 'Mantenimiento Robótica SMD', fechaAsignacion: '2026-04-05' }
     ],
     historial: [
       { id: 'HS-301', fecha: '2026-07-16 06:15', tipo: 'mantenimiento', descripcion: 'Intervención preventiva de engrase y calibración en sensores de Línea 2', linea: 'L2', piezas: 0 },

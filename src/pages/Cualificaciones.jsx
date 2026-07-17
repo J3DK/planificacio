@@ -12,14 +12,15 @@ import {
   getCatalogoFormaciones, saveCatalogoFormaciones,
   getCatalogoPermisos, saveCatalogoPermisos,
   getCatalogoCapacitaciones, saveCatalogoCapacitaciones,
-  fetchLineas, fetchOperarios
+  getCatalogoAutorizaciones, saveCatalogoAutorizaciones,
+  fetchLineas, fetchOperarios, updateOperario, fetchActivosMantenimientoEditable
 } from '@/services/dataService';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 
 export default function Cualificaciones() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTabParam = searchParams.get('tab');
-  const activeTab = activeTabParam && ['skills', 'formaciones', 'capacitaciones', 'permisos', 'matriz'].includes(activeTabParam)
+  const activeTab = activeTabParam && ['skills', 'formaciones', 'capacitaciones', 'permisos', 'autorizaciones', 'matriz'].includes(activeTabParam)
     ? activeTabParam
     : 'skills';
 
@@ -31,6 +32,8 @@ export default function Cualificaciones() {
   const [formaciones, setFormaciones] = useState([]);
   const [capacitaciones, setCapacitaciones] = useState([]);
   const [permisos, setPermisos] = useState([]);
+  const [autorizaciones, setAutorizaciones] = useState([]);
+  const [activosMantenimiento, setActivosMantenimiento] = useState([]);
   const [lineas, setLineas] = useState([]);
   const [operarios, setOperarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
@@ -46,19 +49,38 @@ export default function Cualificaciones() {
   const [formDataFormacion, setFormDataFormacion] = useState({ id: '', nombre: '', horas: 20, periodicidadMeses: 24, entidadCertificadora: 'TÜV Rheinland Academy', obligatorio: true });
   const [formDataCapacitacion, setFormDataCapacitacion] = useState({ id: '', titulo: '', categoria: 'Cualificación General', plan: 'Plan Anual de Reciclaje 2026', evaluadorDefault: 'Comité Técnico / Dir. Operaciones', periodicidadMeses: 12, puntuacionMinima: 85, descripcion: '' });
   const [formDataPermiso, setFormDataPermiso] = useState({ id: '', equipoId: 'L1', equipoNombre: 'Línea 1 · Ensamblaje Baterías LFP', tipo: 'linea', skillRequerida: '', formacionRequerida: '', nivelMinimo: 'Avanzado (4)' });
+  const [formDataAutorizacion, setFormDataAutorizacion] = useState({ id: '', codigo: '', nombre: '', tipo: 'linea', targetId: 'L-01', targetNombre: 'Línea 1 — Montaje Rápido', nivelRequerido: 'Avanzado (4) + PRL Alta Tensión', validezMeses: 24, descripcion: '' });
+
+  // Modal para asignación de autorizaciones a operarios
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedAuthAssign, setSelectedAuthAssign] = useState(null);
+  const [assignBusqueda, setAssignBusqueda] = useState('');
 
   // Dialogo de confirmación para borrado
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [targetDelete, setTargetDelete] = useState(null);
+
+  const flattenActivos = (nodos, res = []) => {
+    if (!nodos) return res;
+    nodos.forEach(n => {
+      if (['maquina', 'componente', 'subparte', 'estacion'].includes(n.tipo)) {
+        res.push(n);
+      }
+      if (n.hijos) flattenActivos(n.hijos, res);
+    });
+    return res;
+  };
 
   const loadData = async () => {
     setSkills(getCatalogoSkills() || []);
     setFormaciones(getCatalogoFormaciones() || []);
     setCapacitaciones(getCatalogoCapacitaciones() || []);
     setPermisos(getCatalogoPermisos() || []);
-    const [resL, resOp] = await Promise.all([fetchLineas(), fetchOperarios()]);
+    setAutorizaciones(getCatalogoAutorizaciones() || []);
+    const [resL, resOp, resAct] = await Promise.all([fetchLineas(), fetchOperarios(), fetchActivosMantenimientoEditable()]);
     if (resL?.data) setLineas(resL.data);
     if (resOp?.data) setOperarios(resOp.data);
+    if (resAct?.data) setActivosMantenimiento(flattenActivos(resAct.data));
   };
 
   useEffect(() => {
@@ -102,6 +124,12 @@ export default function Cualificaciones() {
     return permisos.filter(p => p.equipoNombre?.toLowerCase().includes(q) || p.equipoId?.toLowerCase().includes(q) || p.skillRequerida?.toLowerCase().includes(q) || p.formacionRequerida?.toLowerCase().includes(q));
   }, [permisos, busqueda]);
 
+  const filteredAutorizaciones = useMemo(() => {
+    if (!busqueda.trim()) return autorizaciones;
+    const q = busqueda.toLowerCase();
+    return autorizaciones.filter(a => a.nombre?.toLowerCase().includes(q) || a.codigo?.toLowerCase().includes(q) || a.targetNombre?.toLowerCase().includes(q) || a.tipo?.toLowerCase().includes(q) || a.descripcion?.toLowerCase().includes(q));
+  }, [autorizaciones, busqueda]);
+
   // Manejadores CRUD: abrir nuevo
   const handleOpenCreate = () => {
     setModalMode('create');
@@ -122,6 +150,19 @@ export default function Cualificaciones() {
         formacionRequerida: formaciones[0]?.nombre || '',
         nivelMinimo: 'Avanzado (4)'
       });
+    } else if (activeTab === 'autorizaciones') {
+      const defLine = lineas[0];
+      setFormDataAutorizacion({
+        id: `AUT-0${autorizaciones.length + 1}`,
+        codigo: `AUTH-L${defLine?.id || '1'}-OPS`,
+        nombre: `Autorización Operativa · ${defLine?.nombre || 'Línea 1'}`,
+        tipo: 'linea',
+        targetId: defLine ? `L-${defLine.id}` : 'L-01',
+        targetNombre: defLine ? `Línea ${defLine.id} · ${defLine.nombre}` : 'Línea 1 — Montaje Rápido',
+        nivelRequerido: 'Avanzado (4) + PRL Alta Tensión',
+        validezMeses: 24,
+        descripcion: ''
+      });
     }
     setModalOpen(true);
   };
@@ -134,6 +175,7 @@ export default function Cualificaciones() {
     else if (activeTab === 'formaciones') setFormDataFormacion({ ...item });
     else if (activeTab === 'capacitaciones') setFormDataCapacitacion({ ...item });
     else if (activeTab === 'permisos') setFormDataPermiso({ ...item });
+    else if (activeTab === 'autorizaciones') setFormDataAutorizacion({ ...item });
     setModalOpen(true);
   };
 
@@ -188,6 +230,18 @@ export default function Cualificaciones() {
       setPermisos(newLista);
       saveCatalogoPermisos(newLista);
       triggerSuccess(modalMode === 'create' ? '🛡️ Permiso y cualificación vinculada a equipo' : '✅ Regla de permiso modificada');
+    } else if (activeTab === 'autorizaciones') {
+      if (!formDataAutorizacion.nombre.trim()) return;
+      let newLista;
+      if (modalMode === 'create') {
+        const item = { ...formDataAutorizacion, id: formDataAutorizacion.id || `AUT-${Date.now().toString().slice(-4)}` };
+        newLista = [...autorizaciones, item];
+      } else {
+        newLista = autorizaciones.map(a => a.id === editingItem.id ? { ...formDataAutorizacion } : a);
+      }
+      setAutorizaciones(newLista);
+      saveCatalogoAutorizaciones(newLista);
+      triggerSuccess(modalMode === 'create' ? '🛡️ Autorización creada en el catálogo maestro' : '✅ Autorización actualizada correctamente');
     }
     setModalOpen(false);
   };
@@ -220,9 +274,47 @@ export default function Cualificaciones() {
       setPermisos(updated);
       saveCatalogoPermisos(updated);
       triggerSuccess('🗑️ Regla de cualificación y permiso eliminada');
+    } else if (activeTab === 'autorizaciones') {
+      const updated = autorizaciones.filter(a => a.id !== targetDelete.id);
+      setAutorizaciones(updated);
+      saveCatalogoAutorizaciones(updated);
+      triggerSuccess('🗑️ Autorización eliminada del catálogo maestro');
     }
     setConfirmOpen(false);
     setTargetDelete(null);
+  };
+
+  // Abrir Modal de Asignación a Operarios
+  const handleOpenAssign = (auth) => {
+    setSelectedAuthAssign(auth);
+    setAssignBusqueda('');
+    setAssignModalOpen(true);
+  };
+
+  // Togglar asignación de autorización en operario
+  const handleToggleAssignOperario = async (op) => {
+    if (!selectedAuthAssign) return;
+    const actuales = op.autorizaciones || [];
+    const tieneAuth = actuales.some(a => a.id === selectedAuthAssign.id || a.autorizacionId === selectedAuthAssign.id);
+    let nuevasAuths;
+    if (tieneAuth) {
+      nuevasAuths = actuales.filter(a => a.id !== selectedAuthAssign.id && a.autorizacionId !== selectedAuthAssign.id);
+    } else {
+      nuevasAuths = [...actuales, {
+        id: selectedAuthAssign.id,
+        autorizacionId: selectedAuthAssign.id,
+        codigo: selectedAuthAssign.codigo,
+        nombre: selectedAuthAssign.nombre,
+        tipo: selectedAuthAssign.tipo,
+        targetId: selectedAuthAssign.targetId,
+        targetNombre: selectedAuthAssign.targetNombre,
+        nivelConcedido: selectedAuthAssign.nivelRequerido || 'Autorización Completa',
+        fechaAsignacion: new Date().toISOString().slice(0, 10)
+      }];
+    }
+    await updateOperario(op.id, { autorizaciones: nuevasAuths });
+    setOperarios(operarios.map(o => o.id === op.id ? { ...o, autorizaciones: nuevasAuths } : o));
+    triggerSuccess(tieneAuth ? `❌ Autorización revocada a ${op.nombre}` : `✅ Autorización concedida a ${op.nombre}`);
   };
 
   // Submenú items del sidebar izquierdo del módulo
@@ -231,6 +323,7 @@ export default function Cualificaciones() {
     { id: 'formaciones', label: 'Cursos & Formaciones', icon: GraduationCap, color: 'text-indigo-400', badgeColor: 'bg-indigo-500/20 text-indigo-300', count: formaciones.length, desc: 'PRL, ISO y caducidades' },
     { id: 'capacitaciones', label: 'Planes de Capacitación', icon: Target, color: 'text-emerald-400', badgeColor: 'bg-emerald-500/20 text-emerald-300', count: capacitaciones.length, desc: 'Evaluaciones periódicas' },
     { id: 'permisos', label: 'Permisos por Equipo', icon: ShieldCheck, color: 'text-purple-400', badgeColor: 'bg-purple-500/20 text-purple-300', count: permisos.length, desc: 'Líneas y máquinas' },
+    { id: 'autorizaciones', label: 'Autorizaciones & Carnets', icon: BookmarkCheck, color: 'text-rose-400', badgeColor: 'bg-rose-500/20 text-rose-300', count: autorizaciones.length, desc: 'Líneas & Subpartes Mantenimiento' },
     { id: 'matriz', label: 'Matriz de Polivalencia', icon: Layers, color: 'text-cyan-400', badgeColor: 'bg-cyan-500/20 text-cyan-300', count: operarios.length, desc: 'Star Matrix en vivo' },
   ];
 
@@ -322,12 +415,14 @@ export default function Cualificaciones() {
                 {activeTab === 'formaciones' && <GraduationCap className="w-6 h-6 text-indigo-400 shrink-0" />}
                 {activeTab === 'capacitaciones' && <Target className="w-6 h-6 text-emerald-400 shrink-0" />}
                 {activeTab === 'permisos' && <ShieldCheck className="w-6 h-6 text-purple-400 shrink-0" />}
+                {activeTab === 'autorizaciones' && <BookmarkCheck className="w-6 h-6 text-rose-400 shrink-0" />}
                 {activeTab === 'matriz' && <Layers className="w-6 h-6 text-cyan-400 shrink-0" />}
                 <span>
                   {activeTab === 'skills' ? 'Catálogo de Skills & Habilidades' :
                    activeTab === 'formaciones' ? 'Catálogo de Cursos & Formaciones' :
                    activeTab === 'capacitaciones' ? 'Planes Maestros de Capacitación & Reciclaje' :
                    activeTab === 'permisos' ? 'Reglas y Permisos por Equipo de Planta' :
+                   activeTab === 'autorizaciones' ? 'Catálogo de Autorizaciones Operativas & Mantenimiento' :
                    'Matriz ILUO (Polivalencia de Operarios vs Competencias)'}
                 </span>
               </h1>
@@ -336,6 +431,7 @@ export default function Cualificaciones() {
                 {activeTab === 'formaciones' && 'Configura las certificaciones obligatorias, horas lectivas, periodicidad de reciclaje y entidades.'}
                 {activeTab === 'capacitaciones' && 'Crea los planes de evaluación y pruebas periódicas que se aplican a los operarios asignados en planta.'}
                 {activeTab === 'permisos' && 'Vincula qué skill técnica y qué curso de seguridad son indispensables para operar cada línea o robot.'}
+                {activeTab === 'autorizaciones' && 'Gestiona y asigna autorizaciones y carnets operacionales según las líneas disponibles y las subpartes de mantenimiento.'}
                 {activeTab === 'matriz' && 'Vista global instantánea del nivel de competencia y certificaciones de cada operario de la plantilla.'}
               </p>
             </div>
@@ -350,7 +446,8 @@ export default function Cualificaciones() {
                   {activeTab === 'skills' ? 'Añadir Skill' :
                    activeTab === 'formaciones' ? 'Añadir Curso' :
                    activeTab === 'capacitaciones' ? 'Nuevo Plan Evaluación' :
-                   'Vincular Requisito'}
+                   activeTab === 'permisos' ? 'Vincular Requisito' :
+                   'Nueva Autorización'}
                 </span>
               </button>
             )}
@@ -367,7 +464,8 @@ export default function Cualificaciones() {
                     activeTab === 'skills' ? 'Buscar por nombre de skill, categoría o código ID...' :
                     activeTab === 'formaciones' ? 'Buscar curso, entidad certificadora o código ID...' :
                     activeTab === 'capacitaciones' ? 'Buscar por plan de cualificación, categoría o título...' :
-                    'Buscar por línea, máquina o requisito...'
+                    activeTab === 'permisos' ? 'Buscar por línea, máquina o requisito...' :
+                    'Buscar por nombre, código o línea/subparte de mantenimiento...'
                   }
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
@@ -379,7 +477,8 @@ export default function Cualificaciones() {
                 {activeTab === 'skills' ? filteredSkills.length :
                  activeTab === 'formaciones' ? filteredFormaciones.length :
                  activeTab === 'capacitaciones' ? filteredCapacitaciones.length :
-                 filteredPermisos.length}{' '}
+                 activeTab === 'permisos' ? filteredPermisos.length :
+                 filteredAutorizaciones.length}{' '}
                 registros en catálogo
               </span>
             </div>
@@ -661,6 +760,154 @@ export default function Cualificaciones() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB NUEVO: AUTORIZACIONES (LÍNEAS & SUBPARTES MANTENIMIENTO) ── */}
+          {activeTab === 'autorizaciones' && (
+            <div className="space-y-6 animate-fade-in">
+              {/* Tarjetas KPI Resumen del Catálogo de Autorizaciones */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-lg">
+                  <div className="p-3 rounded-xl bg-rose-500/20 text-rose-400">
+                    <BookmarkCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-white">{autorizaciones.length}</p>
+                    <p className="text-xs font-bold text-slate-400">Total Autorizaciones Maestras</p>
+                  </div>
+                </div>
+                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-lg">
+                  <div className="p-3 rounded-xl bg-blue-500/20 text-blue-400">
+                    <Factory className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-white">{autorizaciones.filter(a => a.tipo === 'linea').length}</p>
+                    <p className="text-xs font-bold text-slate-400">Asignadas por Líneas Producción</p>
+                  </div>
+                </div>
+                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-lg">
+                  <div className="p-3 rounded-xl bg-purple-500/20 text-purple-400">
+                    <Cpu className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-white">{autorizaciones.filter(a => a.tipo === 'subparte').length}</p>
+                    <p className="text-xs font-bold text-slate-400">Subpartes Mantenimiento / Máquinas</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid de Tarjetas de Autorización */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                {filteredAutorizaciones.map((auth) => {
+                  const opsAsignados = operarios.filter(op => (op.autorizaciones || []).some(a => a.id === auth.id || a.autorizacionId === auth.id));
+                  const esLinea = auth.tipo === 'linea';
+                  return (
+                    <motion.div
+                      key={auth.id}
+                      layout
+                      className="bg-slate-900/90 border border-slate-800 hover:border-rose-500/50 rounded-2xl p-5 flex flex-col justify-between shadow-xl hover:shadow-rose-950/20 transition-all group relative"
+                    >
+                      <div className="space-y-3.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <span className={`px-2.5 py-1 rounded-md font-black text-xs tracking-wide font-mono uppercase border ${
+                            esLinea
+                              ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                              : 'bg-purple-500/10 border-purple-500/30 text-purple-300'
+                          }`}>
+                            {auth.codigo || auth.id}
+                          </span>
+                          <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => handleOpenEdit(auth)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-600/30 text-slate-300 hover:text-rose-300 transition-colors"
+                              title="Modificar Autorización"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleConfirmDelete(auth)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/30 text-slate-300 hover:text-red-400 transition-colors"
+                              title="Eliminar Autorización"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h3 className="text-base font-black text-white group-hover:text-rose-300 transition-colors leading-snug">
+                            {auth.nombre}
+                          </h3>
+                          <div className="flex items-center gap-2 mt-1.5 text-xs font-bold text-slate-400">
+                            {esLinea ? <Factory className="w-3.5 h-3.5 text-blue-400" /> : <Cpu className="w-3.5 h-3.5 text-purple-400" />}
+                            <span>Ámbito: <strong className="text-slate-200">{auth.targetNombre}</strong></span>
+                          </div>
+                        </div>
+
+                        {auth.descripcion && (
+                          <p className="text-xs text-slate-400 leading-relaxed bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 line-clamp-3">
+                            {auth.descripcion}
+                          </p>
+                        )}
+
+                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                          <span className="text-slate-400 font-semibold">Requisito / Nivel:</span>
+                          <span className="font-black text-rose-300 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+                            {auth.nivelRequerido || 'Autorización Básica'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Sección Inferior: Operarios Asignados & Botón de Gestión */}
+                      <div className="mt-4 pt-3.5 border-t border-slate-800 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-rose-400" />
+                            <span>Operarios Habilitados ({opsAsignados.length})</span>
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-500">Validez: {auth.validezMeses || 24}m</span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex -space-x-2 overflow-hidden py-1">
+                            {opsAsignados.slice(0, 4).map((op) => (
+                              <div
+                                key={op.id}
+                                title={`${op.nombre} (${op.rol})`}
+                                className="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-gradient-to-br from-rose-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-md shrink-0"
+                              >
+                                {op.nombre.charAt(0)}
+                              </div>
+                            ))}
+                            {opsAsignados.length > 4 && (
+                              <div className="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-slate-800 text-slate-300 font-black text-[10px] flex items-center justify-center shrink-0">
+                                +{opsAsignados.length - 4}
+                              </div>
+                            )}
+                            {opsAsignados.length === 0 && (
+                              <span className="text-xs italic text-slate-500 font-normal">Ningún operario asignado</span>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => handleOpenAssign(auth)}
+                            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-600 text-slate-200 hover:text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-md shrink-0 border border-slate-700/80 hover:border-rose-500"
+                          >
+                            <span>Gestionar Asignación</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+                {filteredAutorizaciones.length === 0 && (
+                  <div className="col-span-full py-12 text-center text-slate-500 font-bold bg-slate-900/40 rounded-2xl border border-dashed border-slate-800">
+                    No se encontraron autorizaciones en el catálogo que coincidan con la búsqueda.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1126,6 +1373,142 @@ export default function Cualificaciones() {
                   </>
                 )}
 
+                {/* Campos Formulario para AUTORIZACIONES */}
+                {activeTab === 'autorizaciones' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Código Autorización (ID)</label>
+                        <input
+                          type="text"
+                          value={formDataAutorizacion.codigo || formDataAutorizacion.id}
+                          onChange={(e) => setFormDataAutorizacion({ ...formDataAutorizacion, codigo: e.target.value, id: e.target.value })}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white font-mono focus:border-rose-500 focus:outline-none"
+                          placeholder="ej: AUTH-L1-OPS"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Ámbito / Tipo de Activo</label>
+                        <select
+                          value={formDataAutorizacion.tipo}
+                          onChange={(e) => {
+                            const newTipo = e.target.value;
+                            if (newTipo === 'linea') {
+                              const defL = lineas[0];
+                              setFormDataAutorizacion({
+                                ...formDataAutorizacion,
+                                tipo: newTipo,
+                                targetId: defL ? `L-${defL.id}` : 'L-01',
+                                targetNombre: defL ? `Línea ${defL.id} · ${defL.nombre}` : 'Línea 1 — Montaje Rápido'
+                              });
+                            } else {
+                              const defAct = activosMantenimiento[0];
+                              setFormDataAutorizacion({
+                                ...formDataAutorizacion,
+                                tipo: newTipo,
+                                targetId: defAct ? defAct.id : 'MQ-101',
+                                targetNombre: defAct ? `${defAct.nombre} (${defAct.id})` : 'Estación de Soldadura por Onda automática #1'
+                              });
+                            }
+                          }}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-rose-300 font-bold focus:border-rose-500 focus:outline-none"
+                        >
+                          <option value="linea">🏭 Línea de Producción</option>
+                          <option value="subparte">🔧 Subparte de Mantenimiento / Máquina</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                        {formDataAutorizacion.tipo === 'linea' ? 'Seleccionar Línea Asignada' : 'Seleccionar Subparte o Activo de Mantenimiento'}
+                      </label>
+                      <select
+                        value={formDataAutorizacion.targetId}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (formDataAutorizacion.tipo === 'linea') {
+                            const found = lineas.find(l => `L-${l.id}` === val || l.id === val);
+                            setFormDataAutorizacion({
+                              ...formDataAutorizacion,
+                              targetId: val,
+                              targetNombre: found ? `Línea ${found.id} · ${found.nombre}` : val
+                            });
+                          } else {
+                            const found = activosMantenimiento.find(a => a.id === val);
+                            setFormDataAutorizacion({
+                              ...formDataAutorizacion,
+                              targetId: val,
+                              targetNombre: found ? `${found.nombre} (Subparte ${found.id})` : val
+                            });
+                          }
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white font-bold focus:border-rose-500 focus:outline-none"
+                      >
+                        {formDataAutorizacion.tipo === 'linea' ? (
+                          lineas.map(l => (
+                            <option key={l.id} value={`L-${l.id}`}>Línea {l.id} · {l.nombre}</option>
+                          ))
+                        ) : (
+                          activosMantenimiento.map(act => (
+                            <option key={act.id} value={act.id}>{act.nombre} · [{act.tipo.toUpperCase()}] ({act.id})</option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nombre Oficial de la Autorización</label>
+                      <input
+                        type="text"
+                        value={formDataAutorizacion.nombre}
+                        onChange={(e) => setFormDataAutorizacion({ ...formDataAutorizacion, nombre: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white font-bold focus:border-rose-500 focus:outline-none"
+                        placeholder="ej: Autorización Operativa y Rearme L1"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Requisito / Nivel Exigido</label>
+                        <input
+                          type="text"
+                          value={formDataAutorizacion.nivelRequerido}
+                          onChange={(e) => setFormDataAutorizacion({ ...formDataAutorizacion, nivelRequerido: e.target.value })}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-rose-300 font-bold focus:border-rose-500 focus:outline-none"
+                          placeholder="ej: Maestro (5) + PRL Alta Tensión"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Validez (Meses)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="120"
+                          value={formDataAutorizacion.validezMeses}
+                          onChange={(e) => setFormDataAutorizacion({ ...formDataAutorizacion, validezMeses: Number(e.target.value) })}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-rose-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Alcance Operativo & Tareas Autorizadas</label>
+                      <textarea
+                        rows={3}
+                        value={formDataAutorizacion.descripcion}
+                        onChange={(e) => setFormDataAutorizacion({ ...formDataAutorizacion, descripcion: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-rose-500 focus:outline-none resize-none"
+                        placeholder="Describe las intervenciones o permisos de operación que confiere esta autorización al operario..."
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
                   <button
                     type="button"
@@ -1158,6 +1541,116 @@ export default function Cualificaciones() {
         onConfirm={handleExecuteDelete}
         onCancel={() => setConfirmOpen(false)}
       />
+
+      {/* MODAL DE ASIGNACIÓN RÁPIDA DE AUTORIZACIONES A OPERARIOS */}
+      <AnimatePresence>
+        {assignModalOpen && selectedAuthAssign && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]"
+            >
+              <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+                <div className="flex items-center gap-3.5">
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-rose-600 to-pink-600 text-white shadow-lg">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white">Asignar Autorización a Operarios</h3>
+                    <p className="text-xs font-bold text-rose-300 mt-0.5">
+                      {selectedAuthAssign.nombre} · ({selectedAuthAssign.targetNombre})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setAssignModalOpen(false)}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="p-4 bg-slate-950/40 border-b border-slate-800">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Buscar operario por nombre, rol o línea..."
+                    value={assignBusqueda}
+                    onChange={(e) => setAssignBusqueda(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:border-rose-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-2.5 flex-1 divide-y divide-slate-800/50">
+                {operarios
+                  .filter(op => !assignBusqueda.trim() || op.nombre.toLowerCase().includes(assignBusqueda.toLowerCase()) || op.rol.toLowerCase().includes(assignBusqueda.toLowerCase()))
+                  .map((op) => {
+                    const assigned = (op.autorizaciones || []).some(a => a.id === selectedAuthAssign.id || a.autorizacionId === selectedAuthAssign.id);
+                    return (
+                      <div
+                        key={op.id}
+                        onClick={() => handleToggleAssignOperario(op)}
+                        className={`pt-3 first:pt-0 flex items-center justify-between p-3.5 rounded-2xl cursor-pointer transition-all border ${
+                          assigned
+                            ? 'bg-rose-500/10 border-rose-500/40 hover:bg-rose-500/15'
+                            : 'bg-slate-950/60 border-slate-800/80 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3.5">
+                          <div className={`w-10 h-10 rounded-2xl font-black text-sm flex items-center justify-center border shrink-0 ${
+                            assigned
+                              ? 'bg-rose-600 text-white border-rose-400 shadow-lg shadow-rose-950'
+                              : 'bg-slate-900 text-slate-400 border-slate-800'
+                          }`}>
+                            {op.nombre.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-black text-white text-sm">{op.nombre}</h4>
+                              <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">{op.id}</span>
+                            </div>
+                            <p className="text-xs font-semibold text-slate-400 mt-0.5">
+                              {op.rol} · <span className="text-slate-300">Líneas habituales: {(op.lineas || []).join(', ')}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {assigned ? (
+                            <span className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-black text-xs flex items-center gap-1.5 shadow-md">
+                              <CheckSquare className="w-4 h-4" />
+                              <span>Asignada</span>
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 font-bold text-xs transition-all">
+                              + Conceder
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+                <span className="text-xs text-slate-400 font-semibold">
+                  Los cambios se guardan instantáneamente en el expediente 360° de cada operario.
+                </span>
+                <button
+                  onClick={() => setAssignModalOpen(false)}
+                  className="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-black text-xs transition-colors"
+                >
+                  Cerrar Ventana
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
