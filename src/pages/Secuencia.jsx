@@ -12,7 +12,7 @@ import {
   fetchLineas, updateOrdenPlanificacion, fetchPlanificacion,
   reordenarSecuenciaEnGantt, saveIncidenciaSecuencia,
   insertOrdenTrabajoDesdeSecuencia,
-  fetchMateriasPrimas, fetchProductos, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, getCurrentShiftInfo
+  fetchMateriasPrimas, fetchProductos, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, getCurrentShiftInfo, calcDuracionEstimada
 } from '@/services/dataService';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CrudModal from '@/components/shared/CrudModal';
@@ -349,21 +349,24 @@ function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, sav
 
   useEffect(() => {
     if (isOpen) {
+      const defaultRef = initialData.referencia || (listaProductos[0]?.codigo || '');
+      const defaultCant = initialData.cantidad || 500;
       setFormData({
-        referencia: initialData.referencia || '',
-        cliente: initialData.cliente || '',
+        referencia: defaultRef,
+        cliente: initialData.cliente || (listaProductos.find(p => p.codigo === defaultRef)?.cliente || ''),
         fechaCompromiso: initialData.fechaCompromiso || '',
         estado: initialData.estado || 'a_tiempo',
         progreso: initialData.progreso || 0,
         cumplimiento: initialData.cumplimiento || 0,
         desvio: initialData.desvio || 0,
-        cantidad: initialData.cantidad || 500,
+        cantidad: defaultCant,
+        duracion: initialData.duracion || calcDuracionEstimada(defaultRef, defaultCant, listaProductos),
         materiales: initialData.materiales || 'Componentes estándar de la referencia',
         secuencia: initialData.secuencia || 1,
         id: initialData.id || null
       });
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, listaProductos]);
 
   if (!isOpen) return null;
 
@@ -400,13 +403,36 @@ function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, sav
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Referencia (Producto) *</label>
-              <input
-                type="text" required
+              <select
+                required
                 value={formData.referencia || ''}
-                onChange={e => setFormData({ ...formData, referencia: e.target.value })}
-                placeholder="BAT-48V-100Ah-PRO"
+                onChange={e => {
+                  const newRef = e.target.value;
+                  const prod = listaProductos.find(p => p.codigo === newRef || p.id === newRef);
+                  const newDur = calcDuracionEstimada(newRef, formData.cantidad || 500, listaProductos);
+                  let newMats = formData.materiales;
+                  if (prod && Array.isArray(prod.bom) && prod.bom.length > 0) {
+                    newMats = prod.bom.map(b => `${b.descripcion || b.codigo} (x${Math.round((b.factor || 1) * (formData.cantidad || 500))})`).join(', ');
+                  } else if (prod && prod.descripcion) {
+                    newMats = prod.descripcion;
+                  }
+                  setFormData({
+                    ...formData,
+                    referencia: newRef,
+                    cliente: prod?.cliente || formData.cliente || '',
+                    duracion: newDur,
+                    materiales: newMats
+                  });
+                }}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500"
-              />
+              >
+                <option value="">-- Seleccionar producto --</option>
+                {listaProductos.map(p => (
+                  <option key={p.id || p.codigo} value={p.codigo}>
+                    {p.codigo} — {p.descripcion || p.familia || p.cliente || ''}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Cliente *</label>
@@ -420,7 +446,7 @@ function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, sav
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Fecha Compromiso *</label>
               <input
@@ -449,7 +475,24 @@ function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, sav
               <input
                 type="number" min="1"
                 value={formData.cantidad || 500}
-                onChange={e => setFormData({ ...formData, cantidad: Number(e.target.value) })}
+                onChange={e => {
+                  const newCant = Number(e.target.value);
+                  const newDur = calcDuracionEstimada(formData.referencia, newCant, listaProductos);
+                  setFormData({
+                    ...formData,
+                    cantidad: newCant,
+                    duracion: newDur
+                  });
+                }}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Duración est. (h)</label>
+              <input
+                type="number" min="0.5" step="0.1"
+                value={formData.duracion || 0}
+                onChange={e => setFormData({ ...formData, duracion: Number(e.target.value) })}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500"
               />
             </div>

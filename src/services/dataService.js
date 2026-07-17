@@ -173,6 +173,18 @@ export function mapProducto(p) {
   };
 }
 
+export function calcDuracionEstimada(ref, cantidad, listaProd = []) {
+  if (!ref || !cantidad || Number(cantidad) <= 0) return 0;
+  const prod = listaProd.find(p => p.codigo === ref || p.id === ref);
+  if (!prod) return 4;
+  const udsHora = Number(prod.objetivoHora) || (prod.tiempoCiclo ? (3600 / Number(prod.tiempoCiclo)) : 0);
+  if (udsHora > 0) {
+    const durHoras = Number(cantidad) / udsHora;
+    return Math.max(0.5, Math.round(durHoras * 10) / 10);
+  }
+  return 4;
+}
+
 function mapSecuencia(s) {
   return { ...s, fechaCompromiso: s.fecha_compromiso ?? s.fechaCompromiso };
 }
@@ -1916,7 +1928,9 @@ export async function fetchOperarios() {
     } catch (e) { console.warn('Fallback a localStorage/mock operarios:', e); }
   }
   const local = getOperariosLocal();
-  if (local) return { data: local.map(o => ({ ...o, autorizaciones: o.autorizaciones || [] })), fromSupabase: false };
+  if (local && Array.isArray(local) && local.length > 0) {
+    return { data: local.map(o => ({ ...o, autorizaciones: o.autorizaciones || [] })), fromSupabase: false };
+  }
   setOperariosLocal(mockOperarios);
   return { data: mockOperarios.map(o => ({ ...o, autorizaciones: o.autorizaciones || [] })), fromSupabase: false };
 }
@@ -1928,7 +1942,8 @@ export async function insertOperario(operario) {
       if (!error && data) return { data, error: null };
     } catch (e) {}
   }
-  const current = getOperariosLocal() || mockOperarios;
+  const local = getOperariosLocal();
+  const current = (local && Array.isArray(local) && local.length > 0) ? local : mockOperarios;
   const newItem = { ...operario, id: operario.id || `OP-${String(Date.now()).slice(-4)}` };
   const updated = [...current, newItem];
   setOperariosLocal(updated);
@@ -1946,7 +1961,8 @@ export async function updateOperario(id, operario) {
       }
     } catch (e) {}
   }
-  const current = getOperariosLocal() || mockOperarios;
+  const local = getOperariosLocal();
+  const current = (local && Array.isArray(local) && local.length > 0) ? local : mockOperarios;
   const updated = current.map(o => o.id === id ? { ...o, ...operario } : o);
   setOperariosLocal(updated);
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('operarios_updated'));
@@ -1963,15 +1979,23 @@ export async function deleteOperario(id) {
       }
     } catch (e) {}
   }
-  const current = getOperariosLocal() || mockOperarios;
+  const local = getOperariosLocal();
+  const current = (local && Array.isArray(local) && local.length > 0) ? local : mockOperarios;
   const updated = current.filter(o => o.id !== id);
   setOperariosLocal(updated);
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('operarios_updated'));
   return { error: null };
 }
 
+export function restoreOperariosCatalog() {
+  setOperariosLocal(mockOperarios);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('operarios_updated'));
+  return mockOperarios;
+}
+
 export async function registrarHistorialOperario(operarioId, entrada) {
-  const current = getOperariosLocal() || mockOperarios;
+  const local = getOperariosLocal();
+  const current = (local && Array.isArray(local) && local.length > 0) ? local : mockOperarios;
   const op = current.find(o => o.id === operarioId);
   if (!op) return { data: null, error: 'Operario no encontrado' };
 

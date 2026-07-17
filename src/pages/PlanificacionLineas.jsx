@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Plus, Calendar, Move, Edit2, Trash2, X, Check, RefreshCw, AlertCircle, Clock, Package, FileText, ArrowRight, Layers, Filter, Search, ShieldAlert, Zap, ArrowLeftCircle, Wrench } from 'lucide-react';
-import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, fetchProductos, fetchOrdenesTrabajo, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt } from '@/services/dataService';
+import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, fetchProductos, fetchOrdenesTrabajo, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt, calcDuracionEstimada } from '@/services/dataService';
 
 
 const SEMANA_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -280,6 +280,9 @@ export default function PlanificacionLineas() {
   // ─── Modal Handlers ────────────────────────────────────────────────────────
   const openCreateModal = (isBacklogDefault = false) => {
     const numOF = Math.floor(100 + Math.random() * 900);
+    const defaultRef = listaProductos[0]?.codigo || 'BAT-48V-100Ah';
+    const defaultCant = 500;
+    const defaultDur = calcDuracionEstimada(defaultRef, defaultCant, listaProductos);
     setFormOrden({
       id: null,
       codigo: `OF-2026-${numOF}`,
@@ -287,11 +290,11 @@ export default function PlanificacionLineas() {
       linea: isBacklogDefault ? '' : (lineas[0]?.id || 'L1'),
       dia: isBacklogDefault ? 0 : diaSeleccionado,
       horaInicio: 8,
-      duracion: 6,
-      ref: 'BAT-48V-100Ah-PRO',
-      cliente: 'Cliente A Industrial',
-      cantidad: 500,
-      materiales: 'Celdas LFP 100Ah (x16), BMS 48V (x1), Carcasa Metálica, Conectores IP67',
+      duracion: defaultDur,
+      ref: defaultRef,
+      cliente: listaProductos.find(p => p.codigo === defaultRef)?.cliente || 'Cliente A Industrial',
+      cantidad: defaultCant,
+      materiales: 'Componentes estándar de la referencia',
       fechaCompromiso: new Date(Date.now() + 5 * 86400000).toLocaleDateString('es-ES'),
       prioridad: isBacklogDefault ? 'normal' : 'normal',
       color: COLORS[Math.floor(Math.random() * COLORS.length)]
@@ -303,17 +306,20 @@ export default function PlanificacionLineas() {
   const openEditModal = (orden, e) => {
     if (e) e.stopPropagation();
     const isSinAsignar = orden.linea === null || orden.linea === 'BACKLOG' || orden.linea === '';
+    const defaultRef = orden.ref || listaProductos[0]?.codigo || '';
+    const defaultCant = orden.cantidad || 500;
     setFormOrden({
       ...orden,
       sinAsignar: isSinAsignar,
       linea: isSinAsignar ? (lineas[0]?.id || 'L1') : orden.linea,
       dia: orden.dia !== null && orden.dia !== undefined ? orden.dia : diaSeleccionado,
       horaInicio: orden.horaInicio || 8,
-      duracion: orden.duracion || 6,
-      cantidad: orden.cantidad || 500,
+      duracion: orden.duracion || calcDuracionEstimada(defaultRef, defaultCant, listaProductos),
+      cantidad: defaultCant,
       materiales: orden.materiales || 'Componentes estándar y subconjuntos electrónicos',
       prioridad: orden.prioridad || 'normal',
-      codigo: orden.codigo || `OF-${orden.id || '2026'}`
+      codigo: orden.codigo || `OF-${orden.id || '2026'}`,
+      ref: defaultRef
     });
     setModalMode('edit');
     setModalOpen(true);
@@ -1112,20 +1118,42 @@ export default function PlanificacionLineas() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Producto / Referencia</label>
-                    <input
-                      type="text"
-                      value={formOrden.ref}
-                      onChange={e => setFormOrden({ ...formOrden, ref: e.target.value })}
-                      placeholder="BAT-48V-300Ah-PRO"
+                    <select
+                      value={formOrden.ref || ''}
+                      onChange={e => {
+                        const newRef = e.target.value;
+                        const prod = listaProductos.find(p => p.codigo === newRef || p.id === newRef);
+                        const newDur = calcDuracionEstimada(newRef, formOrden.cantidad || 500, listaProductos);
+                        let newMats = formOrden.materiales;
+                        if (prod && Array.isArray(prod.bom) && prod.bom.length > 0) {
+                          newMats = prod.bom.map(b => `${b.descripcion || b.codigo} (x${Math.round((b.factor || 1) * (formOrden.cantidad || 500))})`).join(', ');
+                        } else if (prod && prod.descripcion) {
+                          newMats = prod.descripcion;
+                        }
+                        setFormOrden({
+                          ...formOrden,
+                          ref: newRef,
+                          cliente: prod?.cliente || formOrden.cliente || '',
+                          duracion: newDur,
+                          materiales: newMats
+                        });
+                      }}
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-indigo-500 font-mono"
                       required
-                    />
+                    >
+                      <option value="">-- Seleccionar producto --</option>
+                      {listaProductos.map(p => (
+                        <option key={p.id || p.codigo} value={p.codigo}>
+                          {p.codigo} — {p.descripcion || p.familia || p.cliente || ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Cliente / Destino</label>
                     <input
                       type="text"
-                      value={formOrden.cliente}
+                      value={formOrden.cliente || ''}
                       onChange={e => setFormOrden({ ...formOrden, cliente: e.target.value })}
                       placeholder="Iberia Energy Corp"
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-indigo-500"
@@ -1141,7 +1169,15 @@ export default function PlanificacionLineas() {
                     <input
                       type="number" min="1"
                       value={formOrden.cantidad || 500}
-                      onChange={e => setFormOrden({ ...formOrden, cantidad: Number(e.target.value) })}
+                      onChange={e => {
+                        const newCant = Number(e.target.value);
+                        const newDur = calcDuracionEstimada(formOrden.ref, newCant, listaProductos);
+                        setFormOrden({
+                          ...formOrden,
+                          cantidad: newCant,
+                          duracion: newDur
+                        });
+                      }}
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-indigo-500"
                       required
                     />
@@ -1149,8 +1185,8 @@ export default function PlanificacionLineas() {
                   <div>
                     <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Duración est. (h)</label>
                     <input
-                      type="number" min="1" max="14"
-                      value={formOrden.duracion}
+                      type="number" min="0.5" step="0.1"
+                      value={formOrden.duracion || 0}
                       onChange={e => setFormOrden({ ...formOrden, duracion: Number(e.target.value) })}
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-indigo-500"
                       required

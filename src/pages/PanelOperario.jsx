@@ -21,7 +21,7 @@ import {
   fetchSecuencia, updateSecuencia,
   insertAlerta,
   fetchHistorial,
-  fetchOperarios, updateOperario, registrarHistorialOperario, getCurrentShiftInfo
+  fetchOperarios, updateOperario, registrarHistorialOperario, getCurrentShiftInfo, restoreOperariosCatalog
 } from '@/services/dataService';
 
 export default function PanelOperario() {
@@ -87,13 +87,15 @@ export default function PanelOperario() {
     if (resM.data) setMateriales(resM.data);
     if (resS.data) setSecuencia(resS.data);
     if (resH.data) setHistorial(resH.data);
-    if (resOps.data) {
-      setOperarios(resOps.data);
-      const inicial = resOps.data.find(o => o.id === operarioSelId) || resOps.data.find(o => o.lineaActualId === lineaSelId) || resOps.data[0];
-      if (inicial) {
-        setOperarioSelId(inicial.id);
-        setOperarioNombre(inicial.nombre);
-      }
+    let opsArray = resOps.data || [];
+    if (opsArray.length === 0) {
+      opsArray = restoreOperariosCatalog();
+    }
+    setOperarios(opsArray);
+    const inicial = opsArray.find(o => o.id === operarioSelId) || opsArray.find(o => o.lineaActualId === lineaSelId) || opsArray[0];
+    if (inicial) {
+      setOperarioSelId(inicial.id);
+      setOperarioNombre(inicial.nombre);
     }
     setLoading(false);
   };
@@ -1472,6 +1474,20 @@ export default function PanelOperario() {
 
               {/* Lista de operarios asignados a esta línea primero, y luego los demás */}
               <div className="space-y-4">
+                {operarios.length === 0 && (
+                  <div className="p-6 rounded-2xl bg-slate-950 border border-amber-500/40 text-center space-y-3">
+                    <Users className="w-10 h-10 text-amber-400 mx-auto opacity-80" />
+                    <p className="text-sm font-bold text-white">No hay operarios cargados en memoria local</p>
+                    <p className="text-xs text-slate-400">Pudes restaurar el catálogo completo de operarios predeterminados para continuar trabajando.</p>
+                    <button
+                      onClick={() => { const ops = restoreOperariosCatalog(); setOperarios(ops); }}
+                      className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-lg active:scale-95"
+                    >
+                      Restaurar Catálogo de Operarios
+                    </button>
+                  </div>
+                )}
+
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-wider text-blue-400 mb-2.5 flex items-center gap-1.5">
                     <Factory className="w-3.5 h-3.5" />
@@ -1479,7 +1495,10 @@ export default function PanelOperario() {
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {operarios
-                      .filter(op => op.estado === 'activo' && Array.isArray(op.lineas) && op.lineas.includes(lineaSelId))
+                      .filter(op => {
+                        const est = (op.estado || 'activo').toLowerCase();
+                        return est !== 'inactivo' && est !== 'baja' && est !== 'caducado' && opTienePermisoEnLinea(op, lineaSelId);
+                      })
                       .map(op => {
                         const isSel = op.id === operarioSelId;
                         return (
@@ -1525,7 +1544,10 @@ export default function PanelOperario() {
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {operarios
-                      .filter(op => op.estado === 'activo' && (!Array.isArray(op.lineas) || !op.lineas.includes(lineaSelId)))
+                      .filter(op => {
+                        const est = (op.estado || 'activo').toLowerCase();
+                        return est !== 'inactivo' && est !== 'baja' && est !== 'caducado' && !opTienePermisoEnLinea(op, lineaSelId);
+                      })
                       .map(op => {
                         const isSel = op.id === operarioSelId;
                         return (
