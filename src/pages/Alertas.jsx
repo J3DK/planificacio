@@ -11,7 +11,7 @@ const tipoConfig = {
   advertencia:{ cls: 'border-amber-500/30 bg-amber-500/5', badge: 'badge-warn',   label: 'Advertencia', iconCls: 'text-amber-400' },
   info:       { cls: 'border-blue-500/20 bg-blue-500/5',   badge: 'badge-info',   label: 'Info',        iconCls: 'text-blue-400' },
 };
-const moduloLabel = { materias_primas: 'Materias Primas', paradas: 'Paradas', secuencia: 'Secuencia', lineas: 'Líneas', produccion: 'Producción', mantenimiento: 'Mantenimiento' };
+const moduloLabel = { materias_primas: 'Materias Primas', paradas: 'Paradas', secuencia: 'Secuencia', lineas: 'Líneas', produccion: 'Producción', mantenimiento: 'Mantenimiento', operarios: 'Operarios & Formación' };
 
 const ALERTA_FIELDS = [
   { key: 'tipo',        label: 'Tipo',        type: 'select', required: true,
@@ -19,10 +19,10 @@ const ALERTA_FIELDS = [
   { key: 'titulo',      label: 'Título',      type: 'text',   required: true, placeholder: 'Ruptura de stock...' },
   { key: 'descripcion', label: 'Descripción', type: 'textarea', placeholder: 'Descripción detallada...' },
   { key: 'modulo',      label: 'Módulo',      type: 'select',
-    options: [{ value: 'materias_primas', label: 'Materias Primas' }, { value: 'paradas', label: 'Paradas' }, { value: 'secuencia', label: 'Secuencia' }, { value: 'lineas', label: 'Líneas' }, { value: 'produccion', label: 'Producción' }, { value: 'mantenimiento', label: 'Mantenimiento' }] },
+    options: [{ value: 'materias_primas', label: 'Materias Primas' }, { value: 'paradas', label: 'Paradas' }, { value: 'secuencia', label: 'Secuencia' }, { value: 'lineas', label: 'Líneas' }, { value: 'produccion', label: 'Producción' }, { value: 'mantenimiento', label: 'Mantenimiento' }, { value: 'operarios', label: 'Operarios & Formación' }] },
   { key: 'linea',       label: 'Línea',       type: 'text',   placeholder: 'Línea 3' },
   { key: 'icono',       label: 'Icono',       type: 'select',
-    options: ['AlertTriangle', 'Wrench', 'Clock', 'TrendingDown', 'Package', 'CheckCircle', 'BarChart2'] },
+    options: ['AlertTriangle', 'Wrench', 'Clock', 'TrendingDown', 'Package', 'CheckCircle', 'BarChart2', 'GraduationCap'] },
 ];
 
 export default function Alertas() {

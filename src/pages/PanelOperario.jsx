@@ -21,7 +21,7 @@ import {
   fetchSecuencia, updateSecuencia,
   insertAlerta,
   fetchHistorial,
-  fetchOperarios, getCurrentShiftInfo
+  fetchOperarios, updateOperario, registrarHistorialOperario, getCurrentShiftInfo
 } from '@/services/dataService';
 
 export default function PanelOperario() {
@@ -35,6 +35,10 @@ export default function PanelOperario() {
   const [pinLoginActivo, setPinLoginActivo] = useState(false); // Modo login por PIN (preparado)
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [warningPermisoOpen, setWarningPermisoOpen] = useState(false);
+  const [warningPermisoLineaOpen, setWarningPermisoLineaOpen] = useState(false);
+  const [pendingLoginOp, setPendingLoginOp] = useState(null);
+  const [pendingLineaId, setPendingLineaId] = useState(null);
   const [activeTab, setActiveTab] = useState('produccion'); // produccion | paradas | materiales | secuencia | historial | productos
 
   // Datos en vivo de Supabase / Local
@@ -99,7 +103,7 @@ export default function PanelOperario() {
     if (resProd.data) setProductos(resProd.data);
     if (resOps.data) {
       setOperarios(resOps.data);
-      const inicial = resOps.data.find(o => o.id === operarioSelId) || resOps.data[0];
+      const inicial = resOps.data.find(o => o.id === operarioSelId) || resOps.data.find(o => o.lineaActualId === lineaSelId) || resOps.data[0];
       if (inicial) {
         setOperarioSelId(inicial.id);
         setOperarioNombre(inicial.nombre);
@@ -119,6 +123,7 @@ export default function PanelOperario() {
     window.addEventListener('productos_updated', handler);
     window.addEventListener('produccion_updated', handler);
     window.addEventListener('mantenimiento_updated', handler);
+    window.addEventListener('operarios_updated', handler);
     return () => {
       window.removeEventListener('lineas_updated', handler);
       window.removeEventListener('paradas_updated', handler);
@@ -128,6 +133,7 @@ export default function PanelOperario() {
       window.removeEventListener('productos_updated', handler);
       window.removeEventListener('produccion_updated', handler);
       window.removeEventListener('mantenimiento_updated', handler);
+      window.removeEventListener('operarios_updated', handler);
     };
   }, []);
 
@@ -155,6 +161,100 @@ export default function PanelOperario() {
     const paradas = historialFiltrado.reduce((s, r) => s + r.paradas, 0);
     return { producido, oee: oee.toFixed(1), calidad: calidad.toFixed(1), paradas };
   }, [historialFiltrado]);
+
+  // ─── HELPER FUNCIONES DE LOGIN REAL Y VINCULACIÓN DE LÍNEA ───────────────────
+  const opTienePermisoEnLinea = (op, lId) => {
+    if (!op || !lId) return true;
+    const enLineas = Array.isArray(op.lineas) && op.lineas.includes(lId);
+    const enPermisos = Array.isArray(op.permisos) && op.permisos.some(p => p.equipoId === lId);
+    const esRolGeneral = ['jefe de línea', 'electromecánico', 'mantenimiento', 'inspector', 'supervisor', 'coordinador'].some(r => (op.rol || '').toLowerCase().includes(r));
+    return enLineas || enPermisos || esRolGeneral;
+  };
+
+  const handleSelectOperarioClick = (op) => {
+    if (pinLoginActivo && op.pin && pinInput !== op.pin) {
+      setPinError(true);
+      return;
+    }
+    if (!opTienePermisoEnLinea(op, lineaSelId)) {
+      setPendingLoginOp(op);
+      setWarningPermisoOpen(true);
+      return;
+    }
+    ejecutarLoginOperario(op, lineaSelId);
+  };
+
+  const ejecutarLoginOperario = async (op, targetLineaId) => {
+    setOperarioSelId(op.id);
+    setOperarioNombre(op.nombre);
+    setModalOperarioOpen(false);
+    setWarningPermisoOpen(false);
+    setPendingLoginOp(null);
+
+    await updateOperario(op.id, { lineaActualId: targetLineaId });
+    const lObj = lineas.find(l => l.id === targetLineaId);
+    await registrarHistorialOperario(op.id, {
+      tipo: 'turno_inicio',
+      descripcion: `Inicio de turno ${turnoSel} en ${lObj?.nombre || targetLineaId} como ${op.rol || 'Operario'}`,
+      linea: targetLineaId,
+      piezas: 0
+    });
+    window.dispatchEvent(new CustomEvent('operarios_updated'));
+  };
+
+  const handleCambioLinea = async (nuevaLineaId) => {
+    if (!operarioSelId) {
+      setLineaSelId(nuevaLineaId);
+      return;
+    }
+    const op = operarios.find(o => o.id === operarioSelId);
+    if (op && !opTienePermisoEnLinea(op, nuevaLineaId)) {
+      setPendingLineaId(nuevaLineaId);
+      setWarningPermisoLineaOpen(true);
+      return;
+    }
+    await ejecutarCambioLinea(nuevaLineaId);
+  };
+
+  const ejecutarCambioLinea = async (nuevaLineaId) => {
+    const lAnt = lineaSelId;
+    setLineaSelId(nuevaLineaId);
+    setWarningPermisoLineaOpen(false);
+    setPendingLineaId(null);
+
+    if (operarioSelId) {
+      await updateOperario(operarioSelId, { lineaActualId: nuevaLineaId });
+      const lObj = lineas.find(l => l.id === nuevaLineaId);
+      await registrarHistorialOperario(operarioSelId, {
+        tipo: 'cambio_linea',
+        descripcion: `Cambio de puesto de ${lAnt} a ${lObj?.nombre || nuevaLineaId} durante turno ${turnoSel}`,
+        linea: nuevaLineaId,
+        piezas: histKpis?.producido || 0
+      });
+      window.dispatchEvent(new CustomEvent('operarios_updated'));
+    }
+  };
+
+  const handleCerrarTurno = async (e) => {
+    if (e) e.stopPropagation();
+    if (operarioSelId) {
+      const op = operarios.find(o => o.id === operarioSelId);
+      const lObj = lineas.find(l => l.id === lineaSelId);
+      await registrarHistorialOperario(operarioSelId, {
+        tipo: 'turno_fin',
+        descripcion: `Cierre de turno ${turnoSel} en ${lObj?.nombre || lineaSelId} por ${op?.nombre || 'Operario'} (${histKpis?.producido || 0} uds producidas)`,
+        linea: lineaSelId,
+        piezas: histKpis?.producido || 0
+      });
+      await updateOperario(operarioSelId, { lineaActualId: null });
+      window.dispatchEvent(new CustomEvent('operarios_updated'));
+    }
+    setOperarioSelId('');
+    setOperarioNombre('Seleccionar Operario');
+    setPinInput('');
+    setPinError(false);
+    setModalOperarioOpen(true);
+  };
 
   // Datos agrupados por fecha para gráfico de barras
   const histGrafico = useMemo(() => {
@@ -459,7 +559,7 @@ export default function PanelOperario() {
             <span className="text-xs font-bold text-slate-400 uppercase">Puesto:</span>
             <select
               value={lineaSelId}
-              onChange={e => setLineaSelId(e.target.value)}
+              onChange={e => handleCambioLinea(e.target.value)}
               className="bg-transparent text-white font-black text-sm focus:outline-none cursor-pointer"
             >
               {lineas.map(l => (
@@ -486,38 +586,47 @@ export default function PanelOperario() {
           </div>
 
           {/* Operario Interactivo */}
-          <button
-            onClick={() => { setPinInput(''); setPinError(false); setModalOperarioOpen(true); }}
-            className="bg-slate-800/90 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 rounded-2xl px-3 py-1.5 flex items-center gap-2.5 transition-all active:scale-95 group text-left shadow-lg"
-            title="Seleccionar o cambiar operario del puesto / Login PIN"
-          >
-            {(() => {
-              const opActivo = operarios.find(o => o.id === operarioSelId) || { nombre: operarioNombre, rol: 'Operario' };
-              return (
-                <>
-                  {opActivo.avatar ? (
-                    <img src={opActivo.avatar} alt={opActivo.nombre} className="w-7 h-7 rounded-xl object-cover border border-amber-500/60 shadow-sm" />
-                  ) : (
-                    <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-black text-xs">
-                      {opActivo.nombre?.slice(0, 2).toUpperCase()}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => { setPinInput(''); setPinError(false); setModalOperarioOpen(true); }}
+              className="bg-slate-800/90 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 rounded-2xl px-3 py-1.5 flex items-center gap-2.5 transition-all active:scale-95 group text-left shadow-lg"
+              title="Seleccionar o cambiar operario del puesto / Login PIN"
+            >
+              {(() => {
+                const opActivo = operarios.find(o => o.id === operarioSelId) || { nombre: operarioNombre, rol: 'Operario' };
+                return (
+                  <>
+                    {opActivo.avatar ? (
+                      <img src={opActivo.avatar} alt={opActivo.nombre} className="w-7 h-7 rounded-xl object-cover border border-amber-500/60 shadow-sm" />
+                    ) : (
+                      <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-black text-xs">
+                        {opActivo.nombre?.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black text-white group-hover:text-amber-300 transition-colors leading-none">{opActivo.nombre}</span>
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          {opActivo.rol || 'Operario'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                        <span>Cambiar operario</span>
+                        <span className="text-[9px] text-purple-400 font-mono font-bold">(PIN Login)</span>
+                      </p>
                     </div>
-                  )}
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-black text-white group-hover:text-amber-300 transition-colors leading-none">{opActivo.nombre}</span>
-                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        {opActivo.rol || 'Operario'}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
-                      <span>Cambiar operario</span>
-                      <span className="text-[9px] text-purple-400 font-mono font-bold">(PIN Login)</span>
-                    </p>
-                  </div>
-                </>
-              );
-            })()}
-          </button>
+                  </>
+                );
+              })()}
+            </button>
+            <button
+              onClick={handleCerrarTurno}
+              className="p-2.5 rounded-2xl bg-slate-800/90 hover:bg-red-600/20 border border-slate-700 hover:border-red-500/50 text-slate-400 hover:text-red-400 transition-all active:scale-95 shadow-lg flex items-center justify-center"
+              title="Cerrar turno y desvincular operario de la línea en vivo"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
 
           {/* Refrescar */}
           <button
@@ -1707,15 +1816,7 @@ export default function PanelOperario() {
                         return (
                           <button
                             key={op.id}
-                            onClick={() => {
-                              if (pinLoginActivo && op.pin && pinInput !== op.pin) {
-                                setPinError(true);
-                                return;
-                              }
-                              setOperarioSelId(op.id);
-                              setOperarioNombre(op.nombre);
-                              setModalOperarioOpen(false);
-                            }}
+                            onClick={() => handleSelectOperarioClick(op)}
                             className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all group ${
                               isSel
                                 ? 'bg-amber-500/15 border-amber-500/60 shadow-lg'
@@ -1761,15 +1862,7 @@ export default function PanelOperario() {
                         return (
                           <button
                             key={op.id}
-                            onClick={() => {
-                              if (pinLoginActivo && op.pin && pinInput !== op.pin) {
-                                setPinError(true);
-                                return;
-                              }
-                              setOperarioSelId(op.id);
-                              setOperarioNombre(op.nombre);
-                              setModalOperarioOpen(false);
-                            }}
+                            onClick={() => handleSelectOperarioClick(op)}
                             className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all group opacity-80 hover:opacity-100 ${
                               isSel
                                 ? 'bg-amber-500/15 border-amber-500/60 shadow-lg'
@@ -1811,6 +1904,80 @@ export default function PanelOperario() {
                   className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all"
                 >
                   Cerrar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* ── MODAL AVISO NO BLOQUEANTE: PERMISO PARA LOGIN EN LÍNEA ── */}
+        {warningPermisoOpen && pendingLoginOp && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-slate-900 border border-amber-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+              <div className="flex items-center gap-3 text-amber-400">
+                <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-500/30">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">Aviso de Habilitación / Permisos</h3>
+                  <p className="text-xs text-amber-400/80 font-bold">Verificación de competencias en línea</p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                El operario <strong className="text-white font-black">{pendingLoginOp.nombre}</strong> no figura expresamente habilitado ni en sus líneas asignadas ni en sus permisos para el puesto <strong className="text-amber-400 font-mono">{lineas.find(l => l.id === lineaSelId)?.nombre || lineaSelId}</strong>.
+              </p>
+              <p className="text-xs text-slate-400 bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                ¿Deseas confirmar el login y vincular al operario a esta línea para el turno en curso de todas formas?
+              </p>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  onClick={() => { setWarningPermisoOpen(false); setPendingLoginOp(null); }}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => ejecutarLoginOperario(pendingLoginOp, lineaSelId)}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all shadow-lg shadow-amber-500/20"
+                >
+                  Continuar de todas formas
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* ── MODAL AVISO NO BLOQUEANTE: CAMBIO DE LÍNEA SIN PERMISO ── */}
+        {warningPermisoLineaOpen && pendingLineaId && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-slate-900 border border-amber-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+              <div className="flex items-center gap-3 text-amber-400">
+                <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-500/30">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">Cambio de Línea / Puesto</h3>
+                  <p className="text-xs text-amber-400/80 font-bold">Verificación de cualificación técnica</p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                El operario activo <strong className="text-white font-black">{operarioNombre}</strong> no cuenta con registro explícito de habilitación técnica en <strong className="text-amber-400 font-mono">{lineas.find(l => l.id === pendingLineaId)?.nombre || pendingLineaId}</strong>.
+              </p>
+              <p className="text-xs text-slate-400 bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                ¿Confirmas el traslado de puesto para continuar registrando producción aquí?
+              </p>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  onClick={() => { setWarningPermisoLineaOpen(false); setPendingLineaId(null); }}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => ejecutarCambioLinea(pendingLineaId)}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all shadow-lg shadow-amber-500/20"
+                >
+                  Confirmar Cambio
                 </button>
               </div>
             </motion.div>

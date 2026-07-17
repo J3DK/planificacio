@@ -19,7 +19,7 @@ import {
   addChecklistItem, updateChecklistItem, removeChecklistItem,
   fetchSensoresPredictivos, insertSensorPredictivo, updateSensorPredictivo, deleteSensorPredictivo,
   insertEquipoEnLinea, updateEquipoEnArbol, deleteEquipoEnArbol, insertComponenteEnEquipo,
-  getEquiposPlanos
+  getEquiposPlanos, fetchOperarios, registrarHistorialOperario
 } from '@/services/dataService';
 import {
   kpisMantenimiento as mockKpis, evolucionDisponibilidadLinea, horasParadaPorCausaTecnica,
@@ -374,6 +374,8 @@ export default function Mantenimiento() {
 
   // Lista plana de equipos (para select en repuestos)
   const [equiposPlanos, setEquiposPlanos] = useState([]);
+  const [operariosList, setOperariosList] = useState([]);
+  const [formOtData, setFormOtData] = useState(null);
 
   // ─── Filtros OT ────────────────────────────────────────────────────────────
   const [filtroLineaOt, setFiltroLineaOt] = useState('Todas');
@@ -425,12 +427,13 @@ export default function Mantenimiento() {
   // ─── Carga inicial ──────────────────────────────────────────────────────────
   const loadAllData = useCallback(async () => {
     setLoading(true);
-    const [resOts, resAct, resRep, resPrev, resSens] = await Promise.all([
+    const [resOts, resAct, resRep, resPrev, resSens, resOps] = await Promise.all([
       fetchOrdenesTrabajo(),
       fetchActivosMantenimientoEditable(),
       fetchRepuestos(),
       fetchPlanesPreventivos(),
-      fetchSensoresPredictivos()
+      fetchSensoresPredictivos(),
+      fetchOperarios()
     ]);
     const activosData = resAct.data || [];
     setOts(resOts.data || []);
@@ -439,6 +442,7 @@ export default function Mantenimiento() {
     setPreventivos(resPrev.data || []);
     setSensores(resSens.data || []);
     setEquiposPlanos(getEquiposPlanos(activosData));
+    setOperariosList(resOps.data || []);
     setLoading(false);
   }, []);
 
@@ -447,11 +451,62 @@ export default function Mantenimiento() {
     const handler = () => loadAllData();
     window.addEventListener('mantenimiento_updated', handler);
     window.addEventListener('lineas_updated', handler);
+    window.addEventListener('operarios_updated', handler);
     return () => {
       window.removeEventListener('mantenimiento_updated', handler);
       window.removeEventListener('lineas_updated', handler);
+      window.removeEventListener('operarios_updated', handler);
     };
   }, [loadAllData]);
+
+  // Selector dinámico de Técnico capacitado para OTs
+  const otFieldsDynamic = React.useMemo(() => {
+    const targetLinea = (formOtData?.linea || editOtItem?.linea || '').replace(/ínea\s*/i, 'L').trim();
+    const targetActivo = (formOtData?.activoNombre || editOtItem?.activoNombre || '').toLowerCase();
+
+    const cualificados = operariosList.filter(op => {
+      if (op.estado !== 'activo') return false;
+      const enLineaActual = op.lineaActualId && (op.lineaActualId === targetLinea || targetLinea.includes(op.lineaActualId));
+      const enLineasAsignadas = Array.isArray(op.lineas) && op.lineas.some(l => l === targetLinea || targetLinea.includes(l));
+      const enPermisos = Array.isArray(op.permisos) && op.permisos.some(p => {
+        const eq = (p.equipoId || '').toLowerCase();
+        return eq && (targetActivo.includes(eq) || eq === targetLinea.toLowerCase());
+      });
+      const esMtoOrElectro = ['electromecánico', 'mantenimiento', 'mecánico', 'eléctrico'].some(r => (op.rol || '').toLowerCase().includes(r));
+      return enLineaActual || enLineasAsignadas || enPermisos || esMtoOrElectro;
+    });
+
+    const otros = operariosList.filter(op => op.estado === 'activo' && !cualificados.some(c => c.id === op.id));
+
+    const options = [];
+    if (cualificados.length > 0) {
+      cualificados.forEach(op => {
+        options.push({ value: op.nombre, label: `⭐ ${op.nombre} (${op.rol}) — [Cualificado/Recomendado]` });
+      });
+    }
+    if (otros.length > 0) {
+      otros.forEach(op => {
+        options.push({ value: op.nombre, label: `${op.nombre} (${op.rol})` });
+      });
+    }
+
+    // Compatibilidad hacia atrás: si la OT actual tiene un técnico como texto libre que no esté en el catálogo
+    if (editOtItem?.tecnico && !operariosList.some(op => op.nombre === editOtItem.tecnico || op.id === editOtItem.tecnico)) {
+      options.unshift({ value: editOtItem.tecnico, label: `📌 ${editOtItem.tecnico} (Asignación previa / Texto libre)` });
+    }
+
+    return OT_FIELDS.map(f => {
+      if (f.key === 'tecnico') {
+        return {
+          ...f,
+          type: 'select',
+          placeholder: 'Seleccionar técnico del catálogo...',
+          options
+        };
+      }
+      return f;
+    });
+  }, [operariosList, editOtItem, formOtData]);
 
   // Campo repuestos con equipos dinámicos
   const REPUESTO_FIELDS_DYNAMIC = [
@@ -474,25 +529,45 @@ export default function Mantenimiento() {
   // ─── Handlers OTs ──────────────────────────────────────────────────────────
   const openCreateOt = () => {
     setEditOtItem({ tipo: 'correctivo', prioridad: 'alta', estado: 'abierta', linea: 'Línea 1', tiempoEst: 60, tiempoReal: 0, costeTotal: 100, turno: 'Turno Mañana' });
+    setFormOtData(null);
     setOtModalMode('create');
     setOtModalOpen(true);
   };
-  const openEditOt = (item) => { setEditOtItem(item); setOtModalMode('edit'); setOtModalOpen(true); };
+  const openEditOt = (item) => { setEditOtItem(item); setFormOtData(null); setOtModalMode('edit'); setOtModalOpen(true); };
   const openDeleteOt = (item) => { setDeleteOtTarget(item); setConfirmOtOpen(true); };
 
   const handleSaveOt = async (data) => {
     setSaving(true);
     const otSave = { ...data, tiempoEst: Number(data.tiempoEst) || 60, tiempoReal: Number(data.tiempoReal) || 0, costeTotal: Number(data.costeTotal) || 0 };
+    let finalOtId = editOtItem?.id;
     if (otModalMode === 'create') {
       const { data: newOt } = await insertOrdenTrabajo(otSave);
-      if (newOt) setOts(prev => [newOt, ...prev]);
+      if (newOt) {
+        setOts(prev => [newOt, ...prev]);
+        finalOtId = newOt.id;
+      }
     } else {
       const { data: updOt } = await updateOrdenTrabajo(editOtItem.id, otSave);
       if (updOt) setOts(prev => prev.map(o => o.id === editOtItem.id ? updOt : o));
     }
+
+    // Registrar en historial del operario si pertenece al catálogo activo
+    if (data.tecnico) {
+      const opAsignado = operariosList.find(o => o.nombre === data.tecnico || o.id === data.tecnico || data.tecnico.includes(o.nombre));
+      if (opAsignado) {
+        await registrarHistorialOperario(opAsignado.id, {
+          tipo: 'asignacion_ot',
+          descripcion: `Asignación a OT #${finalOtId || 'NUEVA'} (${data.tipo ? data.tipo.toUpperCase() : 'MTO'}): ${data.titulo || data.activoNombre || 'Intervención técnica en ' + data.linea}`,
+          linea: data.linea || 'L1',
+          piezas: 0
+        });
+      }
+    }
+
     window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
     setSaving(false);
     setOtModalOpen(false);
+    setFormOtData(null);
   };
 
   const handleDeleteOt = async () => {
@@ -1661,9 +1736,46 @@ export default function Mantenimiento() {
       {/* ══════════════ MODALES ══════════════ */}
 
       {/* OT */}
-      <CrudModal isOpen={otModalOpen} onClose={() => setOtModalOpen(false)} onSave={handleSaveOt}
+      <CrudModal
+        isOpen={otModalOpen}
+        onClose={() => { setOtModalOpen(false); setFormOtData(null); }}
+        onSave={handleSaveOt}
+        onFormChange={setFormOtData}
         title={otModalMode === 'create' ? 'Crear Nueva Orden de Trabajo (OT)' : 'Modificar Orden de Trabajo'}
-        fields={OT_FIELDS} initialData={editOtItem} saving={saving} />
+        fields={otFieldsDynamic}
+        initialData={editOtItem}
+        saving={saving}
+      >
+        {(() => {
+          const techName = formOtData?.tecnico || editOtItem?.tecnico;
+          if (!techName) return null;
+          const opSelected = operariosList.find(o => o.nombre === techName || o.id === techName);
+          if (!opSelected) return null; // Texto libre previo / no catalogado
+
+          const targetLinea = (formOtData?.linea || editOtItem?.linea || '').replace(/ínea\s*/i, 'L').trim();
+          const targetActivo = (formOtData?.activoNombre || editOtItem?.activoNombre || '').toLowerCase();
+          const esCualificado = (opSelected.lineaActualId && (opSelected.lineaActualId === targetLinea || targetLinea.includes(opSelected.lineaActualId))) ||
+            (Array.isArray(opSelected.lineas) && opSelected.lineas.some(l => l === targetLinea || targetLinea.includes(l))) ||
+            (Array.isArray(opSelected.permisos) && opSelected.permisos.some(p => {
+              const eq = (p.equipoId || '').toLowerCase();
+              return eq && (targetActivo.includes(eq) || eq === targetLinea.toLowerCase());
+            })) ||
+            ['electromecánico', 'mantenimiento', 'mecánico', 'eléctrico'].some(r => (opSelected.rol || '').toLowerCase().includes(r));
+
+          if (!esCualificado) {
+            return (
+              <div className="mt-3 p-3.5 bg-amber-500/10 border border-amber-500/40 rounded-xl flex items-start gap-3 text-xs text-amber-300 animate-fade-in shadow-lg">
+                <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <span className="font-black text-amber-200 block mb-0.5">Aviso de Especialización / Asignación:</span>
+                  El operario <strong className="text-white font-bold">{opSelected.nombre}</strong> ({opSelected.rol}) no figura con asignación preferente o capacitación específica sobre <strong className="text-white font-mono">{targetLinea || targetActivo || 'esta línea/equipo'}</strong>. Puedes guardar la OT de todas formas si está realizando una intervención de apoyo o urgencia.
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()}
+      </CrudModal>
 
       {/* Repuesto */}
       <CrudModal isOpen={repModalOpen} onClose={() => setRepModalOpen(false)} onSave={handleSaveRep}

@@ -15,7 +15,7 @@ import { X, Save, Plus } from 'lucide-react';
  *   saving      {boolean}   — Deshabilitar botón mientras se guarda
  *   children    {ReactNode} — Contenido adicional opcional en el formulario
  */
-export default function CrudModal({ isOpen, onClose, onSave, title, fields = [], initialData = {}, saving = false, children = null }) {
+export default function CrudModal({ isOpen, onClose, onSave, title, fields = [], initialData = {}, saving = false, children = null, onFormChange = null }) {
   const [formData, setFormData] = React.useState({});
 
   useEffect(() => {
@@ -25,10 +25,15 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
         initial[f.key] = initialData[f.key] !== undefined ? initialData[f.key] : (f.default ?? (['multi-select', 'tag-list'].includes(f.type) ? [] : ''));
       });
       setFormData(initial);
+      if (onFormChange) onFormChange(initial);
     }
   }, [isOpen, initialData]);
 
-  const handleChange = (key, value) => setFormData(prev => ({ ...prev, [key]: value }));
+  const handleChange = (key, value) => setFormData(prev => {
+    const next = { ...prev, [key]: value };
+    if (onFormChange) onFormChange(next);
+    return next;
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();

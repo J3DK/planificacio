@@ -604,6 +604,85 @@ export async function generarAlertasAutomaticas() {
         }
       }
     }
+
+    // 4. Formaciones caducadas o próximas a caducar (operarios)
+    const { data: operariosActivos } = await fetchOperarios();
+    if (operariosActivos && Array.isArray(operariosActivos)) {
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+
+      for (const op of operariosActivos) {
+        if (op.estado === 'inactivo') continue;
+        const formacionesOp = op.formaciones || [];
+        for (const form of formacionesOp) {
+          if (!form.fechaCaducidad) continue;
+          const fechaCad = new Date(form.fechaCaducidad);
+          fechaCad.setHours(0, 0, 0, 0);
+          const diffMs = fechaCad.getTime() - hoy.getTime();
+          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+          const origenId = `formacion_${op.id}_${form.id || form.nombre}`;
+          const alertaExistente = alertas.find(a => a.origenId === origenId && !a.leida && !a.resuelta);
+
+          if (diffDays < 0) {
+            // Caducada -> crítica
+            const targetTipo = 'critica';
+            const targetTitulo = `Formación caducada: ${form.nombre} — ${op.nombre}`;
+            const targetDesc = `La formación "${form.nombre}" de ${op.nombre} venció el ${form.fechaCaducidad}. Se requiere reciclaje o renovación de certificado.`;
+
+            if (!alertaExistente) {
+              await insertAlerta({
+                tipo: targetTipo,
+                titulo: targetTitulo,
+                descripcion: targetDesc,
+                modulo: 'operarios',
+                linea: op.lineaActualId ? `Línea ${op.lineaActualId}` : 'Planta',
+                icono: 'GraduationCap',
+                timestamp: new Date().toISOString(),
+                leida: false,
+                resuelta: false,
+                origenId
+              });
+            } else if (alertaExistente.tipo !== targetTipo || alertaExistente.descripcion !== targetDesc) {
+              await updateAlerta(alertaExistente.id, {
+                tipo: targetTipo,
+                titulo: targetTitulo,
+                descripcion: targetDesc
+              });
+            }
+          } else if (diffDays <= 30) {
+            // Próxima a caducar -> advertencia
+            const targetTipo = 'advertencia';
+            const targetTitulo = `Formación próxima a caducar: ${form.nombre} — ${op.nombre}`;
+            const targetDesc = `La formación "${form.nombre}" de ${op.nombre} caducará en ${diffDays} días (${form.fechaCaducidad}). Programar sesión de reciclaje.`;
+
+            if (!alertaExistente) {
+              await insertAlerta({
+                tipo: targetTipo,
+                titulo: targetTitulo,
+                descripcion: targetDesc,
+                modulo: 'operarios',
+                linea: op.lineaActualId ? `Línea ${op.lineaActualId}` : 'Planta',
+                icono: 'GraduationCap',
+                timestamp: new Date().toISOString(),
+                leida: false,
+                resuelta: false,
+                origenId
+              });
+            } else if (alertaExistente.tipo !== targetTipo || alertaExistente.descripcion !== targetDesc) {
+              await updateAlerta(alertaExistente.id, {
+                tipo: targetTipo,
+                titulo: targetTitulo,
+                descripcion: targetDesc
+              });
+            }
+          } else if (alertaExistente) {
+            // Si ya se renovó (diffDays > 30) o no procede -> marcar como leída y resuelta automáticamente
+            await updateAlerta(alertaExistente.id, { leida: true, resuelta: true });
+          }
+        }
+      }
+    }
   } catch (e) {
     console.error('Error generando alertas automáticas:', e);
   } finally {
@@ -1889,6 +1968,30 @@ export async function deleteOperario(id) {
   setOperariosLocal(updated);
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('operarios_updated'));
   return { error: null };
+}
+
+export async function registrarHistorialOperario(operarioId, entrada) {
+  const current = getOperariosLocal() || mockOperarios;
+  const op = current.find(o => o.id === operarioId);
+  if (!op) return { data: null, error: 'Operario no encontrado' };
+
+  const historialActual = Array.isArray(op.historial) ? op.historial : [];
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const fechaStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  
+  const nuevaEntrada = {
+    id: entrada.id || `HS-${Date.now().toString().slice(-4)}`,
+    fecha: entrada.fecha || fechaStr,
+    tipo: entrada.tipo || 'actuacion',
+    descripcion: entrada.descripcion || '',
+    linea: entrada.linea || (op.lineaActualId ? `L${op.lineaActualId}` : 'Planta'),
+    piezas: entrada.piezas !== undefined ? Number(entrada.piezas) : 0,
+    ...entrada
+  };
+
+  const nuevoHistorial = [nuevaEntrada, ...historialActual];
+  return await updateOperario(operarioId, { historial: nuevoHistorial });
 }
 
 // ─── CATÁLOGO MAESTRO DE CUALIFICACIONES, SKILLS, FORMACIONES Y PERMISOS ────
