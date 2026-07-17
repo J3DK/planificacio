@@ -15,6 +15,7 @@ export const DEFAULT_MENU_ITEMS = [
   { path: '/calidad',            label: 'Calidad',              iconName: 'CheckSquare',     visible: true },
   { path: '/paradas',            label: 'Paradas',              iconName: 'StopCircle',      visible: true },
   { path: '/mantenimiento',      label: 'Mantenimiento',        iconName: 'Wrench',          visible: true },
+  { path: '/checklists',         label: 'Checklists & Pautas',  iconName: 'ListChecks',      visible: true },
   { path: '/materias-primas',    label: 'Materias Primas',      iconName: 'Package',         visible: true },
   { path: '/informes',           label: 'Informes',             iconName: 'FileBarChart',    visible: true },
   { path: '/alertas',            label: 'Alertas',              iconName: 'Bell',            visible: true },
@@ -78,6 +79,17 @@ export function getAppConfig() {
           currentMenu.splice(parIdx + 1, 0, mtoItem);
         } else {
           currentMenu.push(mtoItem);
+        }
+      }
+
+      // Reconciliación para el módulo de Checklists & Pautas
+      if (!currentMenu.some(item => item.path === '/checklists')) {
+        const mtoIdx = currentMenu.findIndex(item => item.path === '/mantenimiento');
+        const chkItem = { path: '/checklists', label: 'Checklists & Pautas', iconName: 'ListChecks', visible: true };
+        if (mtoIdx >= 0) {
+          currentMenu.splice(mtoIdx + 1, 0, chkItem);
+        } else {
+          currentMenu.push(chkItem);
         }
       }
 

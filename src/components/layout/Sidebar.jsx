@@ -59,6 +59,15 @@ export default function Sidebar() {
         list.push(cualifItem);
       }
     }
+    if (!list.some(i => i.path === '/checklists')) {
+      const mtoIdx = list.findIndex(i => i.path === '/mantenimiento');
+      const chkItem = { path: '/checklists', label: 'Checklists & Pautas', iconName: 'ListChecks', visible: true };
+      if (mtoIdx >= 0) {
+        list.splice(mtoIdx + 1, 0, chkItem);
+      } else {
+        list.push(chkItem);
+      }
+    }
     return list;
   }, [appConfig.menuOrder]);
 
