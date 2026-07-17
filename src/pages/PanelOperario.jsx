@@ -72,27 +72,14 @@ export default function PanelOperario() {
   const [histFiltroTurno, setHistFiltroTurno] = useState('todos');
   const [histFiltroPeriodo, setHistFiltroPeriodo] = useState('semana'); // hoy | semana | mes
 
-  // ─── PRODUCTOS ──────────────────────────────────────────────────────────────
-  const [productos, setProductos] = useState([]);
-  const [prodModal, setProdModal] = useState(false);         // modal nuevo/editar
-  const [prodEditing, setProdEditing] = useState(null);      // producto en edición (null = nuevo)
-  const [prodConfirmDel, setProdConfirmDel] = useState(null); // id a borrar
-  const [prodForm, setProdForm] = useState({
-    codigo: '', descripcion: '', cliente: '', familia: '',
-    tiempoCiclo: '', objetivoHora: '', peso: '', activo: true, notas: ''
-  });
-  const [prodSaving, setProdSaving] = useState(false);
-  const [prodSuccess, setProdSuccess] = useState(false);
-
   const loadAllData = async () => {
     setLoading(true);
-    const [resL, resP, resM, resS, resH, resProd, resOps] = await Promise.all([
+    const [resL, resP, resM, resS, resH, resOps] = await Promise.all([
       fetchLineas(),
       fetchParadas(),
       fetchMateriasPrimas(),
       fetchSecuencia(),
       fetchHistorial(),
-      fetchProductos(),
       fetchOperarios(),
     ]);
     if (resL.data) setLineas(resL.data);
@@ -100,7 +87,6 @@ export default function PanelOperario() {
     if (resM.data) setMateriales(resM.data);
     if (resS.data) setSecuencia(resS.data);
     if (resH.data) setHistorial(resH.data);
-    if (resProd.data) setProductos(resProd.data);
     if (resOps.data) {
       setOperarios(resOps.data);
       const inicial = resOps.data.find(o => o.id === operarioSelId) || resOps.data.find(o => o.lineaActualId === lineaSelId) || resOps.data[0];
@@ -273,46 +259,6 @@ export default function PanelOperario() {
 
   // Productos únicos para el filtro de historial
   const productosUnicos = useMemo(() => [...new Set(historial.map(r => r.producto))], [historial]);
-
-  // ─── ACCIONES PRODUCTOS ──────────────────────────────────────────────────────
-  const abrirNuevoProducto = () => {
-    setProdEditing(null);
-    setProdForm({ codigo: '', descripcion: '', cliente: '', familia: '', tiempoCiclo: '', objetivoHora: '', peso: '', activo: true, notas: '' });
-    setProdModal(true);
-  };
-
-  const abrirEditarProducto = (p) => {
-    setProdEditing(p.id);
-    setProdForm({ ...p });
-    setProdModal(true);
-  };
-
-  const guardarProducto = async () => {
-    if (!prodForm.codigo.trim() || !prodForm.descripcion.trim()) {
-      alert('El código y la descripción son obligatorios.');
-      return;
-    }
-    setProdSaving(true);
-    if (prodEditing) {
-      const { data } = await updateProducto(prodEditing, prodForm);
-      if (data) setProductos(prev => prev.map(p => p.id === prodEditing ? data : p));
-    } else {
-      const { data } = await insertProducto(prodForm);
-      if (data) setProductos(prev => [...prev, data]);
-    }
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('productos_updated'));
-    setProdSaving(false);
-    setProdModal(false);
-    setProdSuccess(true);
-    setTimeout(() => setProdSuccess(false), 2500);
-  };
-
-  const confirmarBorrarProducto = async (id) => {
-    await deleteProducto(id);
-    setProductos(prev => prev.filter(p => p.id !== id));
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('productos_updated'));
-    setProdConfirmDel(null);
-  };
 
   // Línea actualmente seleccionada
   const lineaActiva = lineas.find(l => l.id === lineaSelId) || {
@@ -685,14 +631,13 @@ export default function PanelOperario() {
       ) : null}
 
       {/* ── SELECTOR DE TABS / PESTAÑAS GIGANTES TÁCTILES ── */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         {[
           { id: 'produccion', label: '1. Producción', sub: 'Declarar Fabricación', icon: Factory, color: 'blue' },
           { id: 'paradas',    label: '2. Paradas', sub: 'Reportar Avería', icon: AlertTriangle, color: 'red' },
           { id: 'materiales', label: '3. Materiales', sub: 'Registrar Consumo', icon: Package, color: 'amber' },
           { id: 'secuencia',  label: '4. Secuencia', sub: 'Cambio Referencia', icon: ClipboardList, color: 'emerald' },
           { id: 'historial',  label: '5. Historial', sub: 'Métricas pasadas', icon: History, color: 'violet' },
-          { id: 'productos',  label: '6. Productos', sub: 'Catálogo de Refs.', icon: BoxesIcon, color: 'cyan' },
         ].map(t => {
           const isAct = activeTab === t.id;
           const activeColors = {
@@ -1437,7 +1382,7 @@ export default function PanelOperario() {
                             <td className={`p-3 text-right font-mono ${cumple ? 'text-emerald-400' : 'text-amber-400'}`}>{r.producido}</td>
                             <td className="p-3 text-right font-mono text-slate-400">{r.objetivo}</td>
                             <td className={`p-3 text-right font-mono ${r.oee >= 85 ? 'text-emerald-400' : r.oee >= 75 ? 'text-amber-400' : 'text-red-400'}`}>{r.oee}%</td>
-                            <td className={`p-3 text-right font-mono ${r.calidad >= 97 ? 'text-emerald-400' : 'text-amber-400'}`}>{r.calidad}%</td>
+                            <td className={`p-3 text-right font-mono ${r.calidad >= 97 ? 'text-emerald-400' : r.calidad >= 97 ? 'text-amber-400' : 'text-red-400'}`}>{r.calidad}%</td>
                             <td className={`p-3 text-right font-mono ${r.paradas > 2 ? 'text-red-400' : r.paradas > 0 ? 'text-amber-400' : 'text-slate-500'}`}>{r.paradas}</td>
                           </tr>
                         );
@@ -1447,282 +1392,6 @@ export default function PanelOperario() {
                 </div>
               </div>
             )}
-          </motion.div>
-        )}
-
-        {/* TAB 6: PRODUCTOS / REFERENCIAS DE FABRICACIÓN */}
-        {activeTab === 'productos' && (
-          <motion.div
-            key="tab-productos"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-6"
-          >
-            {/* CABECERA Y BOTÓN NUEVO */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-xl font-black text-white flex items-center gap-3">
-                  <BoxesIcon className="w-6 h-6 text-cyan-400" />
-                  Catálogo de Referencias de Fabricación
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">Gestiona los productos fabricados en las líneas — alta, modificación y baja de referencias</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {prodSuccess && (
-                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-black animate-bounce">
-                    ✓ Referencia guardada
-                  </span>
-                )}
-                <button
-                  onClick={abrirNuevoProducto}
-                  className="px-5 py-3 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-black text-sm shadow-lg shadow-cyan-900/30 flex items-center gap-2 transition-all active:scale-95"
-                >
-                  <Plus className="w-5 h-5" />
-                  Nueva Referencia
-                </button>
-              </div>
-            </div>
-
-            {/* MODAL FORMULARIO PRODUCTO */}
-            <AnimatePresence>
-              {prodModal && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.97 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.97 }}
-                  className="card p-6 border-cyan-500/40 bg-gradient-to-br from-cyan-950/20 to-slate-900"
-                >
-                  <div className="flex items-center justify-between mb-5">
-                    <h4 className="text-lg font-black text-white flex items-center gap-2">
-                      {prodEditing ? <Edit2 className="w-5 h-5 text-cyan-400" /> : <Plus className="w-5 h-5 text-cyan-400" />}
-                      {prodEditing ? 'Editar Referencia' : 'Nueva Referencia de Fabricación'}
-                    </h4>
-                    <button onClick={() => setProdModal(false)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-all">
-                      <XCircle className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Código *</label>
-                      <input
-                        type="text"
-                        value={prodForm.codigo}
-                        onChange={e => setProdForm(f => ({ ...f, codigo: e.target.value }))}
-                        placeholder="Ej: BAT-48V-100Ah"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-mono font-bold text-white focus:outline-none focus:border-cyan-500"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Descripción *</label>
-                      <input
-                        type="text"
-                        value={prodForm.descripcion}
-                        onChange={e => setProdForm(f => ({ ...f, descripcion: e.target.value }))}
-                        placeholder="Ej: Batería LFP 48V 100Ah — Estándar Industrial"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Cliente</label>
-                      <input
-                        type="text"
-                        value={prodForm.cliente}
-                        onChange={e => setProdForm(f => ({ ...f, cliente: e.target.value }))}
-                        placeholder="Ej: Cliente A"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Familia</label>
-                      <input
-                        type="text"
-                        value={prodForm.familia}
-                        onChange={e => setProdForm(f => ({ ...f, familia: e.target.value }))}
-                        placeholder="Ej: Baterías 48V"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Tiempo de Ciclo (seg)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={prodForm.tiempoCiclo}
-                        onChange={e => setProdForm(f => ({ ...f, tiempoCiclo: e.target.value }))}
-                        placeholder="Ej: 120"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Objetivo / Hora (uds)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={prodForm.objetivoHora}
-                        onChange={e => setProdForm(f => ({ ...f, objetivoHora: e.target.value }))}
-                        placeholder="Ej: 30"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Peso (kg)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={prodForm.peso}
-                        onChange={e => setProdForm(f => ({ ...f, peso: e.target.value }))}
-                        placeholder="Ej: 28.5"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3 pt-5">
-                      <button
-                        onClick={() => setProdForm(f => ({ ...f, activo: !f.activo }))}
-                        className={`w-12 h-6 rounded-full transition-all ${
-                          prodForm.activo ? 'bg-emerald-500' : 'bg-slate-700'
-                        }`}
-                      >
-                        <div className={`w-5 h-5 rounded-full bg-white transition-all mx-0.5 ${
-                          prodForm.activo ? 'translate-x-6' : 'translate-x-0'
-                        }`} />
-                      </button>
-                      <span className={`text-sm font-black ${prodForm.activo ? 'text-emerald-400' : 'text-slate-500'}`}>
-                        {prodForm.activo ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Notas internas</label>
-                      <textarea
-                        rows="2"
-                        value={prodForm.notas}
-                        onChange={e => setProdForm(f => ({ ...f, notas: e.target.value }))}
-                        placeholder="Observaciones, utillajes requeridos, certificaciones..."
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-cyan-500 resize-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 mt-5 pt-5 border-t border-slate-800">
-                    <button
-                      onClick={guardarProducto}
-                      disabled={prodSaving}
-                      className="px-6 py-3 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-black text-sm shadow-lg shadow-cyan-900/30 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                      <Save className="w-4 h-4" />
-                      {prodSaving ? 'Guardando...' : (prodEditing ? 'Guardar Cambios' : 'Crear Referencia')}
-                    </button>
-                    <button
-                      onClick={() => setProdModal(false)}
-                      className="px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-black text-sm transition-all"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* GRID DE PRODUCTOS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {productos.map(p => (
-                <div
-                  key={p.id}
-                  className={`rounded-3xl border-2 p-5 flex flex-col justify-between transition-all ${
-                    !p.activo
-                      ? 'border-slate-800 bg-slate-900/40 opacity-60'
-                      : 'border-slate-800 bg-slate-900/70 hover:border-cyan-500/50'
-                  }`}
-                >
-                  {/* Cabecera */}
-                  <div>
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <span className="font-mono text-xs font-bold text-cyan-400">{p.codigo}</span>
-                        {p.familia && (
-                          <span className="ml-2 text-[10px] text-slate-500 font-bold bg-slate-800 px-2 py-0.5 rounded-md">{p.familia}</span>
-                        )}
-                      </div>
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
-                        p.activo ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'
-                      }`}>
-                        {p.activo ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </div>
-                    <h4 className="font-black text-white text-sm leading-snug">{p.descripcion}</h4>
-                    {p.cliente && (
-                      <p className="text-xs text-slate-500 mt-0.5">Cliente: <strong className="text-slate-300">{p.cliente}</strong></p>
-                    )}
-
-                    {/* Métricas del producto */}
-                    <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800">
-                      <div className="text-center">
-                        <span className="text-[10px] font-bold text-slate-500 block uppercase">Ciclo</span>
-                        <span className="text-base font-black font-mono text-white">{p.tiempoCiclo || '—'}</span>
-                        <span className="text-[9px] text-slate-600">seg</span>
-                      </div>
-                      <div className="text-center">
-                        <span className="text-[10px] font-bold text-slate-500 block uppercase">Obj/h</span>
-                        <span className="text-base font-black font-mono text-emerald-400">{p.objetivoHora || '—'}</span>
-                        <span className="text-[9px] text-slate-600">uds</span>
-                      </div>
-                      <div className="text-center">
-                        <span className="text-[10px] font-bold text-slate-500 block uppercase">Peso</span>
-                        <span className="text-base font-black font-mono text-blue-400">{p.peso || '—'}</span>
-                        <span className="text-[9px] text-slate-600">kg</span>
-                      </div>
-                    </div>
-
-                    {p.notas && (
-                      <p className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-800 italic line-clamp-2">{p.notas}</p>
-                    )}
-                  </div>
-
-                  {/* Acciones */}
-                  <div className="flex gap-2 mt-4 pt-3 border-t border-slate-800">
-                    <button
-                      onClick={() => abrirEditarProducto(p)}
-                      className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-cyan-900/40 text-cyan-400 border border-slate-700 hover:border-cyan-500/40 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      Editar
-                    </button>
-                    {prodConfirmDel === p.id ? (
-                      <div className="flex gap-1 flex-1">
-                        <button
-                          onClick={() => confirmarBorrarProducto(p.id)}
-                          className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs transition-all active:scale-95"
-                        >
-                          ¡Borrar!
-                        </button>
-                        <button
-                          onClick={() => setProdConfirmDel(null)}
-                          className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 font-black text-xs transition-all"
-                        >
-                          <XCircle className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setProdConfirmDel(p.id)}
-                        className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-red-900/30 text-red-400 border border-slate-700 hover:border-red-500/40 font-black text-xs flex items-center gap-1.5 transition-all active:scale-95"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {productos.length === 0 && (
-                <div className="col-span-3 card p-10 text-center text-slate-500">
-                  <BoxesIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p className="font-bold">No hay referencias registradas</p>
-                  <p className="text-xs mt-1">Pulsa «Nueva Referencia» para añadir la primera</p>
-                </div>
-              )}
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
