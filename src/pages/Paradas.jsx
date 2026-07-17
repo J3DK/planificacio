@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   fetchParadas, insertParada, updateParada, deleteParada,
   fetchParadasPredeterminadas, insertParadaPredeterminada, updateParadaPredeterminada, deleteParadaPredeterminada,
-  generarOtDesdeParada, getCurrentShiftInfo
+  generarOtDesdeParada, getCurrentShiftInfo, fetchOrdenesTrabajo
 } from '@/services/dataService';
 import { paradasPorTipo, oeeWaterfall } from '@/data/mockParadas';
 import {
@@ -113,7 +113,14 @@ export default function Paradas() {
   const openCreate = () => { setEditItem({ estado: 'abierta', duracion: 0, impacto: 0, tipo: 'averia' }); setModalMode('create'); setModalOpen(true); };
   const openEdit = (parada) => { setEditItem(parada); setModalMode('edit'); setModalOpen(true); };
   const openDelete = (parada) => { setDeleteTarget(parada); setConfirmOpen(true); };
-  const openConfirmOt = (parada) => { setOtTarget(parada); setOtConfirmOpen(true); };
+  const openConfirmOt = (parada) => {
+    if (parada.estado === 'cerrada') {
+      alert('⚠️ No se puede vincular ni generar una Orden de Trabajo (OT) para una parada que ya está cerrada.');
+      return;
+    }
+    setOtTarget(parada);
+    setOtConfirmOpen(true);
+  };
 
   const handleConfirmGenerarOt = async () => {
     if (!otTarget) return;
@@ -121,20 +128,41 @@ export default function Paradas() {
     const { data: newOt } = await generarOtDesdeParada(otTarget);
     setGeneratingOt(false);
     setOtConfirmOpen(false);
-    alert(`✅ Orden de Trabajo (${newOt?.codigo || 'OT'}) generada y vinculada en Mantenimiento para la parada #${otTarget.id}.`);
+    if (newOt) {
+      setParadas(prev => prev.map(p => p.id === otTarget.id ? { ...p, otAsignada: newOt.codigo, otId: newOt.id } : p));
+      alert(`✅ Orden de Trabajo (${newOt?.codigo || 'OT'}) generada y vinculada en Mantenimiento para la parada #${otTarget.id}.`);
+    }
   };
 
   const handleSave = async (data) => {
     setSaving(true);
     let targetId = editItem.id || Date.now();
+
+    // Verificación si se intenta cerrar una parada vinculada a OT
+    if (modalMode === 'edit' && data.estado === 'cerrada' && editItem.estado !== 'cerrada') {
+      const { data: ots = [] } = await fetchOrdenesTrabajo();
+      const otVinculada = ots.find(o => String(o.paradaId) === String(editItem.id) || o.id === editItem.otId || o.codigo === editItem.otAsignada);
+      
+      if (otVinculada && otVinculada.estado !== 'completada' && otVinculada.estado !== 'cerrada') {
+        alert(`🔒 No se puede cerrar la parada #${editItem.id} porque tiene asignada la Orden de Trabajo abierta [${otVinculada.codigo}].\n\n⚠️ Si se le asigna una OT, solo Mantenimiento la puede cerrar una vez se complete la intervención en el módulo de Mantenimiento.`);
+        setSaving(false);
+        return;
+      } else if (editItem.otAsignada || editItem.otId || otVinculada) {
+        if (!window.confirm(`⚠️ Esta parada está vinculada a la OT (${editItem.otAsignada || editItem.otId || otVinculada?.codigo}).\n\n¿Confirmas que actúas por parte de Mantenimiento y que la intervención ha concluido para poder cerrar la parada?`)) {
+          setSaving(false);
+          return;
+        }
+      }
+    }
+
     if (modalMode === 'create') {
       const { data: newItem, error } = await insertParada(data);
       if (!error) {
         const created = newItem || { ...data, id: targetId };
         setParadas(prev => [...prev, created]);
         targetId = created.id;
-        // Si la categoría es Avería, preguntar o generar OT en mantenimiento opcionalmente o avisar
-        if (data.tipo === 'averia' && window.confirm('Esta parada se ha clasificado como "Avería". ¿Deseas generar automáticamente una Orden de Trabajo (OT) vinculada en el módulo de Mantenimiento?')) {
+        // Si la categoría es Avería y no está cerrada, preguntar para generar OT en mantenimiento
+        if (data.tipo === 'averia' && data.estado !== 'cerrada' && window.confirm('Esta parada se ha clasificado como "Avería". ¿Deseas generar automáticamente una Orden de Trabajo (OT) vinculada en el módulo de Mantenimiento?')) {
           await generarOtDesdeParada(created);
         }
       }
@@ -395,9 +423,15 @@ export default function Paradas() {
                         </td>
                         <td className="table-cell px-4">
                           <div className="flex items-center gap-1">
-                            <button onClick={() => openConfirmOt(p)} className="p-2 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 transition-all" title="Vincular / Generar OT en Mantenimiento">
-                              <Wrench className="w-3.5 h-3.5" />
-                            </button>
+                            {p.estado !== 'cerrada' ? (
+                              <button onClick={() => openConfirmOt(p)} className="p-2 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 transition-all" title="Vincular / Generar OT en Mantenimiento">
+                                <Wrench className="w-3.5 h-3.5" />
+                              </button>
+                            ) : (
+                              <button disabled className="p-2 rounded-lg text-slate-700 cursor-not-allowed opacity-40" title="Parada cerrada (No se puede generar OT)">
+                                <Wrench className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <button onClick={() => openEdit(p)} className="p-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 transition-all" title="Editar parada">
                               <Pencil className="w-3.5 h-3.5" />
                             </button>

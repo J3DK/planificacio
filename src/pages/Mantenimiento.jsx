@@ -19,7 +19,7 @@ import {
   addChecklistItem, updateChecklistItem, removeChecklistItem,
   fetchSensoresPredictivos, insertSensorPredictivo, updateSensorPredictivo, deleteSensorPredictivo,
   insertEquipoEnLinea, updateEquipoEnArbol, deleteEquipoEnArbol, insertComponenteEnEquipo,
-  getEquiposPlanos, fetchOperarios, registrarHistorialOperario
+  getEquiposPlanos, fetchOperarios, registrarHistorialOperario, fetchParadas, updateParada
 } from '@/services/dataService';
 import {
   kpisMantenimiento as mockKpis, evolucionDisponibilidadLinea, horasParadaPorCausaTecnica,
@@ -539,6 +539,18 @@ export default function Mantenimiento() {
   const handleSaveOt = async (data) => {
     setSaving(true);
     const otSave = { ...data, tiempoEst: Number(data.tiempoEst) || 60, tiempoReal: Number(data.tiempoReal) || 0, costeTotal: Number(data.costeTotal) || 0 };
+
+    // Si se asigna una parada, verificar que no esté ya cerrada si es nueva vinculación
+    if (otSave.paradaId && (otModalMode === 'create' || otSave.paradaId !== editOtItem?.paradaId)) {
+      const { data: paradasActuales = [] } = await fetchParadas();
+      const pCheck = paradasActuales.find(p => String(p.id) === String(otSave.paradaId));
+      if (pCheck && pCheck.estado === 'cerrada') {
+        alert(`⚠️ No se puede asignar o vincular esta Orden de Trabajo a la parada #${otSave.paradaId} porque dicha parada ya está cerrada.`);
+        setSaving(false);
+        return;
+      }
+    }
+
     let finalOtId = editOtItem?.id;
     if (otModalMode === 'create') {
       const { data: newOt } = await insertOrdenTrabajo(otSave);
@@ -549,6 +561,18 @@ export default function Mantenimiento() {
     } else {
       const { data: updOt } = await updateOrdenTrabajo(editOtItem.id, otSave);
       if (updOt) setOts(prev => prev.map(o => o.id === editOtItem.id ? updOt : o));
+    }
+
+    // Si Mantenimiento cierra o completa la OT y tiene una parada vinculada, resolver también la parada
+    if ((otSave.estado === 'completada' || otSave.estado === 'cerrada') && otSave.paradaId) {
+      const { data: paradasActuales = [] } = await fetchParadas();
+      const paradaVinculada = paradasActuales.find(p => String(p.id) === String(otSave.paradaId));
+      if (paradaVinculada && paradaVinculada.estado !== 'cerrada') {
+        const horaFin = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        await updateParada(paradaVinculada.id, { ...paradaVinculada, estado: 'cerrada', fin: horaFin });
+        window.dispatchEvent(new CustomEvent('paradas_updated'));
+        window.dispatchEvent(new CustomEvent('lineas_updated'));
+      }
     }
 
     // Registrar en historial del operario si pertenece al catálogo activo

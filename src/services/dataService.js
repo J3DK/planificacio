@@ -2159,6 +2159,10 @@ export async function deleteOrdenTrabajo(id) {
 }
 
 export async function generarOtDesdeParada(parada) {
+  if (!parada || parada.estado === 'cerrada') {
+    alert('⚠️ No se puede generar ni asignar una Orden de Trabajo a una parada que ya se encuentra cerrada.');
+    return { data: null, error: 'Parada cerrada' };
+  }
   const nuevaOt = {
     id: `OT-2026-${Math.floor(100 + Math.random() * 900)}`,
     codigo: `OT-${Math.floor(100 + Math.random() * 900)}`,
@@ -2180,7 +2184,11 @@ export async function generarOtDesdeParada(parada) {
     paradaId: parada.id,
     costeTotal: 95
   };
-  return await insertOrdenTrabajo(nuevaOt);
+  const res = await insertOrdenTrabajo(nuevaOt);
+  if (parada.id && res.data) {
+    await updateParada(parada.id, { ...parada, otAsignada: res.data.codigo || nuevaOt.codigo, otId: res.data.id || nuevaOt.id });
+  }
+  return res;
 }
 
 export async function fetchActivosMantenimiento() {

@@ -21,7 +21,7 @@ import {
   fetchSecuencia, updateSecuencia,
   insertAlerta,
   fetchHistorial,
-  fetchOperarios, updateOperario, registrarHistorialOperario, getCurrentShiftInfo, restoreOperariosCatalog
+  fetchOperarios, updateOperario, registrarHistorialOperario, getCurrentShiftInfo, restoreOperariosCatalog, fetchOrdenesTrabajo
 } from '@/services/dataService';
 
 export default function PanelOperario() {
@@ -383,6 +383,18 @@ export default function PanelOperario() {
   const reanudarLinea = async () => {
     if (!paradaAbierta) return;
 
+    // Verificar si la parada tiene una OT de Mantenimiento vinculada o abierta
+    const { data: ots = [] } = await fetchOrdenesTrabajo();
+    const otVinculada = ots.find(o => String(o.paradaId) === String(paradaAbierta.id) || o.id === paradaAbierta.otId || o.codigo === paradaAbierta.otAsignada);
+
+    if (otVinculada && otVinculada.estado !== 'completada' && otVinculada.estado !== 'cerrada') {
+      alert(`🔒 Esta parada está vinculada a la Orden de Trabajo abierta [${otVinculada.codigo}] en el módulo de Mantenimiento.\n\n⚠️ Si la OT permanece abierta, no puede cerrarla un operario. Solo Mantenimiento puede completarla y resolver la parada.`);
+      return;
+    } else if (paradaAbierta.otAsignada || paradaAbierta.otId || otVinculada) {
+      alert(`🔒 Esta parada tiene asignada la Orden de Trabajo (${paradaAbierta.otAsignada || paradaAbierta.otId || otVinculada?.codigo}).\n\n⚠️ Solo el personal del módulo de Mantenimiento está autorizado para cerrar paradas que tienen una OT asignada.`);
+      return;
+    }
+
     // Calcular duración estimada (15 min si no se puede calcular)
     const horaActual = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     const dur = 20; // estimado rapido
@@ -622,13 +634,28 @@ export default function PanelOperario() {
             </div>
           </div>
 
-          <button
-            onClick={reanudarLinea}
-            className="w-full md:w-auto px-6 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-2xl shadow-lg shadow-emerald-900/50 flex items-center justify-center gap-2 transition-all active:scale-95 flex-shrink-0"
-          >
-            <Play className="w-6 h-6 fill-white" />
-            REANUDAR LÍNEA (CERRAR PARADA)
-          </button>
+          {paradaAbierta?.otAsignada || paradaAbierta?.otId ? (
+            <div className="flex flex-col items-end gap-1.5 w-full md:w-auto">
+              <button
+                onClick={reanudarLinea}
+                className="w-full md:w-auto px-6 py-4 bg-slate-900 border border-amber-500/50 text-amber-300 hover:bg-slate-800 font-black text-sm rounded-2xl shadow-lg flex items-center justify-center gap-2.5 transition-all flex-shrink-0"
+              >
+                <Lock className="w-5 h-5 text-amber-400" />
+                REANUDAR BLOQUEADO (OT: {paradaAbierta.otAsignada || paradaAbierta.otId})
+              </button>
+              <span className="text-[10px] text-amber-400/90 font-bold max-w-xs text-right">
+                🔒 Solo Mantenimiento puede resolver la OT y cerrar esta parada.
+              </span>
+            </div>
+          ) : (
+            <button
+              onClick={reanudarLinea}
+              className="w-full md:w-auto px-6 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-2xl shadow-lg shadow-emerald-900/50 flex items-center justify-center gap-2 transition-all active:scale-95 flex-shrink-0"
+            >
+              <Play className="w-6 h-6 fill-white" />
+              REANUDAR LÍNEA (CERRAR PARADA)
+            </button>
+          )}
         </motion.div>
       ) : null}
 
