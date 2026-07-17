@@ -1090,13 +1090,23 @@ export default function PlanificacionLineas() {
                 {/* Código OF y Prioridad */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Código de Orden (OF)</label>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase flex items-center justify-between mb-1">
+                      <span>Código de Orden (OF)</span>
+                      {!formOrden.sinAsignar && modalMode === 'edit' && (
+                        <span className="text-[10px] text-amber-400 font-normal">🔒 Bloqueado en producción</span>
+                      )}
+                    </label>
                     <input
                       type="text"
+                      disabled={!formOrden.sinAsignar && modalMode === 'edit'}
                       value={formOrden.codigo || ''}
                       onChange={e => setFormOrden({ ...formOrden, codigo: e.target.value })}
                       placeholder="OF-2026-105"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-indigo-500 font-mono"
+                      className={`w-full border rounded-xl px-3 py-2 text-sm font-bold font-mono transition-colors ${
+                        !formOrden.sinAsignar && modalMode === 'edit'
+                          ? 'bg-slate-900/80 text-slate-500 border-slate-800 cursor-not-allowed'
+                          : 'bg-slate-950 border-slate-700 text-white focus:outline-none focus:border-indigo-500'
+                      }`}
                       required
                     />
                   </div>

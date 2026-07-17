@@ -387,7 +387,7 @@ function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, sav
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto space-y-4"
+        className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto space-y-5"
       >
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h3 className="text-white font-black text-base flex items-center gap-2">
@@ -400,7 +400,7 @@ function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, sav
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Referencia (Producto) *</label>
               <select
@@ -446,7 +446,7 @@ function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, sav
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Fecha Compromiso *</label>
               <input
@@ -470,6 +470,9 @@ function ModalEdicionSecuencia({ isOpen, onClose, onSave, mode, initialData, sav
                 <option value="pendiente">⚪ Pendiente</option>
               </select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Cantidad (uds)</label>
               <input
