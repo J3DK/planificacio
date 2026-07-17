@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Bell, RefreshCw, Clock, Cpu } from 'lucide-react';
+import { Bell, RefreshCw, Clock, Cpu, ShieldCheck } from 'lucide-react';
 import SupabaseStatus from '@/components/shared/SupabaseStatus';
 import { getCurrentShiftInfo, fetchAlertas } from '@/services/dataService';
 
 const routeTitles = {
   '/':              { title: 'Dashboard · Resumen',           sub: 'Plan Maestro de Producción — MPS' },
   '/panel-operario':{ title: 'Terminal Operario · Captura Manual', sub: 'Declaración en planta de producción, paradas y consumos' },
+  '/panel-calidad': { title: 'Terminal Calidad · Inspector en Planta', sub: 'Registro ágil de defectos, retrabajos, scrap, checklist y retenciones' },
   '/planificacion': { title: 'Planificación de Líneas',       sub: 'Gestión de capacidad y carga' },
   '/secuencia':     { title: 'Secuencia de Fabricación',      sub: 'Órdenes MTO priorizadas' },
   '/lineas':        { title: 'Líneas de Producción',          sub: 'Estado y OEE por línea · Asignación en vivo de personal' },
@@ -64,6 +65,16 @@ export default function Header() {
         >
           <Cpu className="w-3.5 h-3.5 animate-pulse" />
           <span className="hidden sm:inline">Modo Operario</span>
+        </Link>
+
+        {/* Botón rápido Terminal Calidad */}
+        <Link
+          to="/panel-calidad"
+          className="flex items-center gap-1.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs px-3 py-1.5 rounded-lg shadow-md shadow-red-900/30 transition-all active:scale-95"
+          title="Abrir Terminal de Calidad e Inspección en Planta"
+        >
+          <ShieldCheck className="w-3.5 h-3.5 animate-pulse" />
+          <span className="hidden sm:inline">Modo Calidad</span>
         </Link>
 
         {/* Clock */}

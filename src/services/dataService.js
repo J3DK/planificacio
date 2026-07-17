@@ -1656,6 +1656,110 @@ export const insertScrap         = scrapCRUD.insertFn;
 export const updateScrap         = scrapCRUD.updateFn;
 export const deleteScrap         = scrapCRUD.deleteFn;
 
+// ─── RETENCIONES DE CALIDAD (QUALITY HOLD) ───────────────────────────────────
+function getRetencionesCalidadLocal() {
+  try { const r = localStorage.getItem('mes_retenciones_calidad'); return r ? JSON.parse(r) : null; } catch (_) { return null; }
+}
+function setRetencionesCalidadLocal(d) {
+  try { localStorage.setItem('mes_retenciones_calidad', JSON.stringify(d)); } catch (_) {}
+}
+
+const retencionesCalidadIniciales = [
+  { id: 'RET-101', codigo: 'HOLD-001', linea: 'L3', motivo: 'Fallo repetido de estanqueidad en test final', gravedad: 'critica', estado: 'abierta', fechaApertura: new Date().toISOString().slice(0, 16).replace('T', ' '), fechaCierre: '', inspector: 'Laura Calidad (QC)' }
+];
+
+export async function fetchRetencionesCalidad() {
+  const local = getRetencionesCalidadLocal();
+  if (local) return { data: local, fromSupabase: false };
+  setRetencionesCalidadLocal(retencionesCalidadIniciales);
+  return { data: retencionesCalidadIniciales, fromSupabase: false };
+}
+
+export async function insertRetencionCalidad(item) {
+  const current = (await fetchRetencionesCalidad()).data || [];
+  const newItem = {
+    id: item.id || `RET-${Date.now()}`,
+    codigo: item.codigo || `HOLD-${Math.floor(100 + Math.random() * 900)}`,
+    linea: item.linea || 'L1',
+    motivo: item.motivo || 'Defecto crítico detectado en inspección',
+    gravedad: item.gravedad || 'critica',
+    estado: item.estado || 'abierta',
+    fechaApertura: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    fechaCierre: '',
+    inspector: item.inspector || 'Inspector Calidad'
+  };
+  const updated = [newItem, ...current];
+  setRetencionesCalidadLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('calidad_updated'));
+  return { data: newItem, error: null };
+}
+
+export async function updateRetencionCalidad(id, changes) {
+  const current = (await fetchRetencionesCalidad()).data || [];
+  let updatedItem = null;
+  const updated = current.map(item => {
+    if (item.id === id) {
+      updatedItem = { ...item, ...changes };
+      return updatedItem;
+    }
+    return item;
+  });
+  setRetencionesCalidadLocal(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('calidad_updated'));
+  return { data: updatedItem, error: null };
+}
+
+export async function deleteRetencionCalidad(id) {
+  const current = (await fetchRetencionesCalidad()).data || [];
+  setRetencionesCalidadLocal(current.filter(item => item.id !== id));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('calidad_updated'));
+  return { error: null };
+}
+
+// Helper común para registrar incidencias de calidad rápidas desde Planta (PanelOperario & PanelCalidad)
+export async function registrarIncidenciaCalidad({ tipo, causa, cantidad, pct, lineaId, lineaActiva, operarioNombre }) {
+  const qty = Number(cantidad) || 1;
+  const motivoStr = `${causa} (${lineaActiva?.nombre || lineaId} - ${operarioNombre || 'Planta'})`;
+
+  if (tipo === 'scrap') {
+    await insertScrap({
+      descripcion: motivoStr,
+      causa: causa,
+      cantidad: qty,
+      unidad: 'ud',
+      costeUnitario: 12,
+      linea: lineaActiva?.nombre || lineaId,
+      fecha: new Date().toISOString().slice(0, 10),
+      turno: getCurrentShiftInfo().shift,
+      destino: 'Chatarra'
+    });
+  } else if (tipo === 'defecto') {
+    await insertDefecto({
+      causa: motivoStr,
+      categoria: 'Inspección Planta',
+      cantidad: qty,
+      pct: pct || 5,
+      linea: lineaActiva?.nombre || lineaId,
+      gravedad: 'alta'
+    });
+  }
+
+  // Ajuste de calidad en la línea si se indica
+  if (lineaId && lineaActiva) {
+    const castigo = tipo === 'scrap' ? 0.6 : 0.3;
+    const nuevaCalidad = Math.max(70, Number(lineaActiva.calidad || 98) - castigo);
+    await updateLinea(lineaId, { ...lineaActiva, calidad: Number(nuevaCalidad.toFixed(1)) });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('lineas_updated'));
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('calidad_updated'));
+    window.dispatchEvent(new CustomEvent('produccion_updated'));
+  }
+}
+
 // ─── PLANIFICACIÓN (GANTT) & SINCRONIZACIÓN CON EL RESTO DE LA APP ────────────
 
 const ordenesGanttDefault = [

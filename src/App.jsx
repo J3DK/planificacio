@@ -15,6 +15,7 @@ import Informes from '@/pages/Informes';
 import Alertas from '@/pages/Alertas';
 import Metricas from '@/pages/Metricas';
 import PanelOperario from '@/pages/PanelOperario';
+import PanelCalidad from '@/pages/PanelCalidad';
 import Historial from '@/pages/Historial';
 import Operarios from '@/pages/Operarios';
 import Cualificaciones from '@/pages/Cualificaciones';
@@ -24,7 +25,7 @@ import Configuracion from '@/pages/Configuracion';
 
 function Layout({ children }) {
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       <Sidebar />
       <Header />
       <main className="lg:pl-60 pt-16 transition-all duration-300">
@@ -47,6 +48,7 @@ export default function App() {
     window.addEventListener('secuencia_updated', handler);
     window.addEventListener('paradas_updated', handler);
     window.addEventListener('produccion_updated', handler);
+    window.addEventListener('calidad_updated', handler);
     return () => {
       window.removeEventListener('materiales_updated', handler);
       window.removeEventListener('mantenimiento_updated', handler);
@@ -55,6 +57,7 @@ export default function App() {
       window.removeEventListener('secuencia_updated', handler);
       window.removeEventListener('paradas_updated', handler);
       window.removeEventListener('produccion_updated', handler);
+      window.removeEventListener('calidad_updated', handler);
     };
   }, []);
 
@@ -63,6 +66,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Layout><Dashboard /></Layout>} />
         <Route path="/panel-operario" element={<PanelOperario />} />
+        <Route path="/panel-calidad" element={<PanelCalidad />} />
         <Route path="/operarios" element={<Layout><Operarios /></Layout>} />
         <Route path="/cualificaciones" element={<Layout><Cualificaciones /></Layout>} />
         <Route path="/productos" element={<Layout><Productos /></Layout>} />

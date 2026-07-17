@@ -7,13 +7,15 @@ import {
 import {
   ShieldCheck, AlertTriangle, Wrench, MessageSquareWarning, Trash2,
   Plus, Edit2, Save, XCircle, Check, RefreshCw, ChevronDown,
-  Factory, TrendingUp, Package
+  Factory, TrendingUp, Package, ShieldAlert, Lock, Unlock
 } from 'lucide-react';
 import {
   fetchDefectos, insertDefecto, updateDefecto, deleteDefecto,
   fetchRetrabajos, insertRetrabajo, updateRetrabajo, deleteRetrabajo,
   fetchReclamaciones, insertReclamacion, updateReclamacion, deleteReclamacion,
-  fetchScraps, insertScrap, updateScrap, deleteScrap, getCurrentShiftInfo
+  fetchScraps, insertScrap, updateScrap, deleteScrap,
+  fetchRetencionesCalidad, insertRetencionCalidad, updateRetencionCalidad, deleteRetencionCalidad,
+  getCurrentShiftInfo
 } from '@/services/dataService';
 import { kpisCalidad, evolucionCalidad, calidadPorLinea } from '@/data/mockCalidad';
 import KPICard from '@/components/shared/KPICard';
@@ -26,6 +28,7 @@ const EMPTY_DEFECTO      = { causa: '', categoria: 'Proceso', cantidad: '', pct:
 const EMPTY_RETRABAJO    = { descripcion: '', causa: '', cantidad: '', tiempoUnitario: '', linea: '', fecha: new Date().toISOString().slice(0,10), operario: '', estado: 'pendiente' };
 const EMPTY_RECLAMACION  = { referencia: '', cliente: '', producto: '', descripcion: '', cantidad: '', gravedad: 'media', estado: 'abierta', fechaApertura: new Date().toISOString().slice(0,10), fechaCierre: '', responsable: '', accionCorrectora: '' };
 const EMPTY_SCRAP        = { descripcion: '', causa: '', cantidad: '', unidad: 'ud', costeUnitario: '', linea: '', fecha: new Date().toISOString().slice(0,10), turno: getCurrentShiftInfo().shift, destino: 'Chatarra' };
+const EMPTY_RETENCION    = { codigo: '', linea: 'L1', motivo: '', gravedad: 'critica', estado: 'abierta', inspector: 'Inspector Calidad' };
 
 // ─── Modal genérico ──────────────────────────────────────────────────────────
 function CrudModal({ title, icon: Icon, iconColor, onClose, onSave, saving, children }) {
@@ -144,11 +147,12 @@ export default function Calidad() {
   const [activeTab, setActiveTab] = useState('resumen');
   const [loading, setLoading] = useState(true);
 
-  // Datos de los 4 catálogos
+  // Datos de los 5 catálogos
   const [defectos,     setDefectos]     = useState([]);
   const [retrabajos,   setRetrabajos]   = useState([]);
   const [reclamaciones,setReclamaciones]= useState([]);
   const [scraps,       setScraps]       = useState([]);
+  const [retenciones,  setRetenciones]  = useState([]);
 
   // Estado modal + formulario activo
   const [modal,    setModal]    = useState(null); // 'new' | 'edit'
@@ -162,16 +166,18 @@ export default function Calidad() {
   const [formRet, setFormRet]  = useState(EMPTY_RETRABAJO);
   const [formRec, setFormRec]  = useState(EMPTY_RECLAMACION);
   const [formScr, setFormScr]  = useState(EMPTY_SCRAP);
+  const [formReten, setFormReten] = useState(EMPTY_RETENCION);
 
   const loadAll = async () => {
     setLoading(true);
-    const [d, r, c, s] = await Promise.all([
-      fetchDefectos(), fetchRetrabajos(), fetchReclamaciones(), fetchScraps()
+    const [d, r, c, s, ret] = await Promise.all([
+      fetchDefectos(), fetchRetrabajos(), fetchReclamaciones(), fetchScraps(), fetchRetencionesCalidad()
     ]);
     if (d.data) setDefectos(d.data);
     if (r.data) setRetrabajos(r.data);
     if (c.data) setReclamaciones(c.data);
     if (s.data) setScraps(s.data);
+    if (ret.data) setRetenciones(ret.data);
     setLoading(false);
   };
 
@@ -185,6 +191,7 @@ export default function Calidad() {
     retrabajos:   { label: 'Retrabajos',         icon: Wrench,        color: 'amber',  empty: EMPTY_RETRABAJO,   set: setFormRet,  form: formRet,  data: retrabajos,    setData: setRetrabajos,    insert: insertRetrabajo,  update: updateRetrabajo,  del: deleteRetrabajo },
     reclamaciones:{ label: 'Reclamaciones',      icon: MessageSquareWarning, color: 'purple', empty: EMPTY_RECLAMACION, set: setFormRec, form: formRec, data: reclamaciones, setData: setReclamaciones, insert: insertReclamacion,update: updateReclamacion,del: deleteReclamacion },
     scraps:       { label: 'Scrap / Mermas',     icon: Trash2,        color: 'orange', empty: EMPTY_SCRAP,       set: setFormScr,  form: formScr,  data: scraps,        setData: setScraps,        insert: insertScrap,      update: updateScrap,      del: deleteScrap },
+    retenciones:  { label: 'Retenciones (Hold)', icon: ShieldAlert,   color: 'rose',   empty: EMPTY_RETENCION,   set: setFormReten,form: formReten,data: retenciones,   setData: setRetenciones,   insert: insertRetencionCalidad, update: updateRetencionCalidad, del: deleteRetencionCalidad },
   };
 
   const tab = tabConfig[activeTab];
@@ -644,6 +651,90 @@ export default function Calidad() {
                     );
                   })}
                   {scraps.length === 0 && <tr><td colSpan={11} className="table-cell text-center text-slate-500 py-8">Sin scraps registrados.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── TAB RETENCIONES (QUALITY HOLD) ────────────────────────────── */}
+        {activeTab === 'retenciones' && (
+          <motion.div key="retenciones" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-5">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h3 className="text-lg font-black text-white flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-rose-500 animate-pulse" /> Retenciones de Calidad (Quality Hold)</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Control y bloqueo de líneas en el Gantt — <span className="text-rose-400 font-bold">{retenciones.filter(r => r.estado !== 'cerrada').length} retenciones activas en planta</span></p>
+              </div>
+              <button onClick={abrirNuevo} className="px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-rose-900/30">
+                <Plus className="w-4 h-4" /> Retener Línea por Calidad
+              </button>
+            </div>
+            <AnimatePresence>
+              {modal && (
+                <CrudModal title={editId ? 'Editar Retención' : 'Marcar Retención en Línea'} icon={ShieldAlert} iconColor="rose" onClose={() => setModal(null)} onSave={guardar} saving={saving}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label="Código / Referencia"><Input value={formReten.codigo} onChange={e => setFormReten(f => ({...f, codigo: e.target.value}))} placeholder="Ej: HOLD-102" /></Field>
+                    <Field label="Línea"><Input value={formReten.linea} onChange={e => setFormReten(f => ({...f, linea: e.target.value}))} placeholder="Ej: L1, L2..." /></Field>
+                    <div className="md:col-span-2"><Field label="Motivo de Retención *"><Input value={formReten.motivo} onChange={e => setFormReten(f => ({...f, motivo: e.target.value}))} placeholder="Describe el fallo o motivo grave por el cual se bloquea la línea..." /></Field></div>
+                    <Field label="Gravedad"><Select value={formReten.gravedad} onChange={e => setFormReten(f => ({...f, gravedad: e.target.value}))}><option value="alta">Alta</option><option value="critica">Crítica (Bloquea Gantt)</option></Select></Field>
+                    <Field label="Estado"><Select value={formReten.estado} onChange={e => setFormReten(f => ({...f, estado: e.target.value}))}><option value="abierta">Abierta (Bloqueada)</option><option value="cerrada">Cerrada (Liberada)</option></Select></Field>
+                    <div className="md:col-span-2"><Field label="Inspector Responsable"><Input value={formReten.inspector} onChange={e => setFormReten(f => ({...f, inspector: e.target.value}))} placeholder="Ej: Laura QC" /></Field></div>
+                  </div>
+                </CrudModal>
+              )}
+            </AnimatePresence>
+            <div className="card overflow-hidden">
+              <table className="w-full">
+                <thead><tr className="border-b border-slate-800 text-[11px] text-slate-400 uppercase">
+                  {['Código','Línea','Motivo','Gravedad','Estado','Inspector','Apertura','Cierre / Liberación','Acciones'].map(h => <th key={h} className="table-header text-left">{h}</th>)}
+                </tr></thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {retenciones.map(r => {
+                    const activa = r.estado !== 'cerrada';
+                    return (
+                      <tr key={r.id} className={`hover:bg-slate-800/30 transition-colors ${activa ? 'bg-rose-950/15' : ''}`}>
+                        <td className="table-cell font-mono text-white font-bold text-xs">{r.codigo}</td>
+                        <td className="table-cell font-black text-rose-400">{r.linea}</td>
+                        <td className="table-cell font-bold text-white max-w-[240px] truncate">{r.motivo}</td>
+                        <td className="table-cell">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">{r.gravedad}</span>
+                        </td>
+                        <td className="table-cell">
+                          {activa ? (
+                            <span className="px-2.5 py-1 rounded-full bg-red-600/30 text-red-300 font-black text-xs border border-red-500/50 flex items-center gap-1.5 w-fit animate-pulse">
+                              <Lock className="w-3.5 h-3.5" /> RETENIDA
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-600/20 text-emerald-300 font-bold text-xs border border-emerald-500/30 flex items-center gap-1.5 w-fit">
+                              <Unlock className="w-3.5 h-3.5" /> LIBERADA
+                            </span>
+                          )}
+                        </td>
+                        <td className="table-cell text-xs text-slate-300">{r.inspector}</td>
+                        <td className="table-cell font-mono text-slate-500 text-xs">{r.fechaApertura}</td>
+                        <td className="table-cell font-mono text-xs">
+                          {activa ? (
+                            <button
+                              onClick={async () => {
+                                const upd = await updateRetencionCalidad(r.id, { estado: 'cerrada', fechaCierre: new Date().toISOString().slice(0, 16).replace('T', ' ') });
+                                if (upd.data) {
+                                  setRetenciones(prev => prev.map(item => item.id === r.id ? upd.data : item));
+                                  showSuccess();
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-1"
+                            >
+                              <Unlock className="w-3.5 h-3.5" /> Liberar Retención
+                            </button>
+                          ) : (
+                            <span className="text-emerald-400 font-bold">{r.fechaCierre || 'Resuelto'}</span>
+                          )}
+                        </td>
+                        <AccionesFila id={r.id} confirmDel={confirmDel} setConfirmDel={setConfirmDel} onEdit={() => abrirEditar(r)} onDelete={() => borrar(r.id)} />
+                      </tr>
+                    );
+                  })}
+                  {retenciones.length === 0 && <tr><td colSpan={9} className="table-cell text-center text-slate-500 py-8">Sin retenciones de calidad activas ni pasadas.</td></tr>}
                 </tbody>
               </table>
             </div>

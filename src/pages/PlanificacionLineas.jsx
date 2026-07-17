@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Plus, Calendar, Move, Edit2, Trash2, X, Check, RefreshCw, AlertCircle, Clock, Package, FileText, ArrowRight, Layers, Filter, Search, ShieldAlert, Zap, ArrowLeftCircle, Wrench } from 'lucide-react';
-import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, fetchProductos, fetchOrdenesTrabajo, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt, calcDuracionEstimada } from '@/services/dataService';
+import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, fetchProductos, fetchOrdenesTrabajo, fetchRetencionesCalidad, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt, calcDuracionEstimada } from '@/services/dataService';
 
 
 const SEMANA_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -67,16 +67,18 @@ export default function PlanificacionLineas() {
   const [listaMateriales, setListaMateriales] = useState([]);
   const [listaProductos, setListaProductos] = useState([]);
   const [listaOrdenesTrabajo, setListaOrdenesTrabajo] = useState([]);
+  const [listaRetenciones, setListaRetenciones] = useState([]);
   const [blockedDropInfo, setBlockedDropInfo] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
-    const [resL, resP, resM, resProd, resOt] = await Promise.all([fetchLineas(), fetchPlanificacion(), fetchMateriasPrimas(), fetchProductos(), fetchOrdenesTrabajo()]);
+    const [resL, resP, resM, resProd, resOt, resRet] = await Promise.all([fetchLineas(), fetchPlanificacion(), fetchMateriasPrimas(), fetchProductos(), fetchOrdenesTrabajo(), fetchRetencionesCalidad()]);
     if (resL.data) setLineas(resL.data);
     if (resP.data) setOrdenes(resP.data);
     if (resM?.data) setListaMateriales(resM.data);
     if (resProd?.data) setListaProductos(resProd.data);
     if (resOt?.data) setListaOrdenesTrabajo(resOt.data);
+    if (resRet?.data) setListaRetenciones(resRet.data);
     setLoading(false);
   };
 
@@ -84,7 +86,7 @@ export default function PlanificacionLineas() {
     loadData();
   }, []);
 
-  // Escuchar reordenamiento desde Secuencia, actualización de materiales o BOM, y Mantenimiento
+  // Escuchar reordenamiento desde Secuencia, actualización de materiales o BOM, Mantenimiento y Calidad
   useEffect(() => {
     const handler = () => loadData();
     window.addEventListener('secuencia_reordenada', handler);
@@ -93,6 +95,7 @@ export default function PlanificacionLineas() {
     window.addEventListener('bom_updated', handler);
     window.addEventListener('productos_updated', handler);
     window.addEventListener('mantenimiento_updated', handler);
+    window.addEventListener('calidad_updated', handler);
     return () => {
       window.removeEventListener('secuencia_reordenada', handler);
       window.removeEventListener('materiales_updated', handler);
@@ -100,8 +103,36 @@ export default function PlanificacionLineas() {
       window.removeEventListener('bom_updated', handler);
       window.removeEventListener('productos_updated', handler);
       window.removeEventListener('mantenimiento_updated', handler);
+      window.removeEventListener('calidad_updated', handler);
     };
   }, []);
+
+  // Mapa de Retenciones de Calidad Abiertas por línea (por id y por nombre)
+  const retencionesCalidadPorLinea = React.useMemo(() => {
+    const mapa = {};
+    (listaRetenciones || []).forEach(ret => {
+      const estado = (ret.estado || '').toLowerCase().trim();
+      if (estado !== 'cerrada' && estado !== 'resuelto' && estado !== 'completada') {
+        const lineaStr = (ret.linea || '').trim();
+        if (lineaStr) {
+          const matchL = lineas.find(l => 
+            (l.nombre || '').toLowerCase().trim() === lineaStr.toLowerCase() ||
+            (l.id || '').toLowerCase().trim() === lineaStr.toLowerCase()
+          );
+          if (matchL) {
+            if (!mapa[matchL.nombre]) mapa[matchL.nombre] = [];
+            if (!mapa[matchL.id]) mapa[matchL.id] = [];
+            mapa[matchL.nombre].push(ret);
+            mapa[matchL.id].push(ret);
+          } else {
+            if (!mapa[lineaStr]) mapa[lineaStr] = [];
+            mapa[lineaStr].push(ret);
+          }
+        }
+      }
+    });
+    return mapa;
+  }, [listaRetenciones, lineas]);
 
   // Mapa de OTs Críticas Abiertas por línea (por id y por nombre)
   const otsCriticasPorLinea = React.useMemo(() => {
@@ -187,20 +218,29 @@ export default function PlanificacionLineas() {
       return;
     }
 
-    // Si pasa de Backlog a Gantt o cambia, verificamos disponibilidad y OTs críticas en la línea
+    // Si pasa de Backlog a Gantt o cambia, verificamos disponibilidad y OTs críticas o retenciones en la línea
     const disp = calcularDisponibilidadOrden(draggedOrden, listaMateriales);
     const otsLinea = otsCriticasPorLinea[lineaId] || [];
+    const retencionesLinea = retencionesCalidadPorLinea[lineaId] || [];
     const faltaMaterial = (!draggedOrden.linea || draggedOrden.linea === 'BACKLOG') && disp.estado === 'rojo';
     const hayOtCritica = otsLinea.length > 0;
+    const hayRetencionCalidad = retencionesLinea.length > 0;
 
-    if ((faltaMaterial || hayOtCritica) && !draggedOrden.forzar_asignacion) {
+    if ((faltaMaterial || hayOtCritica || hayRetencionCalidad) && !draggedOrden.forzar_asignacion) {
+      let motivoBloqueo = 'material';
+      if (hayRetencionCalidad && (hayOtCritica || faltaMaterial)) motivoBloqueo = 'ambos';
+      else if (hayRetencionCalidad) motivoBloqueo = 'calidad';
+      else if (faltaMaterial && hayOtCritica) motivoBloqueo = 'ambos';
+      else if (hayOtCritica) motivoBloqueo = 'mantenimiento';
+
       setBlockedDropInfo({
         orden: draggedOrden,
         lineaId,
         horaIdx: horaFinal,
         disp,
         otsCriticas: otsLinea,
-        motivo: faltaMaterial && hayOtCritica ? 'ambos' : hayOtCritica ? 'mantenimiento' : 'material'
+        retencionesCalidad: retencionesLinea,
+        motivo: motivoBloqueo
       });
       setDraggedOrden(null);
       return;
@@ -1361,7 +1401,7 @@ export default function PlanificacionLineas() {
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <h3 className="text-base font-black text-white flex items-center gap-2">
                   <ShieldAlert className="w-5 h-5 text-red-500 animate-bounce" />
-                  {blockedDropInfo.motivo === 'mantenimiento' ? 'Bloqueo de Asignación por Mantenimiento Crítico' : blockedDropInfo.motivo === 'ambos' ? 'Bloqueo por Stock y Mantenimiento Crítico' : 'Bloqueo de Asignación por Stock Crítico'}
+                  {blockedDropInfo.motivo === 'calidad' ? 'Bloqueo por Retención de Calidad (Hold)' : blockedDropInfo.motivo === 'mantenimiento' ? 'Bloqueo de Asignación por Mantenimiento Crítico' : blockedDropInfo.motivo === 'ambos' ? 'Bloqueo por Stock / Mantenimiento / Calidad' : 'Bloqueo de Asignación por Stock Crítico'}
                 </h3>
                 <button onClick={() => setBlockedDropInfo(null)} className="text-slate-400 hover:text-white">
                   <X className="w-5 h-5" />
@@ -1378,6 +1418,11 @@ export default function PlanificacionLineas() {
                 {(blockedDropInfo.motivo === 'mantenimiento' || blockedDropInfo.motivo === 'ambos') && (
                   <p className="text-[11px] text-red-300">
                     • La <strong className="text-white">{lineas.find(l => l.id === blockedDropInfo.lineaId)?.nombre || blockedDropInfo.lineaId}</strong> tiene una Orden de Trabajo crítica abierta: <strong className="text-white">{(blockedDropInfo.otsCriticas || []).map(ot => ot.titulo || ot.descripcion || 'Incidencia en curso').join(' // ')}</strong>. La asignación ha sido bloqueada para prevenir una parada no planificada.
+                  </p>
+                )}
+                {(blockedDropInfo.motivo === 'calidad' || blockedDropInfo.motivo === 'ambos') && (
+                  <p className="text-[11px] text-red-300">
+                    • La <strong className="text-white">{lineas.find(l => l.id === blockedDropInfo.lineaId)?.nombre || blockedDropInfo.lineaId}</strong> tiene una Retención de Calidad (Hold) activa: <strong className="text-white">{(blockedDropInfo.retencionesCalidad || []).map(ret => ret.motivo || 'Retención QC en curso').join(' // ')}</strong>. La asignación ha sido bloqueada por inspección de calidad.
                   </p>
                 )}
               </div>
@@ -1434,12 +1479,41 @@ export default function PlanificacionLineas() {
                 </div>
               )}
 
+              {(blockedDropInfo.motivo === 'calidad' || blockedDropInfo.motivo === 'ambos') && (blockedDropInfo.retencionesCalidad || []).length > 0 && (
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Retenciones de Calidad Activas en la Línea:</span>
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-800 max-h-40 overflow-y-auto">
+                    {(blockedDropInfo.retencionesCalidad || []).map((ret, idx) => (
+                      <div key={idx} className="p-2.5 text-xs flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-slate-200 block flex items-center gap-1.5">
+                            <ShieldAlert className="w-3.5 h-3.5 text-red-400" /> {ret.motivo}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono">{ret.codigo} — Inspector: {ret.inspector}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-red-400 font-mono font-black text-[10px] uppercase block bg-red-950/80 px-1.5 py-0.5 rounded border border-red-500/40">{ret.estado}</span>
+                          <Link
+                            to={`/calidad`}
+                            className="text-amber-400 hover:text-amber-300 underline font-mono text-[10px] block mt-1"
+                          >
+                            Ver en Calidad →
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80 text-xs text-slate-300">
                 <p className="flex items-center gap-2 font-bold text-amber-400 mb-1">
                   <Zap className="w-4 h-4" /> Autorización de Supervisor Requerida
                 </p>
                 <p className="text-[11px] text-slate-400">
-                  {blockedDropInfo.motivo === 'mantenimiento' ?
+                  {blockedDropInfo.motivo === 'calidad' ?
+                    'El supervisor de planta y calidad debe aprobar el levantamiento o salto del bloqueo de inspección.' :
+                   blockedDropInfo.motivo === 'mantenimiento' ?
                     'El supervisor puede decidir programar la orden asumiendo el riesgo operacional y en coordinación directa con el equipo de mantenimiento de planta.' :
                     'Si ya existe una orden de aprovisionamiento en curso o un traspaso de almacén urgente, el supervisor puede forzar la programación bajo su responsabilidad.'
                   }
