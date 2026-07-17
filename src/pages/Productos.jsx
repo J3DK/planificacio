@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package, Plus, Search, Filter, Edit2, Trash2, CheckCircle2,
   XCircle, Clock, Zap, Weight, Building2, AlertCircle, RefreshCw,
-  FileText, Check, X, ArrowRight, Layers, Tag, Layers3, AlertTriangle, Palette
+  FileText, Check, X, ArrowRight, Layers, Tag, Layers3, AlertTriangle, Palette, LayoutGrid, List
 } from 'lucide-react';
 import {
   fetchProductos, insertProducto, updateProducto, deleteProducto, fetchMateriasPrimas,
@@ -18,6 +18,7 @@ export default function Productos() {
   const [busqueda, setBusqueda] = useState('');
   const [filtroFamilia, setFiltroFamilia] = useState('Todas');
   const [filtroEstado, setFiltroEstado] = useState('Todos'); // 'Todos' | 'Activos' | 'Discontinuados'
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 
   // Modal Productos
   const [modalOpen, setModalOpen] = useState(false);
@@ -403,6 +404,22 @@ export default function Productos() {
               </button>
             ))}
           </div>
+          <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 shrink-0 self-center">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              title="Vista en Fichas"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              title="Vista en Listado / Tabla"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -421,7 +438,7 @@ export default function Productos() {
             + Añadir Nueva Referencia
           </button>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {productosFiltrados.map((p) => (
             <motion.div
@@ -627,6 +644,70 @@ export default function Productos() {
               </div>
             </motion.div>
           ))}
+        </div>
+      ) : (
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-950/80 text-slate-400 text-xs font-black uppercase border-b border-slate-800 tracking-wider">
+                  <th className="py-3.5 px-4">Código / Ref.</th>
+                  <th className="py-3.5 px-4">Nombre</th>
+                  <th className="py-3.5 px-4">Familia</th>
+                  <th className="py-3.5 px-4">Estado</th>
+                  <th className="py-3.5 px-4 text-center">Cadencia (uds/h)</th>
+                  <th className="py-3.5 px-4 text-center">T. Ciclo</th>
+                  <th className="py-3.5 px-4 text-center">BOM / Componentes</th>
+                  <th className="py-3.5 px-4 text-right">Coste Est.</th>
+                  <th className="py-3.5 px-4 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-xs font-bold text-slate-200">
+                {productosFiltrados.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-4 font-mono text-blue-400 font-black">{p.codigo}</td>
+                    <td className="py-3 px-4 font-black text-white">{p.nombre}</td>
+                    <td className="py-3 px-4 text-slate-300">{p.familia || 'General'}</td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase ${
+                        p.activo ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'
+                      }`}>
+                        {p.activo ? 'Activo' : 'Discontinuado'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-center text-slate-300">{p.objetivoHora || 30}</td>
+                    <td className="py-3 px-4 text-center font-mono text-blue-400">{p.tiempoCiclo || 120}s</td>
+                    <td className="py-3 px-4 text-center">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">
+                        {(p.bom || []).length} items
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-emerald-400">
+                      {p.costeEstimado ? `${Number(p.costeEstimado).toFixed(2)} €` : '—'}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => openEditModal(p)}
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all"
+                          title="Editar Ficha"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(p.id, p.codigo)}
+                          className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all"
+                          title="Eliminar producto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

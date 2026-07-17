@@ -9,7 +9,7 @@ import {
   Calendar, CheckCircle2, Plus, Pencil, Trash2, Search, Filter,
   ArrowUpRight, ArrowDownRight, RefreshCw, Box, ChevronRight, ChevronDown,
   Sparkles, FileText, Link2, DollarSign, Settings, X, Save, ChevronUp,
-  Zap, Factory
+  Zap, Factory, LayoutGrid, List
 } from 'lucide-react';
 import {
   fetchOrdenesTrabajo, insertOrdenTrabajo, updateOrdenTrabajo, deleteOrdenTrabajo,
@@ -363,6 +363,7 @@ function ChecklistEditor({ plan, onToggle, onAddItem, onUpdateItem, onRemoveItem
 export default function Mantenimiento() {
   const [activeTab, setActiveTab] = useState('resumen');
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 
   // ─── Datos ─────────────────────────────────────────────────────────────────
   const [ots, setOts] = useState([]);
@@ -774,6 +775,25 @@ export default function Mantenimiento() {
             </button>
           );
         })}
+
+        {['ots', 'preventivo', 'predictivo', 'repuestos'].includes(activeTab) && (
+          <div className="ml-auto flex bg-slate-900 border border-slate-800 rounded-xl p-1 shrink-0 self-center">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}`}
+              title="Vista en Fichas"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}`}
+              title="Vista en Listado / Tabla"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Contenido dinámico */}
@@ -1024,55 +1044,116 @@ export default function Mantenimiento() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
-              {otsFiltradas.map(ot => (
-                <motion.div key={ot.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className={`card p-5 border transition-all ${ot.prioridad === 'critica' && ot.estado !== 'cerrada' ? 'border-red-500/40 bg-red-500/5' : 'border-slate-800 bg-slate-950 hover:border-slate-700'}`}>
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1.5 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs font-black text-slate-200">{ot.codigo}</span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${TIPO_OT_COLORS[ot.tipo] || 'bg-slate-800 text-slate-300'}`}>{ot.tipo}</span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${ESTADO_OT_COLORS[ot.estado] || 'bg-slate-800 text-slate-300'}`}>{ot.estado}</span>
-                        <span className="text-xs font-black text-amber-400 ml-1">{ot.linea}</span>
-                        {ot.paradaId && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-black">
-                            <Link2 className="w-3 h-3" /> Vínculo Parada #{ot.paradaId}
-                          </span>
-                        )}
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 gap-4">
+                {otsFiltradas.map(ot => (
+                  <motion.div key={ot.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                    className={`card p-5 border transition-all ${ot.prioridad === 'critica' && ot.estado !== 'cerrada' ? 'border-red-500/40 bg-red-500/5' : 'border-slate-800 bg-slate-950 hover:border-slate-700'}`}>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="space-y-1.5 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs font-black text-slate-200">{ot.codigo}</span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${TIPO_OT_COLORS[ot.tipo] || 'bg-slate-800 text-slate-300'}`}>{ot.tipo}</span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${ESTADO_OT_COLORS[ot.estado] || 'bg-slate-800 text-slate-300'}`}>{ot.estado}</span>
+                          <span className="text-xs font-black text-amber-400 ml-1">{ot.linea}</span>
+                          {ot.paradaId && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-black">
+                              <Link2 className="w-3 h-3" /> Vínculo Parada #{ot.paradaId}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-base font-black text-white">{ot.titulo}</h3>
+                        <p className="text-xs font-bold text-slate-400 flex items-center gap-2">
+                          <Cpu className="w-3.5 h-3.5 text-slate-500" /> Activo: <span className="text-slate-200">{ot.activoNombre}</span>
+                        </p>
+                        {ot.causaRaiz && <p className="text-xs text-slate-400 italic">💡 Causa Raíz: {ot.causaRaiz}</p>}
                       </div>
-                      <h3 className="text-base font-black text-white">{ot.titulo}</h3>
-                      <p className="text-xs font-bold text-slate-400 flex items-center gap-2">
-                        <Cpu className="w-3.5 h-3.5 text-slate-500" /> Activo: <span className="text-slate-200">{ot.activoNombre}</span>
-                      </p>
-                      {ot.causaRaiz && <p className="text-xs text-slate-400 italic">💡 Causa Raíz: {ot.causaRaiz}</p>}
-                    </div>
 
-                    <div className="flex flex-col md:items-end justify-between gap-3 text-xs bg-slate-900/60 p-3 rounded-xl border border-slate-800/80 md:min-w-[280px]">
-                      <div className="space-y-1 w-full">
-                        <div className="flex justify-between"><span className="text-slate-500">Técnico:</span><span className="font-bold text-slate-200">{ot.tecnico}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-500">Apertura:</span><span className="font-mono text-slate-300">{ot.fechaApertura}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-500">Tiempo / Coste:</span><span className="font-bold text-amber-400">{ot.tiempoReal || ot.tiempoEst} min · {ot.costeTotal} €</span></div>
-                      </div>
-                      <div className="flex items-center gap-2 pt-2 border-t border-slate-800 w-full justify-end">
-                        <button onClick={() => openEditOt(ot)} className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all flex items-center gap-1">
-                          <Pencil className="w-3 h-3" /> Editar OT
-                        </button>
-                        <button onClick={() => openDeleteOt(ot)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <div className="flex flex-col md:items-end justify-between gap-3 text-xs bg-slate-900/60 p-3 rounded-xl border border-slate-800/80 md:min-w-[280px]">
+                        <div className="space-y-1 w-full">
+                          <div className="flex justify-between"><span className="text-slate-500">Técnico:</span><span className="font-bold text-slate-200">{ot.tecnico}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-500">Apertura:</span><span className="font-mono text-slate-300">{ot.fechaApertura}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-500">Tiempo / Coste:</span><span className="font-bold text-amber-400">{ot.tiempoReal || ot.tiempoEst} min · {ot.costeTotal} €</span></div>
+                        </div>
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-800 w-full justify-end">
+                          <button onClick={() => openEditOt(ot)} className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all flex items-center gap-1">
+                            <Pencil className="w-3 h-3" /> Editar OT
+                          </button>
+                          <button onClick={() => openDeleteOt(ot)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
+                  </motion.div>
+                ))}
+                {otsFiltradas.length === 0 && (
+                  <div className="card p-12 text-center border-dashed border-slate-800">
+                    <FileText className="w-10 h-10 text-slate-600 mx-auto mb-3 opacity-50" />
+                    <p className="text-slate-400 font-bold">No hay órdenes de trabajo que coincidan con los filtros seleccionados</p>
                   </div>
-                </motion.div>
-              ))}
-              {otsFiltradas.length === 0 && (
-                <div className="card p-12 text-center border-dashed border-slate-800">
-                  <FileText className="w-10 h-10 text-slate-600 mx-auto mb-3 opacity-50" />
-                  <p className="text-slate-400 font-bold">No hay órdenes de trabajo que coincidan con los filtros seleccionados</p>
+                )}
+              </div>
+            ) : (
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950/80 text-slate-400 text-xs font-black uppercase border-b border-slate-800 tracking-wider">
+                        <th className="py-3.5 px-4">Código</th>
+                        <th className="py-3.5 px-4">Título / Descripción</th>
+                        <th className="py-3.5 px-4">Línea & Activo</th>
+                        <th className="py-3.5 px-4">Tipo</th>
+                        <th className="py-3.5 px-4">Prioridad</th>
+                        <th className="py-3.5 px-4">Estado</th>
+                        <th className="py-3.5 px-4 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-xs font-bold text-slate-200">
+                      {otsFiltradas.map(ot => (
+                        <tr key={ot.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-mono text-amber-400 font-black">{ot.codigo}</td>
+                          <td className="py-3 px-4">
+                            <p className="font-black text-white">{ot.titulo}</p>
+                            <p className="text-[10px] text-slate-400 font-normal mt-0.5">Técnico: {ot.tecnico || 'Sin asignar'} · Límite: {ot.fechaLimite || '—'}</p>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="text-amber-400 font-black">{ot.linea}</span>
+                            <p className="text-[11px] text-slate-300 font-semibold truncate max-w-[180px]">{ot.activoNombre}</p>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${TIPO_OT_COLORS[ot.tipo] || 'bg-slate-800 text-slate-300'}`}>{ot.tipo}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${ot.prioridad === 'critica' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : ot.prioridad === 'alta' ? 'bg-amber-500/20 text-amber-400' : 'text-slate-400 font-normal'}`}>{ot.prioridad}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${ESTADO_OT_COLORS[ot.estado] || 'bg-slate-800 text-slate-300'}`}>{ot.estado}</span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button onClick={() => openEditOt(ot)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Modificar">
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => openDeleteOt(ot)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all" title="Eliminar">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {otsFiltradas.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="py-12 text-center text-slate-500 font-bold">
+                            No hay órdenes de trabajo que coincidan con los filtros seleccionados
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -1096,182 +1177,312 @@ export default function Mantenimiento() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {preventivos.map(plan => (
-                <motion.div key={plan.id} className="card p-5 border border-slate-800 bg-slate-950 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="font-mono text-xs font-black text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
-                        {plan.codigo}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          plan.estado === 'vencido' ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse' :
-                          plan.estado === 'proximo' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                          'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        }`}>
-                          {plan.estado === 'vencido' ? 'VENCIDO' : plan.estado === 'proximo' ? 'PRÓXIMO' : 'AL DÍA'}
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {preventivos.map(plan => (
+                  <motion.div key={plan.id} className="card p-5 border border-slate-800 bg-slate-950 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <span className="font-mono text-xs font-black text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                          {plan.codigo}
                         </span>
-                        <button onClick={() => openEditPlan(plan)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 border border-slate-700 transition-all" title="Editar plan">
-                          <Pencil className="w-3 h-3" />
-                        </button>
-                        <button onClick={() => openDeletePlan(plan)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700 transition-all" title="Eliminar plan">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            plan.estado === 'vencido' ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse' :
+                            plan.estado === 'proximo' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                            'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          }`}>
+                            {plan.estado === 'vencido' ? 'VENCIDO' : plan.estado === 'proximo' ? 'PRÓXIMO' : 'AL DÍA'}
+                          </span>
+                          <button onClick={() => openEditPlan(plan)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 border border-slate-700 transition-all" title="Editar plan">
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button onClick={() => openDeletePlan(plan)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700 transition-all" title="Eliminar plan">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
+
+                      <h4 className="text-base font-black text-white mb-1">{plan.titulo}</h4>
+                      <p className="text-xs font-bold text-slate-400 mb-3">{plan.activoNombre} · <span className="text-amber-400">{plan.linea}</span></p>
+
+                      <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800/80 grid grid-cols-2 gap-2 text-xs mb-4">
+                        <div>
+                          <span className="text-[10px] text-slate-500 block font-bold uppercase">Frecuencia / Disparador</span>
+                          <span className="font-black text-slate-200">{plan.frecuencia} ({plan.tipoDisparador})</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block font-bold uppercase">Próxima / Umbral</span>
+                          <span className="font-black text-white">{plan.proximaIntervencion} ({plan.contadorActual} / {plan.umbralDisparo} {plan.tipoDisparador === 'horas' ? 'h' : 'd'})</span>
+                        </div>
+                      </div>
+
+                      {/* Checklist editable inline */}
+                      <ChecklistEditor
+                        plan={plan}
+                        onToggle={toggleTareaPreventivo}
+                        onAddItem={handleAddChecklistItem}
+                        onUpdateItem={handleUpdateChecklistItem}
+                        onRemoveItem={handleRemoveChecklistItem}
+                      />
                     </div>
 
-                    <h4 className="text-base font-black text-white mb-1">{plan.titulo}</h4>
-                    <p className="text-xs font-bold text-slate-400 mb-3">{plan.activoNombre} · <span className="text-amber-400">{plan.linea}</span></p>
-
-                    <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800/80 grid grid-cols-2 gap-2 text-xs mb-4">
-                      <div>
-                        <span className="text-[10px] text-slate-500 block font-bold uppercase">Frecuencia / Disparador</span>
-                        <span className="font-black text-slate-200">{plan.frecuencia} ({plan.tipoDisparador})</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-500 block font-bold uppercase">Próxima / Umbral</span>
-                        <span className="font-black text-white">{plan.proximaIntervencion} ({plan.contadorActual} / {plan.umbralDisparo} {plan.tipoDisparador === 'horas' ? 'h' : 'd'})</span>
-                      </div>
+                    <div className="pt-3 border-t border-slate-800 flex justify-end mt-4">
+                      <button
+                        onClick={async () => {
+                          await insertOrdenTrabajo({
+                            titulo: `OT Preventiva: ${plan.titulo}`,
+                            activoNombre: plan.activoNombre,
+                            linea: plan.linea,
+                            tipo: 'preventivo',
+                            prioridad: 'media',
+                            estado: 'abierta',
+                            tecnico: 'Técnico Preventivo MTO',
+                            turno: 'Turno Mañana',
+                            tiempoEst: 90,
+                            tiempoReal: 0,
+                            costeTotal: 150,
+                            causaRaiz: `PREV-CAL (${plan.codigo}) — Generación automática`
+                          });
+                          window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
+                          setActiveTab('ots');
+                        }}
+                        className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30 text-xs font-black transition-all flex items-center gap-2"
+                      >
+                        <Wrench className="w-3.5 h-3.5" /> Generar OT Preventiva Ahora
+                      </button>
                     </div>
+                  </motion.div>
+                ))}
 
-                    {/* Checklist editable inline */}
-                    <ChecklistEditor
-                      plan={plan}
-                      onToggle={toggleTareaPreventivo}
-                      onAddItem={handleAddChecklistItem}
-                      onUpdateItem={handleUpdateChecklistItem}
-                      onRemoveItem={handleRemoveChecklistItem}
-                    />
+                {preventivos.length === 0 && (
+                  <div className="col-span-2 card p-12 text-center border-dashed border-slate-800">
+                    <Calendar className="w-10 h-10 text-slate-600 mx-auto mb-3 opacity-50" />
+                    <p className="text-slate-400 font-bold">No hay planes preventivos. Crea el primero con el botón "+" superior.</p>
                   </div>
-
-                  <div className="pt-3 border-t border-slate-800 flex justify-end mt-4">
-                    <button
-                      onClick={async () => {
-                        await insertOrdenTrabajo({
-                          titulo: `OT Preventiva: ${plan.titulo}`,
-                          activoNombre: plan.activoNombre,
-                          linea: plan.linea,
-                          tipo: 'preventivo',
-                          prioridad: 'media',
-                          estado: 'abierta',
-                          tecnico: 'Técnico Preventivo MTO',
-                          turno: 'Turno Mañana',
-                          tiempoEst: 90,
-                          tiempoReal: 0,
-                          costeTotal: 150,
-                          causaRaiz: `PREV-CAL (${plan.codigo}) — Generación automática`
-                        });
-                        window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
-                        setActiveTab('ots');
-                      }}
-                      className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30 text-xs font-black transition-all flex items-center gap-2"
-                    >
-                      <Wrench className="w-3.5 h-3.5" /> Generar OT Preventiva Ahora
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
-
-              {preventivos.length === 0 && (
-                <div className="col-span-2 card p-12 text-center border-dashed border-slate-800">
-                  <Calendar className="w-10 h-10 text-slate-600 mx-auto mb-3 opacity-50" />
-                  <p className="text-slate-400 font-bold">No hay planes preventivos. Crea el primero con el botón "+" superior.</p>
+                )}
+              </div>
+            ) : (
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950/80 text-slate-400 text-xs font-black uppercase border-b border-slate-800 tracking-wider">
+                        <th className="py-3.5 px-4">Código</th>
+                        <th className="py-3.5 px-4">Plan Preventivo</th>
+                        <th className="py-3.5 px-4">Activo & Línea</th>
+                        <th className="py-3.5 px-4">Frecuencia / Disparador</th>
+                        <th className="py-3.5 px-4">Próxima / Umbral</th>
+                        <th className="py-3.5 px-4 text-center">Checklist</th>
+                        <th className="py-3.5 px-4 text-center">Estado</th>
+                        <th className="py-3.5 px-4 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-xs font-bold text-slate-200">
+                      {preventivos.map(plan => {
+                        const chkTotal = (plan.checklist || []).length;
+                        const chkDone = (plan.checklist || []).filter(c => c.completed || c.done).length;
+                        return (
+                          <tr key={plan.id} className="hover:bg-slate-800/40 transition-colors">
+                            <td className="py-3 px-4 font-mono text-amber-400 font-black">{plan.codigo}</td>
+                            <td className="py-3 px-4 font-black text-white">{plan.titulo}</td>
+                            <td className="py-3 px-4">
+                              <span className="text-amber-400 font-black">{plan.linea}</span>
+                              <p className="text-[11px] text-slate-300 font-semibold">{plan.activoNombre}</p>
+                            </td>
+                            <td className="py-3 px-4 text-slate-300">{plan.frecuencia} ({plan.tipoDisparador})</td>
+                            <td className="py-3 px-4 font-mono text-amber-400 font-black">{plan.proximaIntervencion} ({plan.contadorActual} / {plan.umbralDisparo})</td>
+                            <td className="py-3 px-4 text-center">
+                              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-xs">{chkDone}/{chkTotal} items</span>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                plan.estado === 'vencido' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                plan.estado === 'proximo' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                                'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              }`}>{plan.estado === 'vencido' ? 'VENCIDO' : plan.estado === 'proximo' ? 'PRÓXIMO' : 'AL DÍA'}</span>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button onClick={() => openEditPlan(plan)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Modificar">
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => openDeletePlan(plan)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all" title="Eliminar">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {preventivos.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="py-12 text-center text-slate-500 font-bold">
+                            No se encontraron planes preventivos con estos filtros
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </motion.div>
         )}
 
-        {/* ══════════════ 5. PREDICTIVO ══════════════ */}
+        {/* ══════════════ 5. PREDICTIVO (IoT & CONDICIONAL) ══════════════ */}
         {activeTab === 'predictivo' && (
           <motion.div key="predictivo" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="card p-5 bg-gradient-to-r from-blue-950/30 via-slate-900 to-slate-950 border border-blue-500/30 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black text-white flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-blue-400" /> Telemetría, Sensores y Condición Predictiva de Activos
+                  <Activity className="w-5 h-5 text-blue-400" /> Monitoreo IoT & Mantenimiento Predictivo
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Algoritmos de detección temprana en variables críticas. Configura y alimenta los datos de cada sensor.
+                  Sensores en vivo. Cuando una variable supera el umbral crítico o de alerta, se generan sugerencias automáticas de intervención.
                 </p>
               </div>
               <button
                 onClick={openCreateSensor}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 text-xs font-black transition-all flex-shrink-0"
               >
-                <Plus className="w-3.5 h-3.5" /> + Nueva Acción Predictiva
+                <Plus className="w-3.5 h-3.5" /> + Añadir Sensor IoT
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sensores.map(sens => (
-                <motion.div key={sens.id} className="card p-5 border border-slate-800 bg-slate-950">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-mono text-xs font-black text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/20">
-                      {sens.variable}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                        sens.estado === 'critico' ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse' :
-                        sens.estado === 'alerta' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                        'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      }`}>
-                        {sens.estado.toUpperCase()}
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {sensores.map(sens => (
+                  <motion.div key={sens.id} className="card p-5 border border-slate-800 bg-slate-950">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-mono text-xs font-black text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/20">
+                        {sens.variable}
                       </span>
-                      <button onClick={() => openEditSensor(sens)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 border border-slate-700 transition-all" title="Editar sensor">
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                      <button onClick={() => openDeleteSensor(sens)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700 transition-all" title="Eliminar sensor">
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          sens.estado === 'critico' ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse' :
+                          sens.estado === 'alerta' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                          'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        }`}>
+                          {sens.estado.toUpperCase()}
+                        </span>
+                        <button onClick={() => openEditSensor(sens)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 border border-slate-700 transition-all" title="Editar sensor">
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => openDeleteSensor(sens)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700 transition-all" title="Eliminar sensor">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
+
+                    <h4 className="text-base font-black text-white mb-1">{sens.activoNombre}</h4>
+                    <p className="text-xs font-bold text-slate-400 mb-4">{sens.linea}</p>
+
+                    <div className="grid grid-cols-3 gap-3 bg-slate-900/80 p-3 rounded-xl border border-slate-800 mb-4 text-center">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">Valor Actual</span>
+                        <span className="text-base font-black text-white">{sens.valorActual} <span className="text-xs font-normal text-slate-400">{sens.unidad}</span></span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">Umbral Alerta</span>
+                        <span className="text-base font-black text-amber-400">{sens.umbralAlerta}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">Umbral Crítico</span>
+                        <span className="text-base font-black text-red-400">{sens.umbralCritico}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 mb-4">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-slate-400">Vida útil estimada del componente:</span>
+                        <span className={sens.vidaUtilRestantePct < 20 ? 'text-red-400 font-black' : 'text-emerald-400 font-black'}>{sens.vidaUtilRestantePct}% restante</span>
+                      </div>
+                      <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                        <motion.div
+                          className={`h-full rounded-full ${sens.vidaUtilRestantePct < 20 ? 'bg-red-500' : sens.vidaUtilRestantePct < 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${sens.vidaUtilRestantePct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-300 bg-slate-900/40 p-3 rounded-xl border border-slate-800/60 italic font-medium">
+                      💡 <strong className="text-amber-400">Recomendación IA:</strong> {sens.recomendacion}
+                    </p>
+                  </motion.div>
+                ))}
+
+                {sensores.length === 0 && (
+                  <div className="col-span-2 card p-12 text-center border-dashed border-slate-800">
+                    <Zap className="w-10 h-10 text-slate-600 mx-auto mb-3 opacity-50" />
+                    <p className="text-slate-400 font-bold">No hay acciones predictivas configuradas. Usa el botón "+" para añadir la primera.</p>
                   </div>
-
-                  <h4 className="text-base font-black text-white mb-1">{sens.activoNombre}</h4>
-                  <p className="text-xs font-bold text-slate-400 mb-4">{sens.linea}</p>
-
-                  <div className="grid grid-cols-3 gap-3 bg-slate-900/80 p-3 rounded-xl border border-slate-800 mb-4 text-center">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase block">Valor Actual</span>
-                      <span className="text-base font-black text-white">{sens.valorActual} <span className="text-xs font-normal text-slate-400">{sens.unidad}</span></span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase block">Umbral Alerta</span>
-                      <span className="text-base font-black text-amber-400">{sens.umbralAlerta}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase block">Umbral Crítico</span>
-                      <span className="text-base font-black text-red-400">{sens.umbralCritico}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 mb-4">
-                    <div className="flex justify-between text-xs font-bold">
-                      <span className="text-slate-400">Vida útil estimada del componente:</span>
-                      <span className={sens.vidaUtilRestantePct < 20 ? 'text-red-400 font-black' : 'text-emerald-400 font-black'}>{sens.vidaUtilRestantePct}% restante</span>
-                    </div>
-                    <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-                      <motion.div
-                        className={`h-full rounded-full ${sens.vidaUtilRestantePct < 20 ? 'bg-red-500' : sens.vidaUtilRestantePct < 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${sens.vidaUtilRestantePct}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-300 bg-slate-900/40 p-3 rounded-xl border border-slate-800/60 italic font-medium">
-                    💡 <strong className="text-amber-400">Recomendación IA:</strong> {sens.recomendacion}
-                  </p>
-                </motion.div>
-              ))}
-
-              {sensores.length === 0 && (
-                <div className="col-span-2 card p-12 text-center border-dashed border-slate-800">
-                  <Zap className="w-10 h-10 text-slate-600 mx-auto mb-3 opacity-50" />
-                  <p className="text-slate-400 font-bold">No hay acciones predictivas configuradas. Usa el botón "+" para añadir la primera.</p>
+                )}
+              </div>
+            ) : (
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950/80 text-slate-400 text-xs font-black uppercase border-b border-slate-800 tracking-wider">
+                        <th className="py-3.5 px-4">Variable / Sensor</th>
+                        <th className="py-3.5 px-4">Activo & Línea</th>
+                        <th className="py-3.5 px-4">Umbrales (Alerta / Crítico)</th>
+                        <th className="py-3.5 px-4">Valor Actual</th>
+                        <th className="py-3.5 px-4">Vida Útil</th>
+                        <th className="py-3.5 px-4">Recomendación IA</th>
+                        <th className="py-3.5 px-4 text-center">Estado</th>
+                        <th className="py-3.5 px-4 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-xs font-bold text-slate-200">
+                      {sensores.map(sens => (
+                        <tr key={sens.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-mono text-blue-400 font-black">{sens.variable}</td>
+                          <td className="py-3 px-4">
+                            <p className="font-black text-white">{sens.activoNombre}</p>
+                            <p className="text-[10px] text-slate-400 font-normal">{sens.linea}</p>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-300">
+                            <span className="text-amber-400">{sens.umbralAlerta}</span> / <span className="text-red-400">{sens.umbralCritico}</span> {sens.unidad}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-black text-white">{sens.valorActual} {sens.unidad}</td>
+                          <td className="py-3 px-4">
+                            <span className={sens.vidaUtilRestantePct < 20 ? 'text-red-400 font-black' : 'text-emerald-400 font-black'}>{sens.vidaUtilRestantePct}%</span>
+                          </td>
+                          <td className="py-3 px-4 text-slate-300 italic font-normal max-w-xs truncate">{sens.recomendacion}</td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              sens.estado === 'critico' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                              sens.estado === 'alerta' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                              'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            }`}>{sens.estado.toUpperCase()}</span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button onClick={() => openEditSensor(sens)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Modificar">
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => openDeleteSensor(sens)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all" title="Eliminar">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {sensores.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="py-12 text-center text-slate-500 font-bold">
+                            No hay acciones predictivas configuradas.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -1292,63 +1503,119 @@ export default function Mantenimiento() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {repuestos.map(rep => {
-                const isBajoStock = rep.stockActual < rep.stockMinimo;
-                return (
-                  <motion.div key={rep.id} className={`card p-5 border flex flex-col justify-between ${isBajoStock ? 'border-red-500/40 bg-red-500/5' : 'border-slate-800 bg-slate-950'}`}>
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <span className="font-mono text-xs font-black text-slate-300 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">{rep.codigo}</span>
-                        {isBajoStock ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" /> Bajo Stock Mínimo
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            Stock Óptimo
-                          </span>
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {repuestos.map(rep => {
+                  const isBajoStock = rep.stockActual < rep.stockMinimo;
+                  return (
+                    <motion.div key={rep.id} className={`card p-5 border flex flex-col justify-between ${isBajoStock ? 'border-red-500/40 bg-red-500/5' : 'border-slate-800 bg-slate-950'}`}>
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <span className="font-mono text-xs font-black text-slate-300 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">{rep.codigo}</span>
+                          {isBajoStock ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" /> Bajo Stock Mínimo
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              Stock Óptimo
+                            </span>
+                          )}
+                        </div>
+
+                        <h4 className="text-sm font-black text-white mb-1">{rep.nombre}</h4>
+                        <p className="text-xs font-bold text-slate-400 mb-4">{rep.categoria}</p>
+
+                        <div className="grid grid-cols-2 gap-2 bg-slate-900/80 p-3 rounded-xl border border-slate-800 mb-4 text-xs">
+                          <div>
+                            <span className="text-[10px] text-slate-500 block font-bold uppercase">Stock Actual / Mínimo</span>
+                            <span className={`text-base font-black ${isBajoStock ? 'text-red-400' : 'text-white'}`}>{rep.stockActual} <span className="text-xs text-slate-500">/ {rep.stockMinimo} mín</span></span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block font-bold uppercase">Ubicación / Coste</span>
+                            <span className="font-black text-amber-400">{rep.ubicacion} · {rep.costeUnitario} €</span>
+                          </div>
+                        </div>
+
+                        {rep.compatiblesCon && rep.compatiblesCon.length > 0 && (
+                          <div className="mb-4">
+                            <span className="text-[10px] font-bold uppercase text-slate-500 block mb-1">Equipos / Activos Compatibles:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {rep.compatiblesCon.map((c, i) => (
+                                <span key={i} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] font-medium text-slate-300">{c}</span>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
 
-                      <h4 className="text-sm font-black text-white mb-1">{rep.nombre}</h4>
-                      <p className="text-xs font-bold text-slate-400 mb-4">{rep.categoria}</p>
-
-                      <div className="grid grid-cols-2 gap-2 bg-slate-900/80 p-3 rounded-xl border border-slate-800 mb-4 text-xs">
-                        <div>
-                          <span className="text-[10px] text-slate-500 block font-bold uppercase">Stock Actual / Mínimo</span>
-                          <span className={`text-base font-black ${isBajoStock ? 'text-red-400' : 'text-white'}`}>{rep.stockActual} <span className="text-xs text-slate-500">/ {rep.stockMinimo} mín</span></span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-500 block font-bold uppercase">Ubicación / Coste</span>
-                          <span className="font-black text-amber-400">{rep.ubicacion} · {rep.costeUnitario} €</span>
-                        </div>
+                      <div className="pt-3 border-t border-slate-800/80 flex items-center justify-end gap-2">
+                        <button onClick={() => openEditRep(rep)} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all flex items-center gap-1">
+                          <Pencil className="w-3 h-3" /> Modificar
+                        </button>
+                        <button onClick={() => openDeleteRep(rep)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-
-                      {rep.compatiblesCon && rep.compatiblesCon.length > 0 && (
-                        <div className="mb-4">
-                          <span className="text-[10px] font-bold uppercase text-slate-500 block mb-1">Equipos / Activos Compatibles:</span>
-                          <div className="flex flex-wrap gap-1">
-                            {rep.compatiblesCon.map((c, i) => (
-                              <span key={i} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] font-medium text-slate-300">{c}</span>
-                            ))}
-                          </div>
-                        </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950/80 text-slate-400 text-xs font-black uppercase border-b border-slate-800 tracking-wider">
+                        <th className="py-3.5 px-4">Código SKU</th>
+                        <th className="py-3.5 px-4">Repuesto / Pieza</th>
+                        <th className="py-3.5 px-4">Categoría</th>
+                        <th className="py-3.5 px-4 text-center">Stock Actual</th>
+                        <th className="py-3.5 px-4 text-center">Stock Mín.</th>
+                        <th className="py-3.5 px-4 text-center">Coste Unit.</th>
+                        <th className="py-3.5 px-4">Ubicación</th>
+                        <th className="py-3.5 px-4 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-xs font-bold text-slate-200">
+                      {repuestos.map(rep => {
+                        const isBajoStock = rep.stockActual < rep.stockMinimo;
+                        return (
+                          <tr key={rep.id} className="hover:bg-slate-800/40 transition-colors">
+                            <td className="py-3 px-4 font-mono text-amber-400 font-black">{rep.codigo}</td>
+                            <td className="py-3 px-4 font-black text-white">{rep.nombre}</td>
+                            <td className="py-3 px-4 text-slate-300">{rep.categoria}</td>
+                            <td className="py-3 px-4 text-center">
+                              <span className={`font-mono font-black text-sm ${isBajoStock ? 'text-red-400' : 'text-emerald-400'}`}>{rep.stockActual}</span>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono text-slate-300">{rep.stockMinimo}</td>
+                            <td className="py-3 px-4 text-center font-mono text-amber-400">{rep.costeUnitario} €</td>
+                            <td className="py-3 px-4 font-mono text-slate-300">{rep.ubicacion || 'ALM-A1'}</td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button onClick={() => openEditRep(rep)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Modificar">
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => openDeleteRep(rep)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all" title="Eliminar">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {repuestos.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="py-12 text-center text-slate-500 font-bold">
+                            No hay repuestos registrados en el almacén.
+                          </td>
+                        </tr>
                       )}
-                    </div>
-
-                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-end gap-2">
-                      <button onClick={() => openEditRep(rep)} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all flex items-center gap-1">
-                        <Pencil className="w-3 h-3" /> Modificar
-                      </button>
-                      <button onClick={() => openDeleteRep(rep)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 

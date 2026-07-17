@@ -5,7 +5,7 @@ import {
   Award, GraduationCap, ShieldCheck, Plus, Search, Edit3, Trash2,
   CheckCircle2, AlertCircle, XCircle, ChevronRight, SlidersHorizontal,
   BookmarkCheck, Sparkles, BookOpen, Layers, Cpu, Factory, RefreshCw,
-  Users, Star, CheckSquare, Target, Calendar, BarChart3, Clock
+  Users, Star, CheckSquare, Target, Calendar, BarChart3, Clock, LayoutGrid, List
 } from 'lucide-react';
 import {
   getCatalogoSkills, saveCatalogoSkills,
@@ -38,6 +38,7 @@ export default function Cualificaciones() {
   const [operarios, setOperarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 
   // Modal CRUD general
   const [modalOpen, setModalOpen] = useState(false);
@@ -472,296 +473,496 @@ export default function Cualificaciones() {
                   className="w-full bg-slate-950/80 border border-slate-800 rounded-lg pl-10 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
-              <span className="text-xs font-bold text-slate-400 hidden sm:inline">
-                Mostrando{' '}
-                {activeTab === 'skills' ? filteredSkills.length :
-                 activeTab === 'formaciones' ? filteredFormaciones.length :
-                 activeTab === 'capacitaciones' ? filteredCapacitaciones.length :
-                 activeTab === 'permisos' ? filteredPermisos.length :
-                 filteredAutorizaciones.length}{' '}
-                registros en catálogo
-              </span>
+
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-400 hidden sm:inline">
+                  Mostrando{' '}
+                  {activeTab === 'skills' ? filteredSkills.length :
+                   activeTab === 'formaciones' ? filteredFormaciones.length :
+                   activeTab === 'capacitaciones' ? filteredCapacitaciones.length :
+                   activeTab === 'permisos' ? filteredPermisos.length :
+                   filteredAutorizaciones.length}{' '}
+                  registros
+                </span>
+                <div className="flex bg-slate-950 border border-slate-800 rounded-xl p-1">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+                    title="Vista en Fichas"
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+                    title="Vista en Listado / Tabla"
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
           {/* ── TAB 1: SKILLS ── */}
           {activeTab === 'skills' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-fade-in">
-              {filteredSkills.map((sk) => (
-                <motion.div
-                  key={sk.id}
-                  layout
-                  className="bg-slate-900/90 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-5 flex flex-col justify-between shadow-lg hover:shadow-amber-900/10 transition-all group relative"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-black text-xs tracking-wide font-mono">
-                        {sk.id}
-                      </span>
-                      <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleOpenEdit(sk)}
-                          className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-blue-600/30 text-slate-300 hover:text-blue-400 transition-colors"
-                          title="Modificar Skill"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleConfirmDelete(sk)}
-                          className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-600/30 text-slate-300 hover:text-red-400 transition-colors"
-                          title="Eliminar Skill"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-fade-in">
+                {filteredSkills.map((sk) => (
+                  <motion.div
+                    key={sk.id}
+                    layout
+                    className="bg-slate-900/90 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-5 flex flex-col justify-between shadow-lg hover:shadow-amber-900/10 transition-all group relative"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-black text-xs tracking-wide font-mono">
+                          {sk.id}
+                        </span>
+                        <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleOpenEdit(sk)}
+                            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-blue-600/30 text-slate-300 hover:text-blue-400 transition-colors"
+                            title="Modificar Skill"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleConfirmDelete(sk)}
+                            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-600/30 text-slate-300 hover:text-red-400 transition-colors"
+                            title="Eliminar Skill"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
+
+                      <div>
+                        <h3 className="text-base font-black text-white group-hover:text-amber-300 transition-colors">
+                          {sk.nombre}
+                        </h3>
+                        <p className="text-xs font-bold text-amber-400/80 mt-0.5">{sk.categoria}</p>
+                      </div>
+
+                      <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">
+                        {sk.descripcion || 'Sin descripción técnica del proceso productivo.'}
+                      </p>
                     </div>
 
-                    <div>
-                      <h3 className="text-base font-black text-white group-hover:text-amber-300 transition-colors">
-                        {sk.nombre}
-                      </h3>
-                      <p className="text-xs font-bold text-amber-400/80 mt-0.5">{sk.categoria}</p>
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-slate-400">
+                      <span>Nivel Dominio Máx:</span>
+                      <span className="text-amber-400 font-black px-2 py-0.5 rounded bg-amber-500/10">{sk.nivelMaximo}</span>
                     </div>
-
-                    <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">
-                      {sk.descripcion || 'Sin descripción técnica del proceso productivo.'}
-                    </p>
+                  </motion.div>
+                ))}
+                {filteredSkills.length === 0 && (
+                  <div className="col-span-full py-12 text-center text-slate-500 text-sm font-bold bg-slate-900/30 rounded-2xl border border-dashed border-slate-800">
+                    No se han encontrado skills que coincidan con la búsqueda.
                   </div>
-
-                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-slate-400">
-                    <span>Nivel Dominio Máx:</span>
-                    <span className="text-amber-400 font-black px-2 py-0.5 rounded bg-amber-500/10">{sk.nivelMaximo}</span>
-                  </div>
-                </motion.div>
-              ))}
-              {filteredSkills.length === 0 && (
-                <div className="col-span-full py-12 text-center text-slate-500 text-sm font-bold bg-slate-900/30 rounded-2xl border border-dashed border-slate-800">
-                  No se han encontrado skills que coincidan con la búsqueda.
+                )}
+              </div>
+            ) : (
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-fade-in">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950/80 text-slate-400 text-xs font-black uppercase border-b border-slate-800 tracking-wider">
+                        <th className="py-3.5 px-4">ID</th>
+                        <th className="py-3.5 px-4">Nombre de Skill</th>
+                        <th className="py-3.5 px-4">Categoría</th>
+                        <th className="py-3.5 px-4">Descripción</th>
+                        <th className="py-3.5 px-4 text-center">Nivel Dominio Máx</th>
+                        <th className="py-3.5 px-4 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-xs font-bold text-slate-200">
+                      {filteredSkills.map((sk) => (
+                        <tr key={sk.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-mono text-amber-400 font-black">{sk.id}</td>
+                          <td className="py-3 px-4 font-black text-white">{sk.nombre}</td>
+                          <td className="py-3 px-4 text-amber-400/90">{sk.categoria}</td>
+                          <td className="py-3 px-4 text-slate-400 font-normal max-w-xs truncate">{sk.descripcion || '—'}</td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="text-amber-400 font-black px-2 py-0.5 rounded bg-amber-500/10">{sk.nivelMaximo}</span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button onClick={() => handleOpenEdit(sk)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Modificar">
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleConfirmDelete(sk)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all" title="Eliminar">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
+              </div>
+            )
           )}
 
           {/* ── TAB 2: FORMACIONES ── */}
           {activeTab === 'formaciones' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-fade-in">
-              {filteredFormaciones.map((f) => (
-                <motion.div
-                  key={f.id}
-                  layout
-                  className="bg-slate-900/90 border border-slate-800 hover:border-indigo-500/40 rounded-2xl p-5 flex flex-col justify-between shadow-lg hover:shadow-indigo-900/10 transition-all group relative"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="px-2.5 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-black text-xs tracking-wide font-mono">
-                        {f.id}
-                      </span>
-                      <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleOpenEdit(f)}
-                          className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-400 transition-colors"
-                          title="Editar Curso"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleConfirmDelete(f)}
-                          className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-600/30 text-slate-300 hover:text-red-400 transition-colors"
-                          title="Eliminar Curso"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-fade-in">
+                {filteredFormaciones.map((f) => (
+                  <motion.div
+                    key={f.id}
+                    layout
+                    className="bg-slate-900/90 border border-slate-800 hover:border-indigo-500/40 rounded-2xl p-5 flex flex-col justify-between shadow-lg hover:shadow-indigo-900/10 transition-all group relative"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="px-2.5 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-black text-xs tracking-wide font-mono">
+                          {f.id}
+                        </span>
+                        <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleOpenEdit(f)}
+                            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-400 transition-colors"
+                            title="Editar Curso"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleConfirmDelete(f)}
+                            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-600/30 text-slate-300 hover:text-red-400 transition-colors"
+                            title="Eliminar Curso"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-black text-white group-hover:text-indigo-300 transition-colors flex-1">
+                            {f.nombre}
+                          </h3>
+                          {f.obligatorio && (
+                            <span className="px-2 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[10px] font-black uppercase shrink-0">
+                              Obligatorio
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-1.5">
+                          <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Entidad: {f.entidadCertificadora}</span>
+                        </p>
                       </div>
                     </div>
 
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-black text-white group-hover:text-indigo-300 transition-colors flex-1">
-                          {f.nombre}
-                        </h3>
-                        {f.obligatorio && (
-                          <span className="px-2 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[10px] font-black uppercase shrink-0">
-                            Obligatorio
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-1.5">
-                        <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>Entidad: {f.entidadCertificadora}</span>
-                      </p>
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-slate-400">
+                      <span>Duración: <strong className="text-white">{f.horas} hrs</strong></span>
+                      <span>Reciclaje: <strong className="text-indigo-400 font-black">Cada {f.periodicidadMeses} meses</strong></span>
                     </div>
+                  </motion.div>
+                ))}
+                {filteredFormaciones.length === 0 && (
+                  <div className="col-span-full py-12 text-center text-slate-500 text-sm font-bold bg-slate-900/30 rounded-2xl border border-dashed border-slate-800">
+                    No se han encontrado formaciones con los criterios especificados.
                   </div>
-
-                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-slate-400">
-                    <span>Duración: <strong className="text-white">{f.horas} hrs</strong></span>
-                    <span>Reciclaje: <strong className="text-indigo-400 font-black">Cada {f.periodicidadMeses} meses</strong></span>
-                  </div>
-                </motion.div>
-              ))}
-              {filteredFormaciones.length === 0 && (
-                <div className="col-span-full py-12 text-center text-slate-500 text-sm font-bold bg-slate-900/30 rounded-2xl border border-dashed border-slate-800">
-                  No se han encontrado formaciones con los criterios especificados.
+                )}
+              </div>
+            ) : (
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-fade-in">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950/80 text-slate-400 text-xs font-black uppercase border-b border-slate-800 tracking-wider">
+                        <th className="py-3.5 px-4">ID</th>
+                        <th className="py-3.5 px-4">Nombre de Curso</th>
+                        <th className="py-3.5 px-4">Tipo</th>
+                        <th className="py-3.5 px-4">Entidad Certificadora</th>
+                        <th className="py-3.5 px-4 text-center">Duración</th>
+                        <th className="py-3.5 px-4 text-center">Reciclaje</th>
+                        <th className="py-3.5 px-4 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-xs font-bold text-slate-200">
+                      {filteredFormaciones.map((f) => (
+                        <tr key={f.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-mono text-indigo-400 font-black">{f.id}</td>
+                          <td className="py-3 px-4 font-black text-white">{f.nombre}</td>
+                          <td className="py-3 px-4">
+                            {f.obligatorio ? (
+                              <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-black uppercase">Obligatorio</span>
+                            ) : (
+                              <span className="text-slate-400 font-normal">Opcional</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-slate-300">{f.entidadCertificadora}</td>
+                          <td className="py-3 px-4 text-center font-mono">{f.horas} hrs</td>
+                          <td className="py-3 px-4 text-center font-mono text-indigo-400 font-black">Cada {f.periodicidadMeses}m</td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button onClick={() => handleOpenEdit(f)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Modificar">
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleConfirmDelete(f)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all" title="Eliminar">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
+              </div>
+            )
           )}
 
           {/* ── TAB 3: CAPACITACIONES (NUEVO CATÁLOGO MAESTRO DE PLANES) ── */}
           {activeTab === 'capacitaciones' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-              {filteredCapacitaciones.map((c) => (
-                <motion.div
-                  key={c.id}
-                  layout
-                  className="bg-slate-900/90 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-5 flex flex-col justify-between shadow-lg hover:shadow-emerald-900/10 transition-all group relative"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-black text-xs tracking-wide font-mono">
-                          {c.id}
-                        </span>
-                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-bold">
-                          {c.categoria}
-                        </span>
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+                {filteredCapacitaciones.map((c) => (
+                  <motion.div
+                    key={c.id}
+                    layout
+                    className="bg-slate-900/90 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-5 flex flex-col justify-between shadow-lg hover:shadow-emerald-900/10 transition-all group relative"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-black text-xs tracking-wide font-mono">
+                            {c.id}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold text-[11px]">
+                            {c.categoria || 'General'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleOpenEdit(c)}
+                            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-emerald-600/30 text-slate-300 hover:text-emerald-400 transition-colors"
+                            title="Editar Plan"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleConfirmDelete(c)}
+                            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-600/30 text-slate-300 hover:text-red-400 transition-colors"
+                            title="Eliminar Plan"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleOpenEdit(c)}
-                          className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-emerald-600/30 text-slate-300 hover:text-emerald-400 transition-colors"
-                          title="Modificar Plan"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleConfirmDelete(c)}
-                          className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-600/30 text-slate-300 hover:text-red-400 transition-colors"
-                          title="Eliminar Plan"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
 
-                    <div>
-                      <h3 className="text-base font-black text-white group-hover:text-emerald-300 transition-colors">
-                        {c.titulo}
-                      </h3>
-                      <p className="text-xs font-bold text-emerald-400/90 mt-0.5">Plan: {c.plan}</p>
-                    </div>
-
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      {c.descripcion || 'Sin descripción detallada del protocolo de evaluación.'}
-                    </p>
-
-                    <div className="bg-slate-950/60 rounded-xl p-2.5 grid grid-cols-2 gap-2 text-[11px]">
                       <div>
-                        <span className="text-slate-500 font-semibold block">Comité / Evaluador:</span>
-                        <span className="text-slate-200 font-bold truncate block">{c.evaluadorDefault || 'Dir. Operaciones'}</span>
+                        <h3 className="text-base font-black text-white group-hover:text-emerald-300 transition-colors">
+                          {c.titulo}
+                        </h3>
+                        <p className="text-xs font-semibold text-slate-400 mt-1 leading-relaxed">
+                          {c.descripcion}
+                        </p>
                       </div>
-                      <div>
-                        <span className="text-slate-500 font-semibold block">Renovación / Auditoría:</span>
-                        <span className="text-emerald-300 font-bold block">Anual ({c.periodicidadMeses} meses)</span>
+
+                      <div className="flex items-center gap-4 pt-2 text-xs text-slate-400 border-t border-slate-800/60">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-emerald-400" /> Frecuencia: <strong className="text-white">{c.frecuencia}</strong>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-blue-400" /> Validez: <strong className="text-white">{c.validezMeses} meses</strong>
+                        </span>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-slate-400">
-                    <span>Puntuación Mínima Apto:</span>
-                    <span className="text-emerald-400 font-black px-2.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">{c.puntuacionMinima}% pts</span>
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                        <Target className="w-3 h-3 text-emerald-400" /> Roles / Puestos Objetivo:
+                      </span>
+                      <div className="flex gap-1 flex-wrap justify-end max-w-[55%]">
+                        {(c.rolesDestino || []).map((rol, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded-md bg-slate-800/80 text-emerald-300 font-bold text-[10px] border border-slate-700/60">
+                            {rol}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+                {filteredCapacitaciones.length === 0 && (
+                  <div className="col-span-full py-12 text-center text-slate-500 text-sm font-bold bg-slate-900/30 rounded-2xl border border-dashed border-slate-800">
+                    No se han encontrado planes de capacitación y evaluación.
                   </div>
-                </motion.div>
-              ))}
-              {filteredCapacitaciones.length === 0 && (
-                <div className="col-span-full py-12 text-center text-slate-500 text-sm font-bold bg-slate-900/30 rounded-2xl border border-dashed border-slate-800">
-                  No se han encontrado planes de capacitación configurados.
+                )}
+              </div>
+            ) : (
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-fade-in">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950/80 text-slate-400 text-xs font-black uppercase border-b border-slate-800 tracking-wider">
+                        <th className="py-3.5 px-4">ID</th>
+                        <th className="py-3.5 px-4">Título del Plan</th>
+                        <th className="py-3.5 px-4">Categoría</th>
+                        <th className="py-3.5 px-4">Frecuencia / Validez</th>
+                        <th className="py-3.5 px-4">Roles Destino</th>
+                        <th className="py-3.5 px-4 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-xs font-bold text-slate-200">
+                      {filteredCapacitaciones.map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-mono text-emerald-400 font-black">{c.id}</td>
+                          <td className="py-3 px-4 font-black text-white">{c.titulo}</td>
+                          <td className="py-3 px-4 text-emerald-400/90">{c.categoria || 'General'}</td>
+                          <td className="py-3 px-4 font-mono text-slate-300">{c.frecuencia} ({c.validezMeses}m)</td>
+                          <td className="py-3 px-4">
+                            <div className="flex gap-1 flex-wrap">
+                              {(c.rolesDestino || []).map((rol, i) => (
+                                <span key={i} className="px-2 py-0.5 rounded-md bg-slate-800 text-emerald-300 font-bold text-[10px]">
+                                  {rol}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button onClick={() => handleOpenEdit(c)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Modificar">
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleConfirmDelete(c)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all" title="Eliminar">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
+              </div>
+            )
           )}
 
           {/* ── TAB 4: PERMISOS POR EQUIPO / LÍNEA ── */}
           {activeTab === 'permisos' && (
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-fade-in">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-950/80 border-b border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400">
-                      <th className="py-3.5 px-4">Equipo / Línea de Producción</th>
-                      <th className="py-3.5 px-4">Tipo</th>
-                      <th className="py-3.5 px-4">Skill Técnica Requerida</th>
-                      <th className="py-3.5 px-4">Formación de Seguridad Requerida</th>
-                      <th className="py-3.5 px-4">Nivel Mínimo</th>
-                      <th className="py-3.5 px-4 text-right">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 text-xs font-semibold">
-                    {filteredPermisos.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2.5">
-                            {p.tipo === 'linea' ? (
-                              <Factory className="w-4 h-4 text-blue-400 shrink-0" />
-                            ) : (
-                              <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
-                            )}
-                            <div>
-                              <p className="text-white font-bold">{p.equipoNombre}</p>
-                              <p className="text-[10px] font-black text-slate-500 font-mono">{p.equipoId} · {p.id}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                            p.tipo === 'linea'
-                              ? 'bg-blue-500/10 border border-blue-500/30 text-blue-300'
-                              : 'bg-purple-500/10 border border-purple-500/30 text-purple-300'
-                          }`}>
-                            {p.tipo === 'linea' ? 'Línea Producción' : 'Estación / Máquina'}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-amber-300 font-bold">
-                          {p.skillRequerida || 'No requiere skill técnica específica'}
-                        </td>
-                        <td className="py-3.5 px-4 text-indigo-300 font-bold">
-                          {p.formacionRequerida || 'Formación general de planta'}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span className="px-2.5 py-1 rounded bg-slate-800 border border-slate-700 text-slate-200 font-black">
-                            {p.nivelMinimo}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="inline-flex items-center gap-1">
-                            <button
-                              onClick={() => handleOpenEdit(p)}
-                              className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-blue-600/30 text-slate-300 hover:text-blue-400 transition-colors"
-                              title="Modificar requisito"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleConfirmDelete(p)}
-                              className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-600/30 text-slate-300 hover:text-red-400 transition-colors"
-                              title="Eliminar regla de permiso"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredPermisos.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="py-12 text-center text-slate-500 font-bold">
-                          No hay reglas de permisos configuradas que coincidan con la búsqueda.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-fade-in">
+                {filteredPermisos.map((p) => (
+                  <motion.div key={p.id} className="bg-slate-900/90 border border-slate-800 hover:border-blue-500/40 rounded-2xl p-5 flex flex-col justify-between shadow-lg">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          {p.tipo === 'linea' ? <Factory className="w-4 h-4 text-blue-400 shrink-0" /> : <Cpu className="w-4 h-4 text-purple-400 shrink-0" />}
+                          <span className="font-bold text-white text-sm">{p.equipoNombre}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => handleOpenEdit(p)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all"><Edit3 className="w-4 h-4" /></button>
+                          <button onClick={() => handleConfirmDelete(p)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                      <div className="text-xs space-y-1 text-slate-300">
+                        <p><strong className="text-slate-400">Skill Técnica:</strong> {skills.find(s => s.id === p.skillId)?.nombre || p.skillId}</p>
+                        <p><strong className="text-slate-400">Formación Seg.:</strong> {formaciones.find(f => f.id === p.formacionId)?.nombre || p.formacionId}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-slate-400">
+                      <span>Nivel Mínimo:</span>
+                      <span className="text-blue-400 font-black px-2 py-0.5 rounded bg-blue-500/10">Nivel {p.nivelMinimo}</span>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
-            </div>
+            ) : (
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-fade-in">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950/80 border-b border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                        <th className="py-3.5 px-4">Equipo / Línea de Producción</th>
+                        <th className="py-3.5 px-4">Tipo</th>
+                        <th className="py-3.5 px-4">Skill Técnica Requerida</th>
+                        <th className="py-3.5 px-4">Formación de Seguridad Requerida</th>
+                        <th className="py-3.5 px-4">Nivel Mínimo</th>
+                        <th className="py-3.5 px-4 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-xs font-semibold">
+                      {filteredPermisos.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2.5">
+                              {p.tipo === 'linea' ? (
+                                <Factory className="w-4 h-4 text-blue-400 shrink-0" />
+                              ) : (
+                                <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
+                              )}
+                              <div>
+                                <p className="text-white font-bold">{p.equipoNombre}</p>
+                                <p className="text-[10px] font-black text-slate-500 font-mono">{p.equipoId} · {p.id}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                              p.tipo === 'linea'
+                                ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                                : 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                            }`}>
+                              {p.tipo === 'linea' ? 'Línea de Producción' : 'Activo / Máquina'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                              <span className="text-slate-200 font-bold">
+                                {skills.find(s => s.id === p.skillId)?.nombre || p.skillId}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-indigo-400 shrink-0" />
+                              <span className="text-slate-200 font-bold">
+                                {formaciones.find(f => f.id === p.formacionId)?.nombre || p.formacionId}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono">
+                            <span className="px-2.5 py-1 rounded bg-slate-800 text-blue-400 font-black border border-slate-700">
+                              Nivel {p.nivelMinimo}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleOpenEdit(p)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all"
+                                title="Editar Requisito"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleConfirmDelete(p)}
+                                className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-600/30 text-slate-300 hover:text-red-400 transition-colors"
+                                title="Eliminar Requisito"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredPermisos.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="py-12 text-center text-slate-500 font-bold">
+                            No se han encontrado permisos que coincidan con la búsqueda.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
           )}
 
           {/* ── TAB NUEVO: AUTORIZACIONES (LÍNEAS & SUBPARTES MANTENIMIENTO) ── */}
@@ -798,117 +999,189 @@ export default function Cualificaciones() {
                 </div>
               </div>
 
-              {/* Grid de Tarjetas de Autorización */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                {filteredAutorizaciones.map((auth) => {
-                  const opsAsignados = operarios.filter(op => (op.autorizaciones || []).some(a => a.id === auth.id || a.autorizacionId === auth.id));
-                  const esLinea = auth.tipo === 'linea';
-                  return (
-                    <motion.div
-                      key={auth.id}
-                      layout
-                      className="bg-slate-900/90 border border-slate-800 hover:border-rose-500/50 rounded-2xl p-5 flex flex-col justify-between shadow-xl hover:shadow-rose-950/20 transition-all group relative"
-                    >
-                      <div className="space-y-3.5">
-                        <div className="flex items-start justify-between gap-3">
-                          <span className={`px-2.5 py-1 rounded-md font-black text-xs tracking-wide font-mono uppercase border ${
-                            esLinea
-                              ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
-                              : 'bg-purple-500/10 border-purple-500/30 text-purple-300'
-                          }`}>
-                            {auth.codigo || auth.id}
-                          </span>
-                          <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => handleOpenEdit(auth)}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-600/30 text-slate-300 hover:text-rose-300 transition-colors"
-                              title="Modificar Autorización"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleConfirmDelete(auth)}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/30 text-slate-300 hover:text-red-400 transition-colors"
-                              title="Eliminar Autorización"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
+              {/* Grid o Tabla de Tarjetas de Autorización */}
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  {filteredAutorizaciones.map((auth) => {
+                    const opsAsignados = operarios.filter(op => (op.autorizaciones || []).some(a => a.id === auth.id || a.autorizacionId === auth.id));
+                    const esLinea = auth.tipo === 'linea';
+                    return (
+                      <motion.div
+                        key={auth.id}
+                        layout
+                        className="bg-slate-900/90 border border-slate-800 hover:border-rose-500/50 rounded-2xl p-5 flex flex-col justify-between shadow-xl hover:shadow-rose-950/20 transition-all group relative"
+                      >
+                        <div className="space-y-4">
+                          {/* Top Tag & Actions */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/30 text-rose-400 font-black text-xs tracking-wide font-mono">
+                                {auth.codigo || auth.id}
+                              </span>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${
+                                esLinea
+                                  ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                                  : 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                              }`}>
+                                {esLinea ? <Factory className="w-3 h-3" /> : <Cpu className="w-3 h-3" />}
+                                <span>{esLinea ? 'Línea Productiva' : 'Subparte Mant.'}</span>
+                              </span>
+                            </div>
 
-                        <div>
-                          <h3 className="text-base font-black text-white group-hover:text-rose-300 transition-colors leading-snug">
-                            {auth.nombre}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-1.5 text-xs font-bold text-slate-400">
-                            {esLinea ? <Factory className="w-3.5 h-3.5 text-blue-400" /> : <Cpu className="w-3.5 h-3.5 text-purple-400" />}
-                            <span>Ámbito: <strong className="text-slate-200">{auth.targetNombre}</strong></span>
-                          </div>
-                        </div>
-
-                        {auth.descripcion && (
-                          <p className="text-xs text-slate-400 leading-relaxed bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 line-clamp-3">
-                            {auth.descripcion}
-                          </p>
-                        )}
-
-                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                          <span className="text-slate-400 font-semibold">Requisito / Nivel:</span>
-                          <span className="font-black text-rose-300 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-                            {auth.nivelRequerido || 'Autorización Básica'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Sección Inferior: Operarios Asignados & Botón de Gestión */}
-                      <div className="mt-4 pt-3.5 border-t border-slate-800 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                            <Users className="w-3.5 h-3.5 text-rose-400" />
-                            <span>Operarios Habilitados ({opsAsignados.length})</span>
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-500">Validez: {auth.validezMeses || 24}m</span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex -space-x-2 overflow-hidden py-1">
-                            {opsAsignados.slice(0, 4).map((op) => (
-                              <div
-                                key={op.id}
-                                title={`${op.nombre} (${op.rol})`}
-                                className="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-gradient-to-br from-rose-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-md shrink-0"
+                            <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => handleOpenEdit(auth)}
+                                className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-600/30 text-slate-300 hover:text-rose-400 transition-colors"
+                                title="Editar Autorización"
                               >
-                                {op.nombre.charAt(0)}
-                              </div>
-                            ))}
-                            {opsAsignados.length > 4 && (
-                              <div className="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-slate-800 text-slate-300 font-black text-[10px] flex items-center justify-center shrink-0">
-                                +{opsAsignados.length - 4}
-                              </div>
-                            )}
-                            {opsAsignados.length === 0 && (
-                              <span className="text-xs italic text-slate-500 font-normal">Ningún operario asignado</span>
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleConfirmDelete(auth)}
+                                className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-600/30 text-slate-300 hover:text-red-400 transition-colors"
+                                title="Eliminar Autorización"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Título y Descripción */}
+                          <div>
+                            <h3 className="text-lg font-black text-white group-hover:text-rose-300 transition-colors">
+                              {auth.nombre}
+                            </h3>
+                            <p className="text-xs font-bold text-slate-400 mt-1">
+                              Ámbito asignado: <span className="text-slate-200 font-black">{auth.lineaOsubparteNombre}</span>
+                            </p>
+                            {auth.descripcion && (
+                              <p className="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
+                                {auth.descripcion}
+                              </p>
                             )}
                           </div>
 
-                          <button
-                            onClick={() => handleOpenAssign(auth)}
-                            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-600 text-slate-200 hover:text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-md shrink-0 border border-slate-700/80 hover:border-rose-500"
-                          >
-                            <span>Gestionar Asignación</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
+                          {/* Requisitos y Nivel Exigido */}
+                          <div className="bg-slate-950/80 rounded-xl p-3 border border-slate-800/80 space-y-1.5 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500 font-bold">Nivel Mínimo Exigido:</span>
+                              <span className="text-amber-400 font-black font-mono">Nivel {auth.nivelMinimo || 3}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500 font-bold">Requisito Formativo:</span>
+                              <span className="text-indigo-300 font-semibold truncate max-w-[160px]">
+                                {auth.requiereFormacion ? (formaciones.find(f => f.id === auth.formacionId)?.nombre || auth.formacionId) : 'Ninguno'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-                {filteredAutorizaciones.length === 0 && (
-                  <div className="col-span-full py-12 text-center text-slate-500 font-bold bg-slate-900/40 rounded-2xl border border-dashed border-slate-800">
-                    No se encontraron autorizaciones en el catálogo que coincidan con la búsqueda.
+
+                        {/* Sección Inferior: Operarios Asignados & Botón de Gestión */}
+                        <div className="mt-4 pt-3.5 border-t border-slate-800 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5 text-rose-400" />
+                              <span>Operarios Habilitados ({opsAsignados.length})</span>
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">Validez: {auth.validezMeses || 24}m</span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex -space-x-2 overflow-hidden py-1">
+                              {opsAsignados.slice(0, 4).map((op) => (
+                                <div
+                                  key={op.id}
+                                  title={`${op.nombre} (${op.rol})`}
+                                  className="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-gradient-to-br from-rose-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-md shrink-0"
+                                >
+                                  {op.nombre.charAt(0)}
+                                </div>
+                              ))}
+                              {opsAsignados.length > 4 && (
+                                <div className="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-slate-800 text-slate-300 font-black text-[10px] flex items-center justify-center shrink-0">
+                                  +{opsAsignados.length - 4}
+                                </div>
+                              )}
+                              {opsAsignados.length === 0 && (
+                                <span className="text-xs italic text-slate-500 font-normal">Ningún operario asignado</span>
+                              )}
+                            </div>
+
+                            <button
+                              onClick={() => handleOpenAssign(auth)}
+                              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-600 text-slate-200 hover:text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-md shrink-0 border border-slate-700/80 hover:border-rose-500"
+                            >
+                              <span>Gestionar Asignación</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                  {filteredAutorizaciones.length === 0 && (
+                    <div className="col-span-full py-12 text-center text-slate-500 font-bold bg-slate-900/40 rounded-2xl border border-dashed border-slate-800">
+                      No se encontraron autorizaciones en el catálogo que coincidan con la búsqueda.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-fade-in">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-950/80 text-slate-400 text-xs font-black uppercase border-b border-slate-800 tracking-wider">
+                          <th className="py-3.5 px-4">Código</th>
+                          <th className="py-3.5 px-4">Autorización</th>
+                          <th className="py-3.5 px-4">Ámbito</th>
+                          <th className="py-3.5 px-4">Tipo</th>
+                          <th className="py-3.5 px-4 text-center">Nivel Mín.</th>
+                          <th className="py-3.5 px-4 text-center">Operarios Asignados</th>
+                          <th className="py-3.5 px-4 text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 text-xs font-bold text-slate-200">
+                        {filteredAutorizaciones.map((auth) => {
+                          const opsAsignados = operarios.filter(op => (op.autorizaciones || []).some(a => a.id === auth.id || a.autorizacionId === auth.id));
+                          const esLinea = auth.tipo === 'linea';
+                          return (
+                            <tr key={auth.id} className="hover:bg-slate-800/40 transition-colors">
+                              <td className="py-3 px-4 font-mono text-rose-400 font-black">{auth.codigo || auth.id}</td>
+                              <td className="py-3 px-4 font-black text-white">{auth.nombre}</td>
+                              <td className="py-3 px-4 text-slate-300">{auth.lineaOsubparteNombre}</td>
+                              <td className="py-3 px-4">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${esLinea ? 'bg-blue-500/15 text-blue-400' : 'bg-purple-500/15 text-purple-400'}`}>
+                                  {esLinea ? 'Línea Productiva' : 'Subparte Mant.'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-center font-mono text-amber-400">Nivel {auth.nivelMinimo || 3}</td>
+                              <td className="py-3 px-4 text-center">
+                                <button
+                                  onClick={() => handleOpenAssign(auth)}
+                                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white text-xs font-black transition-all inline-flex items-center gap-1.5"
+                                >
+                                  <span>{opsAsignados.length} habilitados</span>
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button onClick={() => handleOpenEdit(auth)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Modificar">
+                                    <Edit3 className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => handleConfirmDelete(auth)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all" title="Eliminar">
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 

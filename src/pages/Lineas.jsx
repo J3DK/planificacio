@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity, Zap, AlertTriangle, Wrench, ChevronRight, RefreshCw, Plus,
-  Pencil, Trash2, Users, UserCheck, ShieldCheck, Star, X, CheckCircle2
+  Pencil, Trash2, Users, UserCheck, ShieldCheck, Star, X, CheckCircle2, LayoutGrid, List
 } from 'lucide-react';
 import {
   fetchLineas, insertLinea, updateLinea, deleteLinea, getCurrentShiftInfo,
@@ -43,6 +43,7 @@ export default function Lineas() {
   const [operariosList, setOperariosList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 
   // CRUD state
   const [modalOpen, setModalOpen] = useState(false);
@@ -217,6 +218,22 @@ export default function Lineas() {
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Sincronizar</span>
           </button>
+          <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 shrink-0 self-center">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              title="Vista en Fichas"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              title="Vista en Listado / Tabla"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
           <button onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-black transition-all shadow-lg shadow-blue-900/40">
             <Plus className="w-3.5 h-3.5" />
@@ -225,9 +242,10 @@ export default function Lineas() {
         </div>
       </motion.div>
 
-      {/* Tarjetas de Líneas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {lineas.map((linea, i) => {
+      {/* Tarjetas o Listado de Líneas */}
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {lineas.map((linea, i) => {
           const operariosEnEstaLinea = operariosList.filter(o => o.lineaActualId === linea.id && o.estado === 'activo');
 
           return (
@@ -371,6 +389,70 @@ export default function Lineas() {
           );
         })}
       </div>
+      ) : (
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-950/80 text-slate-400 text-xs font-black uppercase border-b border-slate-800 tracking-wider">
+                  <th className="py-3.5 px-4">Línea</th>
+                  <th className="py-3.5 px-4">Estado</th>
+                  <th className="py-3.5 px-4">Turno</th>
+                  <th className="py-3.5 px-4 text-center">OEE</th>
+                  <th className="py-3.5 px-4 text-center">Disponib.</th>
+                  <th className="py-3.5 px-4 text-center">Rendim.</th>
+                  <th className="py-3.5 px-4 text-center">Calidad</th>
+                  <th className="py-3.5 px-4 text-center">Producción Hoy</th>
+                  <th className="py-3.5 px-4 text-center">Personal</th>
+                  <th className="py-3.5 px-4 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-xs font-bold text-slate-200">
+                {lineas.map((linea) => {
+                  const operariosEnEstaLinea = operariosList.filter(o => o.lineaActualId === linea.id && o.estado === 'activo');
+                  return (
+                    <tr key={linea.id} onClick={() => setSelected(selected === linea.id ? null : linea.id)} className={`cursor-pointer hover:bg-slate-800/40 transition-colors ${selected === linea.id ? 'bg-blue-500/10' : ''}`}>
+                      <td className="py-3 px-4 font-black text-white flex items-center gap-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${linea.estado === 'en_marcha' ? 'bg-emerald-400' : linea.estado === 'parada' ? 'bg-rose-500' : 'bg-amber-400'}`} />
+                        <div>
+                          <span>{linea.nombre}</span>
+                          <span className="block text-[10px] text-slate-400 font-normal line-clamp-1">{linea.descripcion}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <StatusBadge status={linea.estado} />
+                      </td>
+                      <td className="py-3 px-4 text-slate-300">{linea.turno || 'Mañana'}</td>
+                      <td className="py-3 px-4 text-center font-mono font-black text-blue-400">{linea.oee}%</td>
+                      <td className="py-3 px-4 text-center font-mono text-slate-300">{linea.disponibilidad}%</td>
+                      <td className="py-3 px-4 text-center font-mono text-slate-300">{linea.rendimiento}%</td>
+                      <td className="py-3 px-4 text-center font-mono text-emerald-400">{linea.calidad}%</td>
+                      <td className="py-3 px-4 text-center font-mono text-white">
+                        {linea.produccionHoy} <span className="text-[10px] text-slate-400 font-normal">/ {linea.objetivoHoy || 2000}</span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">
+                          {operariosEnEstaLinea.length} ops
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={e => openEdit(e, linea)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Editar línea">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={e => openDelete(e, linea)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all" title="Eliminar línea">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ── PANEL DRAWER SUPERVISOR CUANDO SE SELECCIONA UNA LÍNEA ── */}
       <AnimatePresence>

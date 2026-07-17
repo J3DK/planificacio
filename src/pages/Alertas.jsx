@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, Wrench, Clock, TrendingDown, Package, CheckCircle2, BarChart2, Bell, Check, Plus, Pencil, Trash2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Wrench, Clock, TrendingDown, Package, CheckCircle2, BarChart2, Bell, Check, Plus, Pencil, Trash2, RefreshCw, LayoutGrid, List } from 'lucide-react';
 import { fetchAlertas, insertAlerta, updateAlerta, deleteAlerta } from '@/services/dataService';
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
@@ -30,6 +30,7 @@ export default function Alertas() {
   const [loading, setLoading] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [soloNoLeidas, setSoloNoLeidas] = useState(false);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
@@ -156,78 +157,170 @@ export default function Alertas() {
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
-          {['todos','critica','advertencia','info'].map(t => (
-            <button key={t} onClick={() => setFiltroTipo(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${filtroTipo === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>
-              {t === 'todos' ? 'Todos' : tipoConfig[t]?.label}
-            </button>
-          ))}
-        </div>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <div onClick={() => setSoloNoLeidas(!soloNoLeidas)}
-            className={`w-10 h-5 rounded-full transition-all relative ${soloNoLeidas ? 'bg-blue-600' : 'bg-slate-700'}`}>
-            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${soloNoLeidas ? 'left-5' : 'left-0.5'}`} />
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
+            {['todos','critica','advertencia','info'].map(t => (
+              <button key={t} onClick={() => setFiltroTipo(t)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${filtroTipo === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>
+                {t === 'todos' ? 'Todos' : tipoConfig[t]?.label}
+              </button>
+            ))}
           </div>
-          <span className="text-sm text-slate-400 font-medium">Solo no leídas</span>
-        </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <div onClick={() => setSoloNoLeidas(!soloNoLeidas)}
+              className={`w-10 h-5 rounded-full transition-all relative ${soloNoLeidas ? 'bg-blue-600' : 'bg-slate-700'}`}>
+              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${soloNoLeidas ? 'left-5' : 'left-0.5'}`} />
+            </div>
+            <span className="text-sm text-slate-400 font-medium">Solo no leídas</span>
+          </label>
+        </div>
+
+        <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 shrink-0 self-center">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-blue-600 text-white font-black shadow-md' : 'text-slate-400 hover:text-white'}`}
+            title="Vista en Fichas"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setViewMode('table')}
+            className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-blue-600 text-white font-black shadow-md' : 'text-slate-400 hover:text-white'}`}
+            title="Vista en Listado / Tabla"
+          >
+            <List className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Lista */}
-      <div className="space-y-3">
-        <AnimatePresence>
-          {alertasFiltradas.map((alerta, i) => {
-            const cfg = tipoConfig[alerta.tipo];
-            const Icon = iconMap[alerta.icono] || Bell;
-            return (
-              <motion.div key={alerta.id} layout initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ delay: i * 0.04 }}
-                className={`relative border rounded-2xl p-4 transition-all group ${cfg.cls} ${alerta.leida ? 'opacity-50' : ''}`}>
-                {!alerta.leida && <div className="absolute top-4 right-4 w-2 h-2 bg-blue-400 rounded-full animate-pulse" />}
-                <div className="flex items-start gap-3">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.cls}`}>
-                    <Icon className={`w-4 h-4 ${cfg.iconCls}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className={`inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${cfg.badge}`}>{cfg.label}</span>
-                      {alerta.linea && <span className="badge-neutral px-2 py-0.5 rounded-lg text-[10px] font-black">{alerta.linea}</span>}
-                      <span className="text-[10px] text-slate-600">{moduloLabel[alerta.modulo]}</span>
+      {/* Lista / Tabla */}
+      {viewMode === 'grid' ? (
+        <div className="space-y-3">
+          <AnimatePresence>
+            {alertasFiltradas.map((alerta, i) => {
+              const cfg = tipoConfig[alerta.tipo];
+              const Icon = iconMap[alerta.icono] || Bell;
+              return (
+                <motion.div key={alerta.id} layout initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ delay: i * 0.04 }}
+                  className={`relative border rounded-2xl p-4 transition-all group ${cfg.cls} ${alerta.leida ? 'opacity-50' : ''}`}>
+                  {!alerta.leida && <div className="absolute top-4 right-4 w-2 h-2 bg-blue-400 rounded-full animate-pulse" />}
+                  <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.cls}`}>
+                      <Icon className={`w-4 h-4 ${cfg.iconCls}`} />
                     </div>
-                    <h4 className="font-black text-white text-sm mb-1">{alerta.titulo}</h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">{alerta.descripcion}</p>
-                    <p className="text-[10px] text-slate-600 mt-2 font-mono">
-                      {new Date(alerta.timestamp).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                    {!alerta.leida && (
-                      <button onClick={() => marcarLeida(alerta.id)}
-                        className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all" title="Marcar leída">
-                        <Check className="w-3.5 h-3.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className={`inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${cfg.badge}`}>{cfg.label}</span>
+                        {alerta.linea && <span className="badge-neutral px-2 py-0.5 rounded-lg text-[10px] font-black">{alerta.linea}</span>}
+                        <span className="text-[10px] text-slate-600">{moduloLabel[alerta.modulo]}</span>
+                      </div>
+                      <h4 className="font-black text-white text-sm mb-1">{alerta.titulo}</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">{alerta.descripcion}</p>
+                      <p className="text-[10px] text-slate-600 mt-2 font-mono">
+                        {new Date(alerta.timestamp).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                      {!alerta.leida && (
+                        <button onClick={() => marcarLeida(alerta.id)}
+                          className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all" title="Marcar leída">
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button onClick={e => openEdit(e, alerta)}
+                        className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-400/10 transition-all">
+                        <Pencil className="w-3.5 h-3.5" />
                       </button>
-                    )}
-                    <button onClick={e => openEdit(e, alerta)}
-                      className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-400/10 transition-all">
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={e => openDelete(e, alerta)}
-                      className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                      <button onClick={e => openDelete(e, alerta)}
+                        className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-        {alertasFiltradas.length === 0 && (
-          <div className="text-center py-16 text-slate-600">
-            <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-bold">No hay alertas con los filtros seleccionados</p>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+          {alertasFiltradas.length === 0 && (
+            <div className="text-center py-16 text-slate-600">
+              <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="font-bold">No hay alertas con los filtros seleccionados</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-950/80 text-slate-400 text-xs font-black uppercase border-b border-slate-800 tracking-wider">
+                  <th className="py-3.5 px-4">Estado</th>
+                  <th className="py-3.5 px-4">Tipo</th>
+                  <th className="py-3.5 px-4">Módulo & Línea</th>
+                  <th className="py-3.5 px-4">Título & Descripción</th>
+                  <th className="py-3.5 px-4">Fecha / Hora</th>
+                  <th className="py-3.5 px-4 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-xs font-bold text-slate-200">
+                {alertasFiltradas.map(alerta => {
+                  const cfg = tipoConfig[alerta.tipo] || {};
+                  return (
+                    <tr key={alerta.id} className={`hover:bg-slate-800/40 transition-colors ${alerta.leida ? 'opacity-50' : ''}`}>
+                      <td className="py-3 px-4">
+                        {alerta.leida ? (
+                          <span className="text-slate-500 text-[10px] uppercase font-bold">Leída</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-black animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400" /> Nueva
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${cfg.badge}`}>{cfg.label || alerta.tipo}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-black text-white">{moduloLabel[alerta.modulo] || alerta.modulo}</span>
+                        {alerta.linea && <p className="text-[10px] text-amber-400 font-normal mt-0.5">{alerta.linea}</p>}
+                      </td>
+                      <td className="py-3 px-4 max-w-md">
+                        <p className="font-black text-white">{alerta.titulo}</p>
+                        <p className="text-[11px] text-slate-400 font-normal truncate mt-0.5">{alerta.descripcion}</p>
+                      </td>
+                      <td className="py-3 px-4 font-mono text-slate-400 text-[11px]">
+                        {new Date(alerta.timestamp).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {!alerta.leida && (
+                            <button onClick={() => marcarLeida(alerta.id)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-all" title="Marcar leída">
+                              <Check className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button onClick={e => openEdit(e, alerta)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Modificar">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={e => openDelete(e, alerta)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all" title="Eliminar">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {alertasFiltradas.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-slate-500 font-bold">
+                      No hay alertas con los filtros seleccionados
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <CrudModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSave}
         title={modalMode === 'create' ? 'Nueva Alerta' : 'Editar Alerta'}
