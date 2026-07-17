@@ -20,8 +20,8 @@ import {
   fetchCalidad, insertCalidad,
   fetchSecuencia, updateSecuencia,
   insertAlerta,
-  fetchHistorial,
-  fetchOperarios, updateOperario, registrarHistorialOperario, getCurrentShiftInfo, restoreOperariosCatalog, fetchOrdenesTrabajo
+  fetchOperarios, updateOperario, registrarHistorialOperario, getCurrentShiftInfo, restoreOperariosCatalog, fetchOrdenesTrabajo,
+  getChecklistTemplates, insertChecklistEjecucion
 } from '@/services/dataService';
 
 export default function PanelOperario() {
@@ -39,7 +39,7 @@ export default function PanelOperario() {
   const [warningPermisoLineaOpen, setWarningPermisoLineaOpen] = useState(false);
   const [pendingLoginOp, setPendingLoginOp] = useState(null);
   const [pendingLineaId, setPendingLineaId] = useState(null);
-  const [activeTab, setActiveTab] = useState('produccion'); // produccion | paradas | materiales | secuencia | historial | productos
+  const [activeTab, setActiveTab] = useState('produccion'); // produccion | paradas | materiales | secuencia | historial | productos | cil
 
   // Datos en vivo de Supabase / Local
   const [lineas, setLineas] = useState([]);
@@ -47,6 +47,9 @@ export default function PanelOperario() {
   const [materiales, setMateriales] = useState([]);
   const [secuencia, setSecuencia] = useState([]);
   const [operarios, setOperarios] = useState([]);
+  const [allTemplates, setAllTemplates] = useState([]);
+  const [selectedCilTplId, setSelectedCilTplId] = useState('');
+  const [cilPoints, setCilPoints] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Estados modales o acciones temporales
@@ -74,19 +77,21 @@ export default function PanelOperario() {
 
   const loadAllData = async () => {
     setLoading(true);
-    const [resL, resP, resM, resS, resH, resOps] = await Promise.all([
+    const [resL, resP, resM, resS, resH, resOps, resTpl] = await Promise.all([
       fetchLineas(),
       fetchParadas(),
       fetchMateriasPrimas(),
       fetchSecuencia(),
       fetchHistorial(),
       fetchOperarios(),
+      getChecklistTemplates()
     ]);
     if (resL.data) setLineas(resL.data);
     if (resP.data) setParadas(resP.data);
     if (resM.data) setMateriales(resM.data);
     if (resS.data) setSecuencia(resS.data);
     if (resH.data) setHistorial(resH.data);
+    if (resTpl.data) setAllTemplates(resTpl.data);
     let opsArray = resOps.data || [];
     if (opsArray.length === 0) {
       opsArray = restoreOperariosCatalog();
@@ -112,6 +117,7 @@ export default function PanelOperario() {
     window.addEventListener('produccion_updated', handler);
     window.addEventListener('mantenimiento_updated', handler);
     window.addEventListener('operarios_updated', handler);
+    window.addEventListener('checklists_updated', handler);
     return () => {
       window.removeEventListener('lineas_updated', handler);
       window.removeEventListener('paradas_updated', handler);
@@ -122,6 +128,7 @@ export default function PanelOperario() {
       window.removeEventListener('produccion_updated', handler);
       window.removeEventListener('mantenimiento_updated', handler);
       window.removeEventListener('operarios_updated', handler);
+      window.removeEventListener('checklists_updated', handler);
     };
   }, []);
 
@@ -279,6 +286,92 @@ export default function PanelOperario() {
   const paradaAbierta = paradas.find(
     p => p.linea.toLowerCase().includes(lineaActiva.nombre.toLowerCase()) && p.estado === 'abierta'
   );
+
+  const ordenActiva = useMemo(() => {
+    return secuencia.find(o => o.lineaId === lineaSelId && o.estado === 'en_curso')
+        || secuencia.find(o => o.lineaId === lineaSelId)
+        || { codigo: 'OF-CIL-001', ref: lineaActiva.producto || 'BAT-48V-100Ah' };
+  }, [secuencia, lineaSelId, lineaActiva.producto]);
+
+  const cilTemplates = useMemo(() => {
+    return allTemplates.filter(t => {
+      if (t.categoria !== 'cil' || !t.activo) return false;
+      if (t.aplicaA?.tipo === 'general') return true;
+      const ids = t.aplicaA?.ids || [];
+      return ids.includes(lineaSelId) || ids.includes(lineaActiva.nombre);
+    });
+  }, [allTemplates, lineaSelId, lineaActiva.nombre]);
+
+  const cilFallbackTemplate = useMemo(() => ({
+    id: 'CHK-CIL-FB',
+    nombre: 'Pauta Estándar de Limpieza, Inspección y Lubricación (CIL)',
+    categoria: 'cil',
+    items: [
+      { id: 1, text: 'Limpieza general de virutas, polvo y residuos del área de trabajo del operario', critico: false },
+      { id: 2, text: 'Inspección de fugas en racores neumáticos y conductos hidráulicos principales', critico: true },
+      { id: 3, text: 'Verificación de engrase y lubricación en guías lineales y husillos mecánicos', critico: true },
+      { id: 4, text: 'Comprobación visual de botoneras de emergencia (setas rojas) y barreras ópticas', critico: true },
+      { id: 5, text: 'Vaciado de bandejas colectoras y purga de condensados de la instalación de aire', critico: false }
+    ]
+  }), []);
+
+  const activeCilTemplate = useMemo(() => {
+    return cilTemplates.find(t => t.id === selectedCilTplId) || cilFallbackTemplate;
+  }, [cilTemplates, selectedCilTplId, cilFallbackTemplate]);
+
+  useEffect(() => {
+    if (cilTemplates.length > 0) {
+      if (!selectedCilTplId || !cilTemplates.some(t => t.id === selectedCilTplId)) {
+        setSelectedCilTplId(cilTemplates[0].id);
+      }
+    } else {
+      setSelectedCilTplId('');
+    }
+  }, [cilTemplates, selectedCilTplId]);
+
+  useEffect(() => {
+    if (activeCilTemplate && activeCilTemplate.items) {
+      setCilPoints(
+        activeCilTemplate.items.map((it, idx) => ({
+          id: it.id || idx + 1,
+          text: it.texto || it.text,
+          status: 'OK',
+          critico: it.critico || false
+        }))
+      );
+    }
+  }, [activeCilTemplate]);
+
+  const toggleCilPoint = (id, newStatus) => {
+    setCilPoints(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
+  };
+
+  const hasCilNoOk = useMemo(() => cilPoints.some(p => p.status === 'No OK'), [cilPoints]);
+  const firstCilNoOkPoint = useMemo(() => cilPoints.find(p => p.status === 'No OK'), [cilPoints]);
+
+  const handlePrecargarAveriaCIL = (punto) => {
+    setScrapCausa(`Incidencia en CIL: ${punto.text.slice(0, 60)}...`);
+    setActiveTab('paradas');
+  };
+
+  const handleRegistrarEjecucionCIL = async () => {
+    await insertChecklistEjecucion({
+      templateId: activeCilTemplate.id,
+      templateNombre: activeCilTemplate.nombre,
+      categoria: 'cil',
+      linea: lineaActiva.nombre,
+      operarioId: operarioNombre,
+      ordenId: ordenActiva.codigo || ordenActiva.ref,
+      huboIncidenciaCritica: cilPoints.some(p => p.status === 'No OK' && p.critico),
+      resultados: cilPoints.map(p => ({
+        itemId: p.id,
+        texto: p.text,
+        estado: p.status,
+        critico: p.critico
+      }))
+    });
+    alert(`⚡ Checklist CIL ("${activeCilTemplate.nombre}") finalizado y firmado en el historial central por ${operarioNombre}.`);
+  };
 
   // ─── 1. ACCIONES DE PRODUCCIÓN ──────────────────────────────────────────────
 
@@ -660,13 +753,14 @@ export default function PanelOperario() {
       ) : null}
 
       {/* ── SELECTOR DE TABS / PESTAÑAS GIGANTES TÁCTILES ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
         {[
           { id: 'produccion', label: '1. Producción', sub: 'Declarar Fabricación', icon: Factory, color: 'blue' },
           { id: 'paradas',    label: '2. Paradas', sub: 'Reportar Avería', icon: AlertTriangle, color: 'red' },
           { id: 'materiales', label: '3. Materiales', sub: 'Registrar Consumo', icon: Package, color: 'amber' },
           { id: 'secuencia',  label: '4. Secuencia', sub: 'Cambio Referencia', icon: ClipboardList, color: 'emerald' },
           { id: 'historial',  label: '5. Historial', sub: 'Métricas pasadas', icon: History, color: 'violet' },
+          { id: 'cil',        label: '6. Checklist CIL', sub: 'Limpieza e Insp.', icon: CheckSquare, color: 'cyan' },
         ].map(t => {
           const isAct = activeTab === t.id;
           const activeColors = {
@@ -1421,6 +1515,193 @@ export default function PanelOperario() {
                 </div>
               </div>
             )}
+          </motion.div>
+        )}
+
+        {/* ── TAB 6: CHECKLIST CIL (LIMPIEZA, INSPECCIÓN, LUBRICACIÓN) ── */}
+        {activeTab === 'cil' && (
+          <motion.div
+            key="tab-cil"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className="space-y-6"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl h-fit">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <ClipboardList className="w-5 h-5 text-cyan-400" />
+                    Puesto: {lineaActiva.nombre}
+                  </h3>
+                  <span className="px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 font-mono text-xs font-bold border border-cyan-500/30">
+                    CIL ACTIVO
+                  </span>
+                </div>
+
+                <div className="space-y-3 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-slate-500 block">Operario Responsable:</span>
+                    <span className="text-sm font-black text-white block mt-0.5">{operarioNombre}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-slate-500 block">Orden / Producto:</span>
+                    <span className="text-sm font-bold text-cyan-300 block mt-0.5">{ordenActiva.codigo || 'OF-CIL'} — {ordenActiva.ref || lineaActiva.producto}</span>
+                  </div>
+                </div>
+
+                <div className="bg-cyan-950/30 border border-cyan-500/30 rounded-2xl p-4 space-y-2">
+                  <p className="text-xs font-black text-cyan-300 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-cyan-400" /> Instrucción CIL
+                  </p>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Completa la pauta de Limpieza, Inspección y Lubricación de tu puesto antes del relevo o durante el arranque. Si observas alguna fuga, ruido anómalo o fallo, márcalo "No OK" y abre un aviso de avería de inmediato.
+                  </p>
+                </div>
+              </div>
+
+              <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-xl">
+                <div className="flex items-center justify-between flex-wrap gap-3 border-b border-slate-800 pb-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-black text-white flex items-center gap-2">
+                        <CheckSquare className="w-5 h-5 text-cyan-400" />
+                        {activeCilTemplate ? activeCilTemplate.nombre : 'Pauta de Limpieza, Inspección y Lubricación'}
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {cilPoints.length} puntos de verificación ({cilPoints.filter(p => p.critico).length} críticos ⚡)
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {cilTemplates.length > 1 && (
+                      <select
+                        value={selectedCilTplId}
+                        onChange={e => setSelectedCilTplId(e.target.value)}
+                        className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-cyan-500"
+                      >
+                        {cilTemplates.map(t => (
+                          <option key={t.id} value={t.id}>{t.nombre}</option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      onClick={() => setCilPoints(prev => prev.map(p => ({ ...p, status: 'OK' })))}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors"
+                    >
+                      ✔ Marcar Todos OK
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {cilPoints.map(point => {
+                    const isOk = point.status === 'OK';
+                    return (
+                      <div
+                        key={point.id}
+                        className={`p-4 rounded-2xl border-2 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                          isOk
+                            ? 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
+                            : 'bg-red-950/30 border-red-500/80 shadow-lg shadow-red-900/20 animate-pulse'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3.5 max-w-xl">
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 mt-0.5 ${
+                            isOk ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-red-500/30 text-red-400 border border-red-500'
+                          }`}>
+                            {point.id}
+                          </div>
+                          <div>
+                            <span className={`text-xs sm:text-sm font-bold leading-snug block ${isOk ? 'text-slate-200' : 'text-red-200 font-extrabold'}`}>
+                              {point.text}
+                            </span>
+                            {point.critico && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/20 border border-red-500/40 text-red-300 text-[10px] font-black uppercase tracking-wider mt-1.5">
+                                ⚡ Punto Crítico
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end">
+                          <button
+                            type="button"
+                            onClick={() => toggleCilPoint(point.id, 'OK')}
+                            className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all ${
+                              isOk
+                                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-900/40'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
+                            }`}
+                          >
+                            <Check className="w-3.5 h-3.5" /> OK
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleCilPoint(point.id, 'No OK')}
+                            className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all ${
+                              !isOk
+                                ? 'bg-red-600 text-white shadow-md shadow-red-900/60'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
+                            }`}
+                          >
+                            <X className="w-3.5 h-3.5" /> No OK
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {hasCilNoOk && firstCilNoOkPoint && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className="bg-red-950/60 border-2 border-red-500 rounded-3xl p-5 shadow-2xl space-y-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-900/50 flex-shrink-0">
+                        <AlertTriangle className="w-6 h-6 animate-bounce" />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-black text-white">⚠️ Anomalía Detectada en Pauta CIL</h4>
+                        <p className="text-xs text-red-300 mt-0.5">
+                          Se ha marcado "No OK": <strong className="text-white">"{firstCilNoOkPoint.text.slice(0, 50)}..."</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-950/80 p-3 rounded-xl border border-red-500/30 text-xs text-red-200">
+                      Puedes reportar y abrir automáticamente un <strong>Aviso de Avería / Mantenimiento</strong> precargado con el punto fallido en {lineaActiva.nombre}.
+                    </div>
+
+                    <div className="flex justify-end pt-1">
+                      <button
+                        onClick={() => handlePrecargarAveriaCIL(firstCilNoOkPoint)}
+                        className="px-5 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-red-900/50 transition-all active:scale-95"
+                      >
+                        <Wrench className="w-4 h-4 fill-white" /> ⚡ Abrir Aviso de Mantenimiento Precargado
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                <div className="flex items-center justify-between bg-slate-950/80 p-5 rounded-3xl border border-slate-800 flex-wrap gap-4">
+                  <div>
+                    <span className="text-sm font-black text-white block">Registrar Inspección CIL</span>
+                    <span className="text-xs text-slate-400">Firmado por {operarioNombre} ({turnoSel})</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRegistrarEjecucionCIL}
+                    className="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-xs shadow-xl shadow-cyan-900/40 flex items-center gap-2 transition-all active:scale-95"
+                  >
+                    <Save className="w-4 h-4" /> Finalizar y Registrar Pauta CIL
+                  </button>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

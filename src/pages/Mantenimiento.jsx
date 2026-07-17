@@ -18,8 +18,7 @@ import {
   fetchPlanesPreventivos, updatePlanPreventivo, insertPlanPreventivo, deletePlanPreventivo,
   addChecklistItem, updateChecklistItem, removeChecklistItem,
   fetchSensoresPredictivos, insertSensorPredictivo, updateSensorPredictivo, deleteSensorPredictivo,
-  insertEquipoEnLinea, updateEquipoEnArbol, deleteEquipoEnArbol, insertComponenteEnEquipo,
-  getEquiposPlanos, fetchOperarios, registrarHistorialOperario, fetchParadas, updateParada
+  getEquiposPlanos, fetchOperarios, registrarHistorialOperario, fetchParadas, updateParada, getChecklistTemplates
 } from '@/services/dataService';
 import {
   kpisMantenimiento as mockKpis, evolucionDisponibilidadLinea, horasParadaPorCausaTecnica,
@@ -270,6 +269,20 @@ function ChecklistEditor({ plan, onToggle, onAddItem, onUpdateItem, onRemoveItem
   const [newTarea, setNewTarea] = useState('');
   const [editingIdx, setEditingIdx] = useState(null);
   const [editingVal, setEditingVal] = useState('');
+  const [mtoTemplates, setMtoTemplates] = useState([]);
+  const [selectedTplId, setSelectedTplId] = useState('');
+  const [showSelector, setShowSelector] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    getChecklistTemplates().then(res => {
+      if (!mounted) return;
+      const list = (res.data || []).filter(t => (t.categoria === 'mantenimiento' || t.categoria === 'cil') && t.activo);
+      setMtoTemplates(list);
+      if (list.length > 0) setSelectedTplId(list[0].id);
+    });
+    return () => { mounted = false; };
+  }, []);
 
   const handleAdd = async () => {
     const t = newTarea.trim();
@@ -285,11 +298,56 @@ function ChecklistEditor({ plan, onToggle, onAddItem, onUpdateItem, onRemoveItem
     setEditingVal('');
   };
 
+  const handleImportTemplate = async () => {
+    const tpl = mtoTemplates.find(t => t.id === selectedTplId);
+    if (!tpl || !tpl.items) return;
+    for (const it of tpl.items) {
+      const texto = it.texto || it.text;
+      if (texto) await onAddItem(plan.id, texto);
+    }
+    setShowSelector(false);
+  };
+
   return (
     <div className="space-y-2">
-      <span className="text-xs font-black text-slate-300 block">Checklist de Tareas Técnicas:</span>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <span className="text-xs font-black text-slate-300 block">Checklist de Tareas Técnicas ({plan.checklist?.length || 0}):</span>
+        {mtoTemplates.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowSelector(!showSelector)}
+            className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold flex items-center gap-1 transition-colors"
+          >
+            <Link2 className="w-3 h-3" /> {showSelector ? 'Cerrar Plantillas' : '📥 Vincular Plantilla Central'}
+          </button>
+        )}
+      </div>
 
-      {plan.checklist.map((c, i) => (
+      {showSelector && mtoTemplates.length > 0 && (
+        <div className="bg-slate-950 p-3 rounded-xl border border-emerald-500/40 space-y-2">
+          <p className="text-[11px] text-slate-300">Selecciona una plantilla del módulo central para importar sus ítems a este plan preventivo:</p>
+          <div className="flex gap-2">
+            <select
+              value={selectedTplId}
+              onChange={e => setSelectedTplId(e.target.value)}
+              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+            >
+              {mtoTemplates.map(t => (
+                <option key={t.id} value={t.id}>{t.nombre} ({t.items?.length || 0} ítems)</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleImportTemplate}
+              className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition-colors"
+            >
+              Importar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {plan.checklist && plan.checklist.map((c, i) => (
         <div key={i} className="flex items-center gap-2 group">
           {editingIdx === i ? (
             <div className="flex items-center gap-2 flex-1">

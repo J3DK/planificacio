@@ -12,6 +12,7 @@ import { mockProductos } from '@/data/mockProductos';
 import { operarios as mockOperarios } from '@/data/mockOperarios';
 import { skillsMasterIniciales, formacionesMasterIniciales, permisosMasterIniciales, capacitacionesMasterIniciales, autorizacionesMasterIniciales } from '@/data/mockCualificaciones';
 import { ordenesTrabajoIniciales, activosJerarquia as mockActivos, planesPreventivosIniciales, sensoresPredictivosIniciales, repuestosAlmacenIniciales } from '@/data/mockMantenimiento';
+import { checklistTemplates as mockChecklistTemplates } from '@/data/mockChecklistsTemplates';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -2574,3 +2575,183 @@ export async function insertComponenteEnEquipo(equipoId, componente) {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mantenimiento_updated'));
   return { data: newComp, error: null };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── CHECKLISTS TEMPLATES (PLANTILLAS REUTILIZABLES: CALIDAD, CIL, MTO) ───
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const CHECKLISTS_TEMPLATES_KEY = 'mes_checklists_templates';
+const CHECKLISTS_EJECUCIONES_KEY = 'mes_checklists_ejecuciones';
+
+function getChecklistTemplatesLocal() {
+  const d = localStorage.getItem(CHECKLISTS_TEMPLATES_KEY);
+  return d ? JSON.parse(d) : mockChecklistTemplates;
+}
+function setChecklistTemplatesLocal(d) {
+  localStorage.setItem(CHECKLISTS_TEMPLATES_KEY, JSON.stringify(d));
+}
+
+function getChecklistEjecucionesLocal() {
+  const d = localStorage.getItem(CHECKLISTS_EJECUCIONES_KEY);
+  return d ? JSON.parse(d) : [];
+}
+function setChecklistEjecucionesLocal(d) {
+  localStorage.setItem(CHECKLISTS_EJECUCIONES_KEY, JSON.stringify(d));
+}
+
+export async function getChecklistTemplates() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('checklist_templates').select('*').order('nombre', { ascending: true });
+      if (!error && data && data.length > 0) return { data, error: null };
+    } catch (e) {
+      console.warn('Fallback a local para checklist_templates:', e);
+    }
+  }
+  return { data: getChecklistTemplatesLocal(), error: null };
+}
+
+export async function insertChecklistTemplate(tpl) {
+  const nuevo = {
+    ...tpl,
+    id: tpl.id || `CHK-${tpl.categoria?.toUpperCase().slice(0, 3) || 'GEN'}-${Math.floor(100 + Math.random() * 900)}`,
+    items: tpl.items || [],
+    activo: tpl.activo !== undefined ? tpl.activo : true
+  };
+
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('checklist_templates').insert([nuevo]).select();
+      if (!error && data) return { data: data[0], error: null };
+    } catch (e) {
+      console.warn('Error Supabase insertChecklistTemplate:', e);
+    }
+  }
+
+  const list = getChecklistTemplatesLocal();
+  list.push(nuevo);
+  setChecklistTemplatesLocal(list);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('checklists_updated'));
+  return { data: nuevo, error: null };
+}
+
+export async function updateChecklistTemplate(id, tpl) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('checklist_templates').update(tpl).eq('id', id).select();
+      if (!error && data) return { data: data[0], error: null };
+    } catch (e) {
+      console.warn('Error Supabase updateChecklistTemplate:', e);
+    }
+  }
+
+  const list = getChecklistTemplatesLocal();
+  const idx = list.findIndex(item => item.id === id);
+  if (idx !== -1) {
+    list[idx] = { ...list[idx], ...tpl };
+    setChecklistTemplatesLocal(list);
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('checklists_updated'));
+    return { data: list[idx], error: null };
+  }
+  return { data: null, error: 'No encontrado' };
+}
+
+export async function deleteChecklistTemplate(id) {
+  if (isSupabaseConfigured()) {
+    try {
+      await supabase.from('checklist_templates').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Error Supabase deleteChecklistTemplate:', e);
+    }
+  }
+
+  const list = getChecklistTemplatesLocal().filter(item => item.id !== id);
+  setChecklistTemplatesLocal(list);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('checklists_updated'));
+  return { data: { id }, error: null };
+}
+
+// ─── Gestión de items de plantilla ──────────────────────────────────────────
+
+export async function addChecklistTemplateItem(templateId, item) {
+  const list = getChecklistTemplatesLocal();
+  const tpl = list.find(t => t.id === templateId);
+  if (!tpl) return { data: null, error: 'Plantilla no encontrada' };
+
+  const newItem = {
+    id: item.id || `IT-${Date.now().toString().slice(-4)}`,
+    texto: item.texto || (typeof item === 'string' ? item : 'Nuevo ítem'),
+    orden: (tpl.items || []).length + 1,
+    critico: item.critico || false
+  };
+
+  const newItems = [...(tpl.items || []), newItem];
+  return updateChecklistTemplate(templateId, { items: newItems });
+}
+
+export async function updateChecklistTemplateItem(templateId, itemId, itemUpdate) {
+  const list = getChecklistTemplatesLocal();
+  const tpl = list.find(t => t.id === templateId);
+  if (!tpl) return { data: null, error: 'Plantilla no encontrada' };
+
+  const newItems = (tpl.items || []).map((it, idx) => {
+    if (it.id === itemId || idx === itemId || String(idx) === String(itemId)) {
+      return typeof itemUpdate === 'string' ? { ...it, texto: itemUpdate } : { ...it, ...itemUpdate };
+    }
+    return it;
+  });
+
+  return updateChecklistTemplate(templateId, { items: newItems });
+}
+
+export async function removeChecklistTemplateItem(templateId, itemId) {
+  const list = getChecklistTemplatesLocal();
+  const tpl = list.find(t => t.id === templateId);
+  if (!tpl) return { data: null, error: 'Plantilla no encontrada' };
+
+  const newItems = (tpl.items || []).filter((it, idx) => it.id !== itemId && idx !== itemId && String(idx) !== String(itemId));
+  return updateChecklistTemplate(templateId, { items: newItems });
+}
+
+export async function reordenarChecklistTemplateItems(templateId, nuevoOrdenItems) {
+  return updateChecklistTemplate(templateId, { items: nuevoOrdenItems });
+}
+
+// ─── REGISTRO DE EJECUCIONES (EN PLANTA) ────────────────────────────────────
+
+export async function insertChecklistEjecucion(ejecucion) {
+  const nuevo = {
+    ...ejecucion,
+    id: ejecucion.id || `EXE-${Date.now()}`,
+    fecha: ejecucion.fecha || new Date().toISOString(),
+    huboIncidenciaCritica: ejecucion.huboIncidenciaCritica || false
+  };
+
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('checklist_ejecuciones').insert([nuevo]).select();
+      if (!error && data) return { data: data[0], error: null };
+    } catch (e) {
+      console.warn('Error Supabase insertChecklistEjecucion:', e);
+    }
+  }
+
+  const list = getChecklistEjecucionesLocal();
+  list.unshift(nuevo);
+  setChecklistEjecucionesLocal(list);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('checklists_ejecutados'));
+  return { data: nuevo, error: null };
+}
+
+export async function getChecklistEjecuciones() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('checklist_ejecuciones').select('*').order('fecha', { ascending: false });
+      if (!error && data) return { data, error: null };
+    } catch (e) {
+      console.warn('Fallback a local para checklist_ejecuciones:', e);
+    }
+  }
+  return { data: getChecklistEjecucionesLocal(), error: null };
+}
+

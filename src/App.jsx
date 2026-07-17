@@ -21,6 +21,7 @@ import Operarios from '@/pages/Operarios';
 import Cualificaciones from '@/pages/Cualificaciones';
 import Productos from '@/pages/Productos';
 import Mantenimiento from '@/pages/Mantenimiento';
+import Checklists from '@/pages/Checklists';
 import Configuracion from '@/pages/Configuracion';
 
 function Layout({ children }) {
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/calidad" element={<Layout><Calidad /></Layout>} />
         <Route path="/paradas" element={<Layout><Paradas /></Layout>} />
         <Route path="/mantenimiento" element={<Layout><Mantenimiento /></Layout>} />
+        <Route path="/checklists" element={<Layout><Checklists /></Layout>} />
         <Route path="/materias-primas" element={<Layout><MateriasPrimas /></Layout>} />
         <Route path="/informes" element={<Layout><Informes /></Layout>} />
         <Route path="/alertas" element={<Layout><Alertas /></Layout>} />

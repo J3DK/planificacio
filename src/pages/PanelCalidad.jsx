@@ -16,7 +16,8 @@ import {
   fetchReclamaciones, insertReclamacion, updateReclamacion, deleteReclamacion,
   fetchScraps, insertScrap, updateScrap, deleteScrap,
   fetchRetencionesCalidad, insertRetencionCalidad, updateRetencionCalidad, deleteRetencionCalidad,
-  fetchSecuencia, fetchOperarios, getCurrentShiftInfo, registrarIncidenciaCalidad
+  fetchSecuencia, fetchOperarios, getCurrentShiftInfo, registrarIncidenciaCalidad,
+  getChecklistTemplates, insertChecklistEjecucion
 } from '@/services/dataService';
 
 export default function PanelCalidad() {
@@ -45,19 +46,15 @@ export default function PanelCalidad() {
   const [scraps, setScraps] = useState([]);
   const [retenciones, setRetenciones] = useState([]);
   const [reclamaciones, setReclamaciones] = useState([]);
+  const [allTemplates, setAllTemplates] = useState([]);
+  const [selectedTplId, setSelectedTplId] = useState('');
   const [loading, setLoading] = useState(true);
 
   // Estados de éxito en envíos rápidos
   const [envioSuccess, setEnvioSuccess] = useState('');
 
-  // ─── Puntos del Checklist por orden ─────────────────────────────────────────
-  const [checklistPoints, setChecklistPoints] = useState([
-    { id: 1, text: 'Inspección visual del aspecto exterior y acabados superficiales (Sin rayas, abolladuras ni corrosión)', status: 'OK' },
-    { id: 2, text: 'Control dimensional y tolerancias mecánicas (Cotas críticas y encajes según plano técnica)', status: 'OK' },
-    { id: 3, text: 'Verificación de etiquetado, código de barras y trazabilidad de lotes de componentes', status: 'OK' },
-    { id: 4, text: 'Pruebas funcionales rápidas / estanqueidad / aislamiento eléctrico (según especificación BOM)', status: 'OK' },
-    { id: 5, text: 'Integridad del embalaje exterior e inclusión de manual / hoja técnica en pallet/caja', status: 'OK' },
-  ]);
+  // ─── Puntos del Checklist por orden (Dinámico según plantilla) ─────────────
+  const [checklistPoints, setChecklistPoints] = useState([]);
 
   // Formularios
   const [formDef, setFormDef] = useState({ causa: '', categoria: 'Inspección en Planta (Checklist)', cantidad: '1', pct: '5.0', linea: '', gravedad: 'media' });
@@ -68,7 +65,7 @@ export default function PanelCalidad() {
 
   const loadAllData = async () => {
     setLoading(true);
-    const [resL, resSec, resOp, resDef, resRet, resScr, resHold, resRec] = await Promise.all([
+    const [resL, resSec, resOp, resDef, resRet, resScr, resHold, resRec, resTpl] = await Promise.all([
       fetchLineas(),
       fetchSecuencia(),
       fetchOperarios(),
@@ -76,7 +73,8 @@ export default function PanelCalidad() {
       fetchRetrabajos(),
       fetchScraps(),
       fetchRetencionesCalidad(),
-      fetchReclamaciones()
+      fetchReclamaciones(),
+      getChecklistTemplates()
     ]);
     if (resL.data) setLineas(resL.data);
     if (resSec.data) setSecuencia(resSec.data);
@@ -86,6 +84,7 @@ export default function PanelCalidad() {
     if (resScr.data) setScraps(resScr.data);
     if (resHold?.data) setRetenciones(resHold.data);
     if (resRec.data) setReclamaciones(resRec.data);
+    if (resTpl.data) setAllTemplates(resTpl.data);
     setLoading(false);
   };
 
@@ -99,16 +98,70 @@ export default function PanelCalidad() {
     window.addEventListener('calidad_updated', handler);
     window.addEventListener('lineas_updated', handler);
     window.addEventListener('produccion_updated', handler);
+    window.addEventListener('checklists_updated', handler);
     return () => {
       window.removeEventListener('calidad_updated', handler);
       window.removeEventListener('lineas_updated', handler);
       window.removeEventListener('produccion_updated', handler);
+      window.removeEventListener('checklists_updated', handler);
     };
   }, []);
 
   const lineaActiva = useMemo(() => {
     return lineas.find(l => l.id === lineaSelId) || { id: lineaSelId, nombre: `Línea ${lineaSelId}`, estado: 'en_marcha' };
   }, [lineas, lineaSelId]);
+
+  // Plantillas de Calidad aplicables a la línea actual
+  const calidadTemplates = useMemo(() => {
+    return allTemplates.filter(t => {
+      if (t.categoria !== 'calidad' || !t.activo) return false;
+      if (t.aplicaA?.tipo === 'general') return true;
+      const ids = t.aplicaA?.ids || [];
+      return ids.includes(lineaSelId) || ids.includes(lineaActiva.nombre);
+    });
+  }, [allTemplates, lineaSelId, lineaActiva.nombre]);
+
+  // Sincronizar selectedTplId con la primera plantilla disponible si cambia la línea o la lista
+  useEffect(() => {
+    if (calidadTemplates.length > 0) {
+      if (!selectedTplId || !calidadTemplates.some(t => t.id === selectedTplId)) {
+        setSelectedTplId(calidadTemplates[0].id);
+      }
+    } else {
+      setSelectedTplId('');
+    }
+  }, [calidadTemplates, selectedTplId]);
+
+  const qualityFallbackTemplate = useMemo(() => ({
+    id: 'CHK-QC-FB',
+    nombre: 'Inspección Estándar QC (General)',
+    categoria: 'calidad',
+    items: [
+      { id: 1, texto: 'Inspección visual del aspecto exterior y acabados superficiales (Sin rayas ni abolladuras)', critico: true },
+      { id: 2, texto: 'Control dimensional y tolerancias mecánicas (Cotas críticas según plano técnico)', critico: false },
+      { id: 3, texto: 'Verificación de etiquetado, código de barras y trazabilidad de lotes de componentes', critico: true },
+      { id: 4, text: 'Pruebas funcionales rápidas / estanqueidad / aislamiento eléctrico (según especificación BOM)', critico: true },
+      { id: 5, text: 'Integridad del embalaje exterior e inclusión de manual / hoja técnica en pallet/caja', critico: false }
+    ]
+  }), []);
+
+  const activeTemplate = useMemo(() => {
+    return calidadTemplates.find(t => t.id === selectedTplId) || qualityFallbackTemplate;
+  }, [calidadTemplates, selectedTplId, qualityFallbackTemplate]);
+
+  // Sincronizar checklistPoints cuando cambia la plantilla seleccionada
+  useEffect(() => {
+    if (activeTemplate && activeTemplate.items) {
+      setChecklistPoints(
+        activeTemplate.items.map((it, idx) => ({
+          id: it.id || idx + 1,
+          text: it.texto || it.text,
+          status: 'OK',
+          critico: it.critico || false
+        }))
+      );
+    }
+  }, [activeTemplate]);
 
   // Sincronizar campos de formulario cuando cambia la línea o inspector
   useEffect(() => {
@@ -145,6 +198,25 @@ export default function PanelCalidad() {
 
   const hasNoOk = useMemo(() => checklistPoints.some(p => p.status === 'No OK'), [checklistPoints]);
   const firstNoOkPoint = useMemo(() => checklistPoints.find(p => p.status === 'No OK'), [checklistPoints]);
+
+  const handleRegistrarEjecucionQC = async () => {
+    await insertChecklistEjecucion({
+      templateId: activeTemplate.id,
+      templateNombre: activeTemplate.nombre,
+      categoria: 'calidad',
+      linea: lineaActiva.nombre,
+      operarioId: operarioNombre,
+      ordenId: ordenActiva.codigo || ordenActiva.ref,
+      huboIncidenciaCritica: checklistPoints.some(p => p.status === 'No OK' && p.critico),
+      resultados: checklistPoints.map(p => ({
+        itemId: p.id,
+        texto: p.text,
+        estado: p.status,
+        critico: p.critico
+      }))
+    });
+    showSuccessNotice(`Firma y ejecución de "${activeTemplate.nombre}" guardada en el historial oficial`);
+  };
 
   const handlePrecargarDefecto = (punto) => {
     setFormDef({
@@ -490,16 +562,31 @@ export default function PanelCalidad() {
             </div>
 
             <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-xl">
-              <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center justify-between flex-wrap gap-3 border-b border-slate-800 pb-4">
                 <div>
-                  <h3 className="text-lg font-black text-white flex items-center gap-2">
-                    <CheckSquare className="w-5 h-5 text-emerald-400" />
-                    Puntos de Verificación e Inspección (Checklist)
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Selecciona el estado de cada punto en planta para la orden actual</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-black text-white flex items-center gap-2">
+                      <CheckSquare className="w-5 h-5 text-emerald-400" />
+                      {activeTemplate ? activeTemplate.nombre : 'Puntos de Verificación e Inspección (Checklist)'}
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Plantilla oficial del módulo central · Categoría QC · {checklistPoints.length} puntos ({checklistPoints.filter(p => p.critico).length} críticos ⚡)
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {calidadTemplates.length > 1 && (
+                    <select
+                      value={selectedTplId}
+                      onChange={e => setSelectedTplId(e.target.value)}
+                      className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                    >
+                      {calidadTemplates.map(t => (
+                        <option key={t.id} value={t.id}>{t.nombre}</option>
+                      ))}
+                    </select>
+                  )}
                   <button
                     onClick={() => setChecklistPoints(prev => prev.map(p => ({ ...p, status: 'OK' })))}
                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors"
@@ -527,9 +614,16 @@ export default function PanelCalidad() {
                         }`}>
                           {point.id}
                         </div>
-                        <span className={`text-xs sm:text-sm font-bold leading-snug ${isOk ? 'text-slate-200' : 'text-red-200 font-extrabold'}`}>
-                          {point.text}
-                        </span>
+                        <div>
+                          <span className={`text-xs sm:text-sm font-bold leading-snug block ${isOk ? 'text-slate-200' : 'text-red-200 font-extrabold'}`}>
+                            {point.text}
+                          </span>
+                          {point.critico && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/20 border border-red-500/40 text-red-300 text-[10px] font-black uppercase tracking-wider mt-1.5">
+                              ⚡ Punto de Control Crítico
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end">
@@ -606,6 +700,21 @@ export default function PanelCalidad() {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* BOTÓN DE FIRMAR Y GUARDAR EN HISTORIAL */}
+              <div className="flex items-center justify-between bg-slate-950/80 p-5 rounded-3xl border border-slate-800 flex-wrap gap-4">
+                <div>
+                  <span className="text-sm font-black text-white block">Finalizar e Inscribir Inspección</span>
+                  <span className="text-xs text-slate-400">Guarda los resultados del checklist y los vincula a {operarioNombre}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRegistrarEjecucionQC}
+                  className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-xl shadow-emerald-900/40 flex items-center gap-2 transition-all active:scale-95"
+                >
+                  <Save className="w-4 h-4" /> ⚡ Firmar y Registrar Ejecución QC
+                </button>
+              </div>
             </div>
           </div>
         )}
