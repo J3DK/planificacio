@@ -28,6 +28,7 @@ import {
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { generarInformeOT } from '@/services/reportService';
 
 import { useAppConfig } from '@/services/configService';
 import OTDetallePanel from '@/components/mantenimiento/OTDetallePanel';
