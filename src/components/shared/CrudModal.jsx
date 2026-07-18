@@ -67,7 +67,7 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 16 }}
             transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-            className="relative w-full max-w-lg bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden"
+            className="relative w-full max-w-2xl bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
@@ -79,6 +79,7 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
                 <h3 className="text-white font-black text-base">{title}</h3>
               </div>
               <button
+                type="button"
                 onClick={onClose}
                 className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-all"
               >
@@ -87,9 +88,11 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
-              {fields.map(field => (
-                <div key={field.key}>
+            <form onSubmit={handleSubmit} className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              {fields.map(field => {
+                const isFullWidth = field.type === 'textarea' || field.type === 'bitacora' || field.type === 'gallery' || field.type === 'multi-select' || field.type === 'tag-list' || field.fullWidth;
+                return (
+                <div key={field.key} className={isFullWidth ? 'sm:col-span-2' : 'sm:col-span-1'}>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                     {field.label}{field.required && <span className="text-red-400 ml-1">*</span>}
                   </label>
@@ -371,7 +374,8 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
                     />
                   )}
                 </div>
-              ))}
+                );
+              })}
 
               {children && (
                 <div className="pt-3 border-t border-slate-800">

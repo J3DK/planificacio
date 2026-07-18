@@ -18,7 +18,7 @@ import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 const LINEA_FIELDS = [
   { key: 'id',                label: 'ID (ej: L6)',         type: 'text',   required: true, placeholder: 'L6' },
   { key: 'nombre',            label: 'Nombre',              type: 'text',   required: true, placeholder: 'Línea 6' },
-  { key: 'descripcion',       label: 'Descripción',         type: 'text',   placeholder: 'Ensamblaje baterías...' },
+  { key: 'descripcion',       label: 'Descripción',         type: 'text',   placeholder: 'Ensamblaje baterías...', fullWidth: true },
   { key: 'estado',            label: 'Estado',              type: 'select', required: true,
     options: [{ value: 'en_marcha', label: 'En Marcha' }, { value: 'parada', label: 'Parada' }, { value: 'mantenimiento', label: 'Mantenimiento' }] },
   { key: 'turno',             label: 'Turno',               type: 'select', required: true,
