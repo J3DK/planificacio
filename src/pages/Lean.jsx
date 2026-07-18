@@ -11,8 +11,11 @@ import {
   Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, 
   PolarAngleAxis, PolarRadiusAxis, Radar 
 } from 'recharts';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Lean() {
+  const { perfil } = useAuth();
+  const userName = perfil?.nombre || perfil?.email || 'Usuario';
   const [activeTab, setActiveTab] = useState('kaizen'); // kaizen, smed, 5s
   const [smedData, setSmedData] = useState([]);
   const [smedEstandar, setSmedEstandar] = useState([]);
@@ -126,7 +129,7 @@ export default function Lean() {
       categoria: '5s',
       linea: lineas.find(l=>l.id===auditoriaActiva.lineaId)?.nombre || auditoriaActiva.lineaId,
       ordenFabricacion: 'N/A',
-      operario: 'Admin', // TODO: user from session
+      operario: userName,
       fecha: new Date().toISOString(),
       turno: 'Mañana',
       resultados
@@ -137,17 +140,20 @@ export default function Lean() {
   };
 
   const mejorasImplementadas = kaizenData.filter(k => k.estado === 'implementada').length;
+  const ahorroTotal = kaizenData
+    .filter(k => k.estado === 'implementada')
+    .reduce((sum, k) => sum + (Number(k.ahorroEstimado) || 0), 0);
   
   // Chart data for SMED
   const smedChartData = smedData.map(cf => {
     const estandarInfo = smedEstandar.find(e => 
-      e.productoOrigenId === cf.productoAnterior && 
-      e.productoDestinoId === cf.productoNuevo
+      e.productoAnterior === cf.productoAnterior && 
+      e.productoNuevo === cf.productoNuevo
     );
     return {
       nombre: `${cf.productoAnterior.split(' ')[0]} -> ${cf.productoNuevo.split(' ')[0]}`,
       Real: cf.duracionMinutos,
-      Estandar: estandarInfo ? estandarInfo.minutosEstandar : 30
+      Estandar: estandarInfo ? estandarInfo.duracionMinutos || estandarInfo.minutosEstandar : 30
     };
   }).slice(0, 10);
 
@@ -190,7 +196,18 @@ export default function Lean() {
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-slate-500">5S Planta</p>
-              <p className="text-2xl font-black text-white font-mono">83.6%</p>
+              <p className="text-2xl font-black text-white font-mono">
+                {tendencia5S.length > 0 ? tendencia5S[tendencia5S.length - 1].score + '%' : '—'}
+              </p>
+            </div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 min-w-[200px]">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-slate-500">Ahorro Est. (Total)</p>
+              <p className="text-2xl font-black text-emerald-400 font-mono">{ahorroTotal}€</p>
             </div>
           </div>
         </div>

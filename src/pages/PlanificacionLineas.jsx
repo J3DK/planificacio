@@ -158,7 +158,7 @@ export default function PlanificacionLineas() {
     }
     // 2. Estándar
     const est = smedEstandar.find(e => e.productoAnterior === prodAnterior && e.productoNuevo === prodNuevo);
-    if (est) return est.duracionMinutos;
+    if (est) return est.minutosEstandar || est.duracionMinutos;
     // 3. Fallback
     return 30; // 30 mins default
   };

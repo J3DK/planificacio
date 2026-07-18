@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { Lightbulb, Plus, Check, X, Clock, Upload, XCircle, ArrowRight } from 'lucide-react';
 import { updateKaizen } from '@/services/dataService';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Kaizen({ data, reload }) {
+  const { perfil } = useAuth();
+  const userName = perfil?.nombre || perfil?.email || 'Usuario';
   const [draggedItem, setDraggedItem] = useState(null);
   const [evalModal, setEvalModal] = useState(null); // { id, newStatus }
 
@@ -102,7 +105,7 @@ export default function Kaizen({ data, reload }) {
               e.preventDefault();
               const comentario = e.target.comentario.value;
               updateItemStatus(evalModal.id, evalModal.newStatus, { 
-                evaluador: 'Admin', // o el usuario autenticado
+                evaluador: userName,
                 comentarioEvaluacion: comentario,
                 fechaEvaluacion: new Date().toISOString()
               });
