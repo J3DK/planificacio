@@ -12,6 +12,7 @@ import Produccion from '@/pages/Produccion';
 import Calidad from '@/pages/Calidad';
 import Paradas from '@/pages/Paradas';
 import MateriasPrimas from '@/pages/MateriasPrimas';
+import Almacen from '@/pages/Almacen';
 import Informes from '@/pages/Informes';
 import Alertas from '@/pages/Alertas';
 import Metricas from '@/pages/Metricas';
@@ -133,7 +134,8 @@ export default function App() {
           <Route path="/configuracion" element={<RequireAuth><RequireRole roles={['admin', 'supervisor']}><Layout><Configuracion /></Layout></RequireRole></RequireAuth>} />
           <Route path="/cualificaciones" element={<RequireAuth><RequireRole roles={['admin', 'supervisor']}><Layout><Cualificaciones /></Layout></RequireRole></RequireAuth>} />
           <Route path="/productos" element={<RequireAuth><RequireRole roles={['admin', 'supervisor']}><Layout><Productos /></Layout></RequireRole></RequireAuth>} />
-          <Route path="/materias-primas" element={<RequireAuth><RequireRole roles={['admin', 'supervisor']}><Layout><MateriasPrimas /></Layout></RequireRole></RequireAuth>} />
+          <Route path="/materias-primas" element={<RequireAuth><RequireRole roles={['admin', 'supervisor', 'almacen']}><Layout><MateriasPrimas /></Layout></RequireRole></RequireAuth>} />
+          <Route path="/almacen" element={<RequireAuth><RequireRole roles={['admin', 'supervisor', 'almacen']}><Layout><Almacen /></Layout></RequireRole></RequireAuth>} />
           <Route path="/usuarios" element={<RequireAuth><RequireRole roles={['admin']}><Layout><Usuarios /></Layout></RequireRole></RequireAuth>} />
           
           {/* Mantenimiento: Permitir a admin, supervisor y rol de mantenimiento */}

@@ -10,6 +10,8 @@ import { kpis as mockKpis } from '@/data/mockDashboard';
 import { historialProduccion as mockHistorial } from '@/data/mockHistorial';
 import { mockProductos } from '@/data/mockProductos';
 import { operarios as mockOperarios } from '@/data/mockOperarios';
+import { mockUbicaciones } from '@/data/mockUbicaciones';
+import { mockEntradasMercancia } from '@/data/mockEntradasMercancia';
 import { skillsMasterIniciales, formacionesMasterIniciales, permisosMasterIniciales, capacitacionesMasterIniciales, autorizacionesMasterIniciales } from '@/data/mockCualificaciones';
 import { ordenesTrabajoIniciales, activosJerarquia as mockActivos, planesPreventivosIniciales, sensoresPredictivosIniciales, repuestosAlmacenIniciales, tablaDisponibilidadLineas } from '@/data/mockMantenimiento';
 import { checklistTemplates as mockChecklistTemplates } from '@/data/mockChecklistsTemplates';
@@ -212,6 +214,8 @@ export function mapMaterial(m) {
     fechaEntrega: m.fecha_entrega ?? m.fechaEntrega,
     stockReservado: m.stock_reservado ?? m.stockReservado ?? 0,
     imagen: img,
+    ubicacionId: m.ubicacion_id || m.ubicacionId || null,
+    costeUnitario: Number(m.coste_unitario ?? m.costeUnitario ?? 0),
     movimientos: m.movimientos || []
   };
 }
@@ -286,6 +290,8 @@ function materialToDb(m) {
     proveedor: m.proveedor,
     stock_reservado: m.stockReservado ?? m.stock_reservado ?? 0,
     imagen: m.imagen,
+    ubicacion_id: m.ubicacionId || m.ubicacion_id || null,
+    coste_unitario: Number(m.costeUnitario ?? m.coste_unitario ?? 0),
     movimientos: m.movimientos || []
   };
 }
@@ -1025,19 +1031,25 @@ export async function updateMaterial(id, material) {
   return { data: updated || mapMaterial({ id, ...nextMat }), error: null };
 }
 
-export async function registrarMovimientoStock(materialId, { tipo, cantidad, motivo, origen = 'manual', usuario }) {
+export async function registrarMovimientoStock(materialId, { tipo, cantidad, motivo, origen = 'manual', usuario, entradaMercanciaId = null }) {
   const local = (getMateriasLocal() || mockMateriasPrimas.map(mapMaterial));
   const mat = local.find(m => m.id === materialId);
   if (!mat) return { error: 'Material no encontrado' };
 
-  const cantidadNum = Number(cantidad) || 0;
-  if (cantidadNum <= 0) return { error: 'Cantidad inválida' };
+  let cantidadNum = Number(cantidad) || 0;
+  // Permitimos cantidadNum negativa o cero si es un ajuste, pero la cantidad del movimiento debe reflejar el cambio.
+  // En realidad la función asume que cantidadNum siempre es positivo y el "tipo" define la operación.
+  // Excepción: en 'ajuste', cantidadNum puede ser la diferencia (positiva o negativa).
+  if (tipo !== 'ajuste' && cantidadNum <= 0) return { error: 'Cantidad inválida' };
 
   let nextStock = Number(mat.stockActual) || 0;
   if (tipo === 'entrada') {
     nextStock += cantidadNum;
   } else if (tipo === 'salida') {
     nextStock = Math.max(0, nextStock - cantidadNum);
+  } else if (tipo === 'ajuste') {
+    // cantidadNum aquí representa la diferencia a aplicar (+ o -)
+    nextStock = Math.max(0, nextStock + cantidadNum);
   }
 
   const nuevoMovimiento = {
@@ -1045,9 +1057,10 @@ export async function registrarMovimientoStock(materialId, { tipo, cantidad, mot
     fecha: new Date().toISOString(),
     tipo,
     cantidad: cantidadNum,
-    motivo: motivo || (tipo === 'entrada' ? 'Ajuste de entrada' : 'Ajuste de salida'),
+    motivo: motivo || (tipo === 'entrada' ? 'Ajuste de entrada' : (tipo === 'salida' ? 'Ajuste de salida' : 'Regularización de stock')),
     origen,
-    usuario: usuario || 'Desconocido'
+    usuario: usuario || 'Desconocido',
+    entradaMercanciaId
   };
 
   const nextMovimientos = [nuevoMovimiento, ...(mat.movimientos || [])];
@@ -1061,16 +1074,102 @@ export async function registrarMovimientoStock(materialId, { tipo, cantidad, mot
   try {
     const { registrarAuditoria } = await import('./dataService');
     if (typeof registrarAuditoria === 'function') {
-      registrarAuditoria({
-        tabla: 'materias_primas',
-        registroId: materialId,
-        accion: 'MODIFICAR_STOCK',
-        cambios: { tipo, cantidad: cantidadNum, nuevoStock: nextStock, motivo: nuevoMovimiento.motivo }
-      });
+      // Obligatorio para origen 'regularizacion', para otros es opcional (pero lo dejamos para mayor trazabilidad)
+      if (origen === 'regularizacion' || origen === 'entrada_mercancia') {
+        registrarAuditoria({
+          tabla: 'materias_primas',
+          registroId: materialId,
+          accion: origen === 'regularizacion' ? 'REGULARIZAR_STOCK' : 'MODIFICAR_STOCK',
+          cambios: { tipo, cantidad: cantidadNum, nuevoStock: nextStock, motivo: nuevoMovimiento.motivo, entradaMercanciaId }
+        });
+      }
     }
   } catch(e) {}
 
   return result;
+}
+
+export function calcularCosteEscandallo(producto, materiales = []) {
+  if (!producto || !Array.isArray(producto.bom)) return 0;
+  let total = 0;
+  producto.bom.forEach(item => {
+    const mat = materiales.find(m => m.codigo === item.codigo);
+    const coste = mat ? Number(mat.costeUnitario || 0) : 0;
+    const factor = Number(item.factor || 0);
+    total += coste * factor;
+  });
+  return Number(total.toFixed(2));
+}
+
+// ─── ALMACÉN: UBICACIONES Y ENTRADAS DE MERCANCÍA ──────────────────────────
+
+function getUbicacionesLocal() { try { const r = localStorage.getItem('mes_ubicaciones'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setUbicacionesLocal(d) { try { localStorage.setItem('mes_ubicaciones', JSON.stringify(d)); } catch (_) {} }
+
+export async function fetchUbicaciones() {
+  const local = getUbicacionesLocal();
+  if (local) return { data: local, error: null };
+  return { data: mockUbicaciones, error: null };
+}
+
+export async function updateUbicacion(id, ubicacion) {
+  const local = getUbicacionesLocal() || [...mockUbicaciones];
+  let next = local;
+  let updated = null;
+  const idx = local.findIndex(u => u.id === id);
+  if (idx !== -1) {
+    updated = { ...local[idx], ...ubicacion };
+    local[idx] = updated;
+    setUbicacionesLocal(local);
+  } else {
+    updated = { ...ubicacion, id: id || `UBI-${Date.now()}` };
+    next = [...local, updated];
+    setUbicacionesLocal(next);
+  }
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ubicaciones_updated'));
+  return { data: updated, error: null };
+}
+
+export async function deleteUbicacion(id) {
+  const local = getUbicacionesLocal() || [...mockUbicaciones];
+  setUbicacionesLocal(local.filter(u => u.id !== id));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ubicaciones_updated'));
+  return { error: null };
+}
+
+function getEntradasLocal() { try { const r = localStorage.getItem('mes_entradas_mercancia'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setEntradasLocal(d) { try { localStorage.setItem('mes_entradas_mercancia', JSON.stringify(d)); } catch (_) {} }
+
+export async function fetchEntradasMercancia() {
+  const local = getEntradasLocal();
+  if (local) return { data: local, error: null };
+  return { data: mockEntradasMercancia, error: null };
+}
+
+export async function insertEntradaMercancia(entrada) {
+  const local = getEntradasLocal() || [...mockEntradasMercancia];
+  const nueva = {
+    ...entrada,
+    id: entrada.id || `ENT-${Date.now()}`,
+    fecha: entrada.fecha || new Date().toISOString(),
+    estado: entrada.estado || 'confirmada',
+    lineas: entrada.lineas || [],
+    corregidaDe: entrada.corregidaDe || null
+  };
+  setEntradasLocal([nueva, ...local]);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('entradas_updated'));
+  return { data: nueva, error: null };
+}
+
+export async function updateEntradaMercancia(id, entradaUpdate) {
+  const local = getEntradasLocal() || [...mockEntradasMercancia];
+  const idx = local.findIndex(e => e.id === id);
+  if (idx === -1) return { error: 'No encontrado' };
+  const updated = { ...local[idx], ...entradaUpdate };
+  local[idx] = updated;
+  setEntradasLocal(local);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('entradas_updated'));
+  return { data: updated, error: null };
 }
 
 export async function deleteMaterial(id) {

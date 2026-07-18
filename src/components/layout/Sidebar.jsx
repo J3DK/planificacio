@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings, Boxes, Wrench, Award, ListChecks, Shield
+  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings, Boxes, Wrench, Award, ListChecks, Shield, Warehouse
 } from 'lucide-react';
 import { alertas } from '@/data/mockAlertas';
 import { useAppConfig } from '@/services/configService';
@@ -13,7 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 const ICON_MAP = {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users, Boxes,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, SlidersHorizontal, Cpu, History, Settings, Wrench, Award, ListChecks, Shield
+  Bell, SlidersHorizontal, Cpu, History, Settings, Wrench, Award, ListChecks, Shield, Warehouse
 };
 
 const navItems = [
@@ -31,6 +31,7 @@ const navItems = [
   { path: '/mantenimiento',      label: 'Mantenimiento',        iconName: 'Wrench' },
   { path: '/checklists',         label: 'Checklists & Pautas',  iconName: 'ListChecks' },
   { path: '/materias-primas',    label: 'Materias Primas',      iconName: 'Package' },
+  { path: '/almacen',            label: 'Almacén',              iconName: 'Warehouse' },
   { path: '/informes',           label: 'Informes',             iconName: 'FileBarChart' },
   { path: '/alertas',            label: 'Alertas',              iconName: 'Bell' },
   { path: '/metricas',           label: 'Métricas',             iconName: 'SlidersHorizontal' },
@@ -89,6 +90,8 @@ export default function Sidebar() {
       list = list.filter(i => ['/', '/panel-operario', '/panel-calidad', '/calidad', '/checklists', '/alertas'].includes(i.path));
     } else if (userRole === 'mantenimiento') {
       list = list.filter(i => ['/', '/panel-operario', '/mantenimiento', '/paradas', '/alertas'].includes(i.path));
+    } else if (userRole === 'almacen') {
+      list = list.filter(i => ['/', '/panel-operario', '/materias-primas', '/almacen', '/alertas'].includes(i.path));
     } else if (userRole !== 'admin') {
       // supervisor no ve usuarios
       list = list.filter(i => i.path !== '/usuarios' && i.path !== '/auditoria');

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchMateriasPrimas, fetchProductos, insertMaterial, updateMaterial, deleteMaterial, calcularTodosConsumosComprometidos, registrarMovimientoStock } from '@/services/dataService';
+import { fetchMateriasPrimas, fetchProductos, insertMaterial, updateMaterial, deleteMaterial, calcularTodosConsumosComprometidos, registrarMovimientoStock, fetchUbicaciones } from '@/services/dataService';
 import { consumoPorDia } from '@/data/mockMaterias';
 import { AlertTriangle, CheckCircle2, TrendingDown, Search, Plus, Pencil, Trash2, RefreshCw, Layers3, ScanBarcode, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import CrudModal from '@/components/shared/CrudModal';
@@ -27,6 +27,8 @@ const MATERIAL_FIELDS = [
   { key: 'criticidad',       label: 'Criticidad',          type: 'select', required: true,
     options: [{ value: 'alta', label: 'Alta' }, { value: 'media', label: 'Media' }, { value: 'baja', label: 'Baja' }] },
   { key: 'proveedor',        label: 'Proveedor',           type: 'text',   placeholder: 'ElectroCable S.L.' },
+  { key: 'costeUnitario',    label: 'Coste Unitario (€)',  type: 'number', min: 0, step: '0.01', default: 0 },
+  { key: 'ubicacionId',      label: 'Ubicación',           type: 'select', options: [] }
 ];
 
 export default function MateriasPrimas() {
@@ -54,10 +56,19 @@ export default function MateriasPrimas() {
 
   const loadData = async () => {
     setLoading(true);
-    const [resMat, resProd] = await Promise.all([
+    const [resMat, resProd, resUbi] = await Promise.all([
       fetchMateriasPrimas(),
-      fetchProductos()
+      fetchProductos(),
+      fetchUbicaciones()
     ]);
+    
+    // Actualizar opciones de ubicacionId en MATERIAL_FIELDS
+    const ubiField = MATERIAL_FIELDS.find(f => f.key === 'ubicacionId');
+    if (ubiField && resUbi?.data) {
+      ubiField.options = resUbi.data.map(u => ({ value: u.id, label: `${u.codigo} (${u.zona}-${u.estanteria})` }));
+      ubiField.options.unshift({ value: '', label: 'Sin asignar' });
+    }
+
     setMateriales(resMat?.data || []);
     setProductos(resProd?.data || []);
     setLoading(false);
