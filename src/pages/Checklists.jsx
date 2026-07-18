@@ -24,7 +24,7 @@ export default function Checklists() {
   const [filterCat, setFilterCat] = useState('todas'); // todas | id de categoría
   const [searchTerm, setSearchTerm] = useState('');
   const [activeView, setActiveView] = useState('plantillas'); // plantillas | historial
-  const [viewMode, setViewMode] = useState('grid'); // grid | table
+  const [viewMode, setViewMode] = useState(appConfig?.defaultViewMode || 'grid'); // grid | table
 
   // Modal Crear/Editar Plantilla
   const [modalOpen, setModalOpen] = useState(false);

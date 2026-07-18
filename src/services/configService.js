@@ -36,6 +36,7 @@ export const DEFAULT_APP_CONFIG = {
   logoUrl: '', // Base64 de la imagen subida desde el PC
   pieReportes: 'Documento oficial generado por el Sistema MES de Producción & Calidad — Trazabilidad Industrial Certificada.',
   moneda: 'EUR',
+  defaultViewMode: 'grid',
   objetivoOEEPlanta: 85,
   menuOrder: DEFAULT_MENU_ITEMS,
   rolesOperario: [

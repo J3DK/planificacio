@@ -13,6 +13,7 @@ import {
 } from '@/services/dataService';
 
 export default function Productos() {
+  const appConfig = useAppConfig();
   const [productos, setProductos] = useState([]);
   const [materias, setMaterias] = useState([]);
   const [familias, setFamilias] = useState([]);
@@ -20,7 +21,7 @@ export default function Productos() {
   const [busqueda, setBusqueda] = useState('');
   const [filtroFamilia, setFiltroFamilia] = useState('Todas');
   const [filtroEstado, setFiltroEstado] = useState('Todos'); // 'Todos' | 'Activos' | 'Discontinuados'
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+  const [viewMode, setViewMode] = useState(appConfig?.defaultViewMode || 'grid'); // 'grid' | 'table'
 
   // Modal Productos
   const [modalOpen, setModalOpen] = useState(false);

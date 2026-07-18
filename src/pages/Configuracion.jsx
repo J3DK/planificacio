@@ -679,6 +679,40 @@ export default function Configuracion() {
               </button>
             </div>
 
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-6">
+              <h4 className="font-black text-white text-sm mb-4">Interfaz y Vistas</h4>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-slate-300">Modo de visualización predeterminado</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Elige cómo quieres que se muestren los datos por defecto al entrar en una sección.</p>
+                </div>
+                <div className="flex items-center gap-2 p-1.5 bg-slate-900 border border-slate-800 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => handleChange('defaultViewMode', 'grid')}
+                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${
+                      config.defaultViewMode === 'grid' || !config.defaultViewMode
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Tarjetas (Grid)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleChange('defaultViewMode', 'table')}
+                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${
+                      config.defaultViewMode === 'table'
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Listado (Tabla)
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 md:p-6">
               <div className="flex flex-col gap-2">
                 {(Array.isArray(config.menuOrder) ? config.menuOrder : DEFAULT_MENU_ITEMS).map((item, idx, arr) => (

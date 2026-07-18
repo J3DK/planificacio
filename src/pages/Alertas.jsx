@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, Wrench, Clock, TrendingDown, Package, CheckCircle2, BarChart2, Bell, Check, Plus, Pencil, Trash2, RefreshCw, LayoutGrid, List } from 'lucide-react';
-import { fetchAlertas, insertAlerta, updateAlerta, deleteAlerta } from '@/services/dataService';
+
+import { useAppConfig } from '@/services/configService';
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
@@ -28,11 +29,12 @@ const ALERTA_FIELDS = [
 ];
 
 export default function Alertas() {
+  const appConfig = useAppConfig();
   const [alertas, setAlertas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [soloNoLeidas, setSoloNoLeidas] = useState(false);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+  const [viewMode, setViewMode] = useState(appConfig?.defaultViewMode || 'grid'); // 'grid' | 'table'
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');

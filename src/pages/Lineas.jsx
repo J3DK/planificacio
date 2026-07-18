@@ -38,13 +38,14 @@ const LINEA_FIELDS = [
 ];
 
 export default function Lineas() {
+  const appConfig = useAppConfig();
   const [lineasRaw, setLineasRaw] = useState([]);
   const [ots, setOts] = useState([]);
   const [paradasList, setParadasList] = useState([]);
   const [operariosList, setOperariosList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+  const [viewMode, setViewMode] = useState(appConfig?.defaultViewMode || 'grid'); // 'grid' | 'table'
 
   // CRUD state
   const [modalOpen, setModalOpen] = useState(false);

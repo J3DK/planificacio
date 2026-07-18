@@ -28,7 +28,7 @@ export default function Operarios() {
   const [catalogoCapacitaciones, setCatalogoCapacitaciones] = useState([]);
   const [catalogoAutorizaciones, setCatalogoAutorizaciones] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+  const [viewMode, setViewMode] = useState(appConfig?.defaultViewMode || 'grid'); // 'grid' | 'table'
 
   // Filtros
   const [busqueda, setBusqueda] = useState('');

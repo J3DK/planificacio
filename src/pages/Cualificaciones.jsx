@@ -18,6 +18,7 @@ import {
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 
 export default function Cualificaciones() {
+  const appConfig = useAppConfig();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTabParam = searchParams.get('tab');
   const activeTab = activeTabParam && ['skills', 'formaciones', 'capacitaciones', 'permisos', 'autorizaciones', 'matriz'].includes(activeTabParam)
@@ -38,7 +39,7 @@ export default function Cualificaciones() {
   const [operarios, setOperarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+  const [viewMode, setViewMode] = useState(appConfig?.defaultViewMode || 'grid'); // 'grid' | 'table'
 
   // Modal CRUD general
   const [modalOpen, setModalOpen] = useState(false);

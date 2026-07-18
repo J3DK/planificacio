@@ -28,7 +28,8 @@ import {
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
-import { generarInformeOT } from '@/services/reportService';
+
+import { useAppConfig } from '@/services/configService';
 import OTDetallePanel from '@/components/mantenimiento/OTDetallePanel';
 
 
@@ -427,6 +428,7 @@ function ChecklistEditor({ plan, onToggle, onAddItem, onUpdateItem, onRemoveItem
 
 
 export default function Mantenimiento() {
+  const appConfig = useAppConfig();
   const [activeTab, setActiveTab] = useState('resumen');
   const [sintesis, setSintesis] = useState('Analizando datos en tiempo real...');
 
@@ -448,7 +450,7 @@ export default function Mantenimiento() {
   }, []);
 
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+  const [viewMode, setViewMode] = useState(appConfig?.defaultViewMode || 'grid'); // 'grid' | 'table'
 
   // ─── Datos ─────────────────────────────────────────────────────────────────
   const [ots, setOts] = useState([]);

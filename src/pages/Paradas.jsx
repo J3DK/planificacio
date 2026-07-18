@@ -56,6 +56,7 @@ const PARADA_PRED_FIELDS = [
 const totalMin = paradasPorTipo.reduce((s, p) => s + p.minutos, 0);
 
 export default function Paradas() {
+  const appConfig = useAppConfig();
   const [activeTab, setActiveTab] = useState('turno'); // 'turno' | 'predeterminadas'
   const [paradas, setParadas] = useState([]);
   const [predeterminadas, setPredeterminadas] = useState([]);
@@ -83,7 +84,7 @@ export default function Paradas() {
   // Filtros Paradas Predeterminadas
   const [filtroCatPred, setFiltroCatPred] = useState('todas');
   const [busquedaPred, setBusquedaPred] = useState('');
-  const [viewModePred, setViewModePred] = useState('grid'); // 'grid' | 'table'
+  const [viewModePred, setViewModePred] = useState(appConfig?.defaultViewMode || 'grid'); // 'grid' | 'table'
 
   const loadData = async () => {
     setLoading(true);
