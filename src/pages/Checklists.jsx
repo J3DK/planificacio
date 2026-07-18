@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ListChecks, CheckSquare, ClipboardCheck, Wrench, Plus, Pencil, Trash2,
   CheckCircle2, AlertTriangle, Filter, Search, ShieldCheck, Clock,
-  Factory, Eye, Save, XCircle, Check, X, History, User, Calendar, LayoutGrid, List
+  Factory, Eye, Save, XCircle, Check, X, History, User, Calendar, LayoutGrid, List, Sparkles
 } from 'lucide-react';
 import {
   getChecklistTemplates, insertChecklistTemplate, updateChecklistTemplate, deleteChecklistTemplate,
@@ -158,7 +158,8 @@ export default function Checklists() {
     const defaultColors = {
       calidad: { badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', icon: CheckSquare, label: 'Calidad (QC)' },
       cil: { badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40', icon: ClipboardCheck, label: 'CIL (Limpieza/Insp/Lub)' },
-      mantenimiento: { badge: 'bg-amber-500/20 text-amber-300 border-amber-500/40', icon: Wrench, label: 'Mantenimiento Preventivo' }
+      mantenimiento: { badge: 'bg-amber-500/20 text-amber-300 border-amber-500/40', icon: Wrench, label: 'Mantenimiento Preventivo' },
+      '5s': { badge: 'bg-purple-500/20 text-purple-300 border-purple-500/40', icon: Sparkles, label: '5S (Auditoría)' }
     };
     const bgMap = {
       slate: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
@@ -169,12 +170,14 @@ export default function Checklists() {
       rose: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
       indigo: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
       fuchsia: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40',
+      purple: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
     };
     const out = { ...defaultColors };
     (appConfig.checklistCategorias || []).forEach(cat => {
       let icon = ClipboardCheck;
       if (cat.id === 'calidad') icon = CheckSquare;
       if (cat.id === 'mantenimiento') icon = Wrench;
+      if (cat.id === '5s') icon = Sparkles;
       out[cat.id] = { badge: bgMap[cat.color] || bgMap.slate, icon, label: cat.label };
     });
     return out;

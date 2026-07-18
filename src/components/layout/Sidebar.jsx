@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings, Boxes, Wrench, Award, ListChecks, Shield, Warehouse
+  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings, Boxes, Wrench, Award, ListChecks, Shield, Warehouse, Sparkles
 } from 'lucide-react';
 import { alertas } from '@/data/mockAlertas';
 import { useAppConfig } from '@/services/configService';
@@ -13,7 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 const ICON_MAP = {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users, Boxes,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, SlidersHorizontal, Cpu, History, Settings, Wrench, Award, ListChecks, Shield, Warehouse
+  Bell, SlidersHorizontal, Cpu, History, Settings, Wrench, Award, ListChecks, Shield, Warehouse, Sparkles
 };
 
 const navItems = [
@@ -24,6 +24,7 @@ const navItems = [
   { path: '/lineas',             label: 'Líneas',               iconName: 'Factory' },
   { path: '/operarios',          label: 'Operarios',            iconName: 'Users' },
   { path: '/cualificaciones',    label: 'Cualificación & Cursos',   iconName: 'Award' },
+  { path: '/lean',               label: 'Lean (Opex)',          iconName: 'Sparkles' },
   { path: '/productos',          label: 'Productos',            iconName: 'Boxes' },
   { path: '/produccion',         label: 'Producción',           iconName: 'BarChart2' },
   { path: '/calidad',            label: 'Calidad',              iconName: 'CheckSquare' },

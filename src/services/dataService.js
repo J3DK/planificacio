@@ -15,6 +15,9 @@ import { mockEntradasMercancia } from '@/data/mockEntradasMercancia';
 import { skillsMasterIniciales, formacionesMasterIniciales, permisosMasterIniciales, capacitacionesMasterIniciales, autorizacionesMasterIniciales } from '@/data/mockCualificaciones';
 import { ordenesTrabajoIniciales, activosJerarquia as mockActivos, planesPreventivosIniciales, sensoresPredictivosIniciales, repuestosAlmacenIniciales, tablaDisponibilidadLineas } from '@/data/mockMantenimiento';
 import { checklistTemplates as mockChecklistTemplates } from '@/data/mockChecklistsTemplates';
+import { mockKaizen } from '@/data/mockKaizen';
+import { mockCambiosFormato } from '@/data/mockCambiosFormato';
+import { mockTiemposCambioEstandar } from '@/data/mockTiemposCambioEstandar';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -3364,4 +3367,125 @@ export async function generarSintesisAutomatica(modulo) {
   } catch (e) {
     return 'No se pudo generar la síntesis automática en este momento.';
   }
+}
+
+// ─── LEAN (KAIZEN, SMED) ──────────────────────────────────────────────────
+
+function getKaizenLocal() { try { const r = localStorage.getItem('mes_kaizen'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setKaizenLocal(d) { try { localStorage.setItem('mes_kaizen', JSON.stringify(d)); } catch (_) {} }
+
+export async function fetchKaizen() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('kaizen').select('*').order('id', { ascending: false });
+      if (!error && data) return { data, fromSupabase: true };
+    } catch (e) {}
+  }
+  const local = getKaizenLocal();
+  if (local) return { data: local, fromSupabase: false };
+  setKaizenLocal(mockKaizen);
+  return { data: mockKaizen, fromSupabase: false };
+}
+
+export async function insertKaizen(item) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('kaizen').insert([item]);
+      if (!error) {
+        window.dispatchEvent(new Event('kaizen_updated'));
+        return { success: true };
+      }
+    } catch (e) {}
+  }
+  const local = getKaizenLocal() || mockKaizen;
+  local.unshift({ ...item, id: item.id || `k${Date.now()}` });
+  setKaizenLocal(local);
+  window.dispatchEvent(new Event('kaizen_updated'));
+  return { success: true };
+}
+
+export async function updateKaizen(id, updates) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('kaizen').update(updates).eq('id', id);
+      if (!error) {
+        window.dispatchEvent(new Event('kaizen_updated'));
+        return { success: true };
+      }
+    } catch (e) {}
+  }
+  const local = getKaizenLocal() || mockKaizen;
+  const idx = local.findIndex(x => x.id === id);
+  if (idx !== -1) {
+    local[idx] = { ...local[idx], ...updates };
+    setKaizenLocal(local);
+  }
+  window.dispatchEvent(new Event('kaizen_updated'));
+  return { success: true };
+}
+
+export async function deleteKaizen(id) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('kaizen').delete().eq('id', id);
+      if (!error) {
+        window.dispatchEvent(new Event('kaizen_updated'));
+        return { success: true };
+      }
+    } catch (e) {}
+  }
+  let local = getKaizenLocal() || mockKaizen;
+  local = local.filter(x => x.id !== id);
+  setKaizenLocal(local);
+  window.dispatchEvent(new Event('kaizen_updated'));
+  return { success: true };
+}
+
+function getCambiosFormatoLocal() { try { const r = localStorage.getItem('mes_cambios_formato'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setCambiosFormatoLocal(d) { try { localStorage.setItem('mes_cambios_formato', JSON.stringify(d)); } catch (_) {} }
+
+export async function fetchCambiosFormato() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('cambios_formato').select('*').order('id', { ascending: false });
+      if (!error && data) return { data, fromSupabase: true };
+    } catch (e) {}
+  }
+  const local = getCambiosFormatoLocal();
+  if (local) return { data: local, fromSupabase: false };
+  setCambiosFormatoLocal(mockCambiosFormato);
+  return { data: mockCambiosFormato, fromSupabase: false };
+}
+
+export async function insertCambiosFormato(item) {
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('cambios_formato').insert([item]);
+      if (!error) {
+        window.dispatchEvent(new Event('cambios_formato_updated'));
+        return { success: true };
+      }
+    } catch (e) {}
+  }
+  const local = getCambiosFormatoLocal() || mockCambiosFormato;
+  local.unshift({ ...item, id: item.id || `cf${Date.now()}` });
+  setCambiosFormatoLocal(local);
+  window.dispatchEvent(new Event('cambios_formato_updated'));
+  return { success: true };
+}
+
+function getTiemposCambioEstandarLocal() { try { const r = localStorage.getItem('mes_tiempos_cambio_estandar'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
+function setTiemposCambioEstandarLocal(d) { try { localStorage.setItem('mes_tiempos_cambio_estandar', JSON.stringify(d)); } catch (_) {} }
+
+export async function fetchTiemposCambioEstandar() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('tiempos_cambio_estandar').select('*');
+      if (!error && data) return { data, fromSupabase: true };
+    } catch (e) {}
+  }
+  const local = getTiemposCambioEstandarLocal();
+  if (local) return { data: local, fromSupabase: false };
+  setTiemposCambioEstandarLocal(mockTiemposCambioEstandar);
+  return { data: mockTiemposCambioEstandar, fromSupabase: false };
 }

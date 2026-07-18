@@ -1,4 +1,21 @@
 export const checklistTemplates = [
+  // ─── PLANTILLAS 5S ────────────────────────────────────────────────────────
+  {
+    id: 'CHK-5S-001',
+    nombre: 'Auditoría Visual 5S de Puesto de Trabajo',
+    categoria: '5s',
+    descripcion: 'Pauta para evaluar el nivel de orden y limpieza (5S) en las líneas de producción.',
+    aplicaA: { tipo: 'general' },
+    frecuencia: 'semanal',
+    activo: true,
+    items: [
+      { id: 'IT-5S-01', texto: 'Seiri (Clasificar): No hay objetos innecesarios o materiales caducados en el puesto.', orden: 1, critico: true },
+      { id: 'IT-5S-02', texto: 'Seiton (Ordenar): Las herramientas están en su sitio (panel de sombras o cajones etiquetados).', orden: 2, critico: true },
+      { id: 'IT-5S-03', texto: 'Seiso (Limpiar): El suelo, mesas y máquinas están limpios y sin derrames.', orden: 3, critico: true },
+      { id: 'IT-5S-04', texto: 'Seiketsu (Estandarizar): Se respetan los códigos de colores y las marcas visuales en el suelo.', orden: 4, critico: false },
+      { id: 'IT-5S-05', texto: 'Shitsuke (Disciplina): Los operarios llevan el EPI correcto y la zona de paso está despejada.', orden: 5, critico: true }
+    ]
+  },
   // ─── PLANTILLAS DE CALIDAD ────────────────────────────────────────────────
   {
     id: 'CHK-QC-001',

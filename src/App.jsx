@@ -25,6 +25,7 @@ import Productos from '@/pages/Productos';
 import Mantenimiento from '@/pages/Mantenimiento';
 import Checklists from '@/pages/Checklists';
 import Configuracion from '@/pages/Configuracion';
+import Lean from '@/pages/Lean';
 import Usuarios from '@/pages/Usuarios';
 import Auditoria from '@/pages/Auditoria';
 import Login from '@/pages/Login';

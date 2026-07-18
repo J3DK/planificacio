@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Plus, Calendar, Move, Edit2, Trash2, X, Check, RefreshCw, AlertCircle, Clock, Package, FileText, ArrowRight, Layers, Filter, Search, ShieldAlert, Zap, ArrowLeftCircle, Wrench } from 'lucide-react';
-import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, fetchProductos, fetchOrdenesTrabajo, fetchRetencionesCalidad, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt, calcDuracionEstimada } from '@/services/dataService';
+import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, fetchProductos, fetchOrdenesTrabajo, fetchRetencionesCalidad, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt, calcDuracionEstimada, fetchTiemposCambioEstandar, fetchCambiosFormato } from '@/services/dataService';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
 
@@ -75,15 +75,24 @@ export default function PlanificacionLineas() {
   const [listaRetenciones, setListaRetenciones] = useState([]);
   const [blockedDropInfo, setBlockedDropInfo] = useState(null);
 
+  const [smedEstandar, setSmedEstandar] = useState([]);
+  const [smedHistorial, setSmedHistorial] = useState([]);
+
   const loadData = async () => {
     setLoading(true);
-    const [resL, resP, resM, resProd, resOt, resRet] = await Promise.all([fetchLineas(), fetchPlanificacion(), fetchMateriasPrimas(), fetchProductos(), fetchOrdenesTrabajo(), fetchRetencionesCalidad()]);
+    const [resL, resP, resM, resProd, resOt, resRet, resSmedEst, resSmedHist] = await Promise.all([
+      fetchLineas(), fetchPlanificacion(), fetchMateriasPrimas(), 
+      fetchProductos(), fetchOrdenesTrabajo(), fetchRetencionesCalidad(),
+      fetchTiemposCambioEstandar(), fetchCambiosFormato()
+    ]);
     if (resL.data) setLineas(resL.data);
     if (resP.data) setOrdenes(resP.data);
     if (resM?.data) setListaMateriales(resM.data);
     if (resProd?.data) setListaProductos(resProd.data);
     if (resOt?.data) setListaOrdenesTrabajo(resOt.data);
     if (resRet?.data) setListaRetenciones(resRet.data);
+    if (resSmedEst?.data) setSmedEstandar(resSmedEst.data);
+    if (resSmedHist?.data) setSmedHistorial(resSmedHist.data);
     setLoading(false);
   };
 
@@ -138,6 +147,21 @@ export default function PlanificacionLineas() {
     });
     return mapa;
   }, [listaRetenciones, lineas]);
+
+  const calcChangeoverTime = (lineaNombre, prodAnterior, prodNuevo) => {
+    if (!prodAnterior || !prodNuevo || prodAnterior === prodNuevo) return 0;
+    // 1. Histórico real
+    const hist = smedHistorial.filter(h => h.linea === lineaNombre && h.productoAnterior === prodAnterior && h.productoNuevo === prodNuevo);
+    if (hist.length > 0) {
+      const avg = hist.reduce((sum, h) => sum + h.duracionMinutos, 0) / hist.length;
+      return Math.round(avg);
+    }
+    // 2. Estándar
+    const est = smedEstandar.find(e => e.productoAnterior === prodAnterior && e.productoNuevo === prodNuevo);
+    if (est) return est.duracionMinutos;
+    // 3. Fallback
+    return 30; // 30 mins default
+  };
 
   // Mapa de OTs Críticas Abiertas por línea (por id y por nombre)
   const otsCriticasPorLinea = React.useMemo(() => {
@@ -826,32 +850,44 @@ export default function PlanificacionLineas() {
 
       {/* Capacidad resumen sincronizada en tiempo real */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {lineas.map(l => (
-          <motion.div
-            key={l.id}
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="card p-4 bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800/80"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{l.nombre}</span>
-              <span className={`w-2 h-2 rounded-full ${l.estado === 'en_marcha' ? 'bg-emerald-400 shadow-sm shadow-emerald-500' : l.estado === 'parada' ? 'bg-red-400' : 'bg-amber-400'}`} />
-            </div>
-            <div className="text-sm font-black text-white truncate">{l.producto}</div>
-            <div className="text-[11px] text-slate-400 truncate mb-2">{l.cliente}</div>
-            <div>
-              <div className="flex justify-between text-[10px] text-slate-500 mb-1 font-bold">
-                <span>Carga {diaSeleccionado === 0 ? 'Hoy' : SEMANA_DIAS[diaSeleccionado]}</span>
-                <span className="text-slate-300">{Math.round((l.produccionHoy / (l.objetivoHoy || 1)) * 100)}%</span>
+        {lineas.map(l => {
+          const ordenesL = ordenesGantt.filter(o => o.linea === l.id && Number(o.dia) === diaSeleccionado).sort((a,b)=>a.horaInicio - b.horaInicio);
+          let sumHoras = 0;
+          ordenesL.forEach((o, i) => {
+            sumHoras += (o.duracion || 4);
+            if(i > 0 && ordenesL[i-1].ref !== o.ref) {
+               sumHoras += calcChangeoverTime(l.nombre, ordenesL[i-1].ref, o.ref) / 60;
+            }
+          });
+          const pct = Math.round((sumHoras / 16) * 100);
+
+          return (
+            <motion.div
+              key={l.id}
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              className="card p-4 bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800/80"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{l.nombre}</span>
+                <span className={`w-2 h-2 rounded-full ${l.estado === 'en_marcha' ? 'bg-emerald-400 shadow-sm shadow-emerald-500' : l.estado === 'parada' ? 'bg-red-400' : 'bg-amber-400'}`} />
               </div>
-              <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${l.produccionHoy >= l.objetivoHoy ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                  style={{ width: `${Math.min(100, (l.produccionHoy / (l.objetivoHoy || 1)) * 100)}%` }}
-                />
+              <div className="text-sm font-black text-white truncate">{l.producto}</div>
+              <div className="text-[11px] text-slate-400 truncate mb-2">{l.cliente}</div>
+              <div>
+                <div className="flex justify-between text-[10px] text-slate-500 mb-1 font-bold">
+                  <span>Carga {diaSeleccionado === 0 ? 'Hoy' : SEMANA_DIAS[diaSeleccionado]}</span>
+                  <span className={`text-slate-300 ${pct > 100 ? 'text-red-400 font-black animate-pulse' : ''}`}>{pct}%</span>
+                </div>
+                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${pct > 100 ? 'bg-red-500' : pct > 80 ? 'bg-amber-500' : 'bg-blue-500'}`}
+                    style={{ width: `${Math.min(100, pct)}%` }}
+                  />
+                </div>
               </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </div>
 
       {/* Diagrama de Gantt */}
@@ -897,9 +933,20 @@ export default function PlanificacionLineas() {
 
               {/* Filas de Líneas */}
               {lineas.map(l => {
-                const ordenesDia = ordenesGantt.filter(o => o.linea === l.id && Number(o.dia) === diaSeleccionado);
+                const ordenesDia = ordenesGantt.filter(o => o.linea === l.id && Number(o.dia) === diaSeleccionado).sort((a,b)=>a.horaInicio - b.horaInicio);
                 const otsCriticas = otsCriticasPorLinea[l.nombre] || otsCriticasPorLinea[l.id] || [];
                 const motivoParadaBadge = l.motivoParada || (otsCriticas.length > 0 ? otsCriticas.map(ot => `${ot.tipo?.toUpperCase() || 'OT'}: ${ot.titulo || ot.descripcion || 'Parada de línea'}`).join(' / ') : null);
+
+                const cambiosDia = [];
+                for(let i=1; i<ordenesDia.length; i++) {
+                  if(ordenesDia[i-1].ref !== ordenesDia[i].ref) {
+                    const durationMins = calcChangeoverTime(l.nombre, ordenesDia[i-1].ref, ordenesDia[i].ref);
+                    // Empieza al final de la orden anterior
+                    const leftPx = (ordenesDia[i-1].horaInicio + (ordenesDia[i-1].duracion || 4) - 6) * CELL_W + 3;
+                    const widthPx = (durationMins / 60) * CELL_W;
+                    cambiosDia.push({ id: `cambio-${l.id}-${i}`, left: leftPx, width: widthPx, mins: durationMins });
+                  }
+                }
 
                 return (
                   <div key={l.id} className="flex border-b border-slate-800/60 hover:bg-slate-900/40 transition-colors group relative">
@@ -956,6 +1003,26 @@ export default function PlanificacionLineas() {
                           </span>
                         </div>
                       )}
+
+                      {/* Bloques de Cambio de Formato (SMED) */}
+                      {cambiosDia.map(c => (
+                        <div
+                          key={c.id}
+                          className="absolute top-[30%] bottom-[30%] flex items-center justify-center overflow-hidden z-10 bg-slate-800/80 border border-slate-600 rounded"
+                          style={{
+                            left: c.left,
+                            width: c.width,
+                            backgroundImage: 'repeating-linear-gradient(45deg, rgba(148, 163, 184, 0.1) 0px, rgba(148, 163, 184, 0.1) 4px, transparent 4px, transparent 8px)'
+                          }}
+                          title={`Cambio de formato: ~${c.mins} min`}
+                        >
+                          {c.width > 30 && (
+                            <span className="text-[9px] font-black text-slate-300 tracking-tighter">
+                              SMED {c.mins}'
+                            </span>
+                          )}
+                        </div>
+                      ))}
 
                       {/* Barras de Órdenes */}
                       {ordenesDia.map((o) => {

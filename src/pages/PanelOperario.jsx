@@ -21,7 +21,8 @@ import {
   fetchSecuencia, updateSecuencia,
   insertAlerta,
   fetchOperarios, updateOperario, registrarHistorialOperario, getCurrentShiftInfo, restoreOperariosCatalog, fetchOrdenesTrabajo,
-  getChecklistTemplates, insertChecklistEjecucion
+  getChecklistTemplates, insertChecklistEjecucion,
+  insertKaizen, insertCambiosFormato
 , getOfflineQueueCount } from '@/services/dataService';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
@@ -45,7 +46,22 @@ export default function PanelOperario() {
   const [warningPermisoLineaOpen, setWarningPermisoLineaOpen] = useState(false);
   const [pendingLoginOp, setPendingLoginOp] = useState(null);
   const [pendingLineaId, setPendingLineaId] = useState(null);
-  const [activeTab, setActiveTab] = useState('produccion'); // produccion | paradas | materiales | secuencia | historial | productos | cil
+  const [paradasList, setParadasList] = useState([]);
+  const [activeTab, setActiveTab] = useState('produccion'); // produccion | paradas | materiales | secuencia | historial | productos | cil | mejora
+
+  // SMED (Cambio de Formato)
+  const [smedModalOpen, setSmedModalOpen] = useState(false);
+  const [smedMinutos, setSmedMinutos] = useState(30);
+  const [smedProdAnt, setSmedProdAnt] = useState('');
+  const [smedProdNuevo, setSmedProdNuevo] = useState('');
+
+  // Kaizen (Mejora)
+  const [kaizenTitulo, setKaizenTitulo] = useState('');
+  const [kaizenDesc, setKaizenDesc] = useState('');
+  const [kaizenCat, setKaizenCat] = useState('productividad');
+  const [kaizenSuccess, setKaizenSuccess] = useState(false);
+
+
 
   // Datos en vivo de Supabase / Local
   const [lineas, setLineas] = useState([]);
@@ -607,6 +623,52 @@ export default function PanelOperario() {
     }
   };
 
+  // ─── KAIZEN ───────────────────────────────────────────────────────────────
+  const handleEnviarKaizen = async (e) => {
+    e.preventDefault();
+    if (!kaizenTitulo || !kaizenDesc) return;
+    
+    await insertKaizen({
+      titulo: kaizenTitulo,
+      descripcion: kaizenDesc,
+      linea: lineaActiva.nombre || lineaSelId,
+      categoria: kaizenCat,
+      proponente: operarioSelId.replace('OP-', ''),
+      fecha: new Date().toISOString(),
+      estado: 'propuesta',
+      impactoEstimado: 'A evaluar',
+      fotos: []
+    });
+
+    setKaizenSuccess(true);
+    setTimeout(() => {
+      setKaizenSuccess(false);
+      setKaizenTitulo('');
+      setKaizenDesc('');
+    }, 3000);
+  };
+
+  // ─── SMED ─────────────────────────────────────────────────────────────────
+  const handleRegistrarSMED = async () => {
+    if (!smedProdAnt || !smedProdNuevo) return;
+    await insertCambiosFormato({
+      linea: lineaActiva.nombre || lineaSelId,
+      ordenAnteriorId: 'Manual',
+      productoAnterior: smedProdAnt,
+      ordenNuevaId: 'Manual',
+      productoNuevo: smedProdNuevo,
+      fechaInicio: new Date(Date.now() - smedMinutos*60000).toISOString(),
+      fechaFin: new Date().toISOString(),
+      duracionMinutos: Number(smedMinutos),
+      operarioId: operarioSelId.replace('OP-', ''),
+      tipoCambio: 'formato_distinto'
+    });
+    setSmedModalOpen(false);
+    setSmedProdAnt('');
+    setSmedProdNuevo('');
+    setSmedMinutos(30);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-white p-4 lg:p-6 select-none space-y-6">
       {/* ── BARRA SUPERIOR DEL PUESTO / OPERARIO (MODO KIOSKO INDEPENDIENTE) ── */}
@@ -795,6 +857,7 @@ export default function PanelOperario() {
           { id: 'secuencia',  label: '4. Secuencia', sub: 'Cambio Referencia', icon: ClipboardList, color: 'emerald' },
           { id: 'historial',  label: '5. Historial', sub: 'Métricas pasadas', icon: History, color: 'violet' },
           { id: 'cil',        label: '6. Checklist CIL', sub: 'Limpieza e Insp.', icon: CheckSquare, color: 'cyan' },
+          { id: 'mejora',     label: '7. Mejora', sub: 'Idea Kaizen', icon: Lightbulb, color: 'yellow' }
         ].map(t => {
           const isAct = activeTab === t.id;
           const activeColors = {
@@ -804,11 +867,13 @@ export default function PanelOperario() {
             emerald: 'bg-emerald-600/15 border-emerald-500 shadow-xl shadow-emerald-900/30',
             violet:  'bg-violet-600/15 border-violet-500 shadow-xl shadow-violet-900/30',
             cyan:    'bg-cyan-600/15 border-cyan-500 shadow-xl shadow-cyan-900/30',
+            yellow:  'bg-yellow-600/15 border-yellow-500 shadow-xl shadow-yellow-900/30',
           };
           const iconColors = {
             blue: 'bg-blue-600 text-white', red: 'bg-red-600 text-white',
             amber: 'bg-amber-600 text-white', emerald: 'bg-emerald-600 text-white',
             violet: 'bg-violet-600 text-white', cyan: 'bg-cyan-600 text-white',
+            yellow: 'bg-yellow-600 text-white',
           };
           return (
             <button
@@ -1011,6 +1076,80 @@ export default function PanelOperario() {
                   <AlertTriangle className="w-4 h-4" />
                   REGISTRAR DEFECTO / SCRAP EN CALIDAD
                 </button>
+              </div>
+
+              {/* SMED / CAMBIO DE FORMATO */}
+              <div className="card p-6 border-blue-500/30 bg-gradient-to-br from-blue-950/10 to-slate-900 mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                      <ArrowRight className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-white">Registro de Cambio de Formato (SMED)</h3>
+                      <p className="text-xs text-slate-400">Registra el tiempo consumido al cambiar entre dos productos distintos.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {!smedModalOpen ? (
+                  <button
+                    onClick={() => setSmedModalOpen(true)}
+                    className="w-full py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 font-black text-sm shadow-lg transition-all active:scale-98 flex items-center justify-center gap-2"
+                  >
+                    <Clock className="w-4 h-4" />
+                    DECLARAR CAMBIO DE FORMATO REALIZADO
+                  </button>
+                ) : (
+                  <div className="space-y-4 animate-fade-in p-4 bg-slate-950 rounded-2xl border border-blue-500/30">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Producto Anterior</label>
+                        <input
+                          type="text"
+                          value={smedProdAnt}
+                          onChange={e => setSmedProdAnt(e.target.value)}
+                          placeholder="Ej: BAT-48V-100Ah"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Producto Nuevo</label>
+                        <input
+                          type="text"
+                          value={smedProdNuevo}
+                          onChange={e => setSmedProdNuevo(e.target.value)}
+                          placeholder="Ej: BAT-24V-200Ah"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Duración del Cambio (Minutos)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={smedMinutos}
+                        onChange={e => setSmedMinutos(Number(e.target.value))}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-lg font-black text-white focus:border-blue-500 focus:outline-none text-center"
+                      />
+                    </div>
+                    <div className="flex gap-3 justify-end pt-2">
+                      <button
+                        onClick={() => setSmedModalOpen(false)}
+                        className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleRegistrarSMED}
+                        className="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm shadow-lg shadow-blue-900/40 flex items-center gap-2"
+                      >
+                        <Check className="w-4 h-4" /> Registrar Tiempo
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
@@ -1748,6 +1887,87 @@ export default function PanelOperario() {
                   </button>
                 </div>
               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── TAB 7: KAIZEN (MEJORA CONTINUA) ── */}
+        {activeTab === 'mejora' && (
+          <motion.div
+            key="tab-mejora"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className="space-y-6"
+          >
+            <div className="card p-6 border-yellow-500/30 bg-gradient-to-br from-yellow-950/10 to-slate-900 max-w-3xl mx-auto">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-yellow-500/20 text-yellow-400 flex items-center justify-center">
+                  <Lightbulb className="w-7 h-7" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-white">Buzón de Mejora Continua (Kaizen)</h3>
+                  <p className="text-xs text-slate-400">Registra ideas para mejorar la seguridad, calidad o productividad de tu línea.</p>
+                </div>
+              </div>
+              
+              <form onSubmit={handleEnviarKaizen} className="space-y-5">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase block mb-1.5">Título corto de la idea</label>
+                  <input
+                    type="text"
+                    required
+                    value={kaizenTitulo}
+                    onChange={e => setKaizenTitulo(e.target.value)}
+                    placeholder="Ej: Nuevo soporte para bobinas"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:border-yellow-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase block mb-1.5">Descripción detallada</label>
+                  <textarea
+                    required
+                    value={kaizenDesc}
+                    onChange={e => setKaizenDesc(e.target.value)}
+                    placeholder="Explica el problema actual y cómo lo resolverías..."
+                    className="w-full h-32 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase block mb-1.5">Categoría</label>
+                    <select
+                      value={kaizenCat}
+                      onChange={e => setKaizenCat(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:border-yellow-500"
+                    >
+                      <option value="seguridad">Seguridad / Ergonomía</option>
+                      <option value="calidad">Calidad / Defectos</option>
+                      <option value="productividad">Productividad / SMED</option>
+                      <option value="costes">Ahorro de Costes</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase block mb-1.5">Foto (Opcional)</label>
+                    <button type="button" className="w-full h-[46px] border border-dashed border-slate-600 rounded-xl flex items-center justify-center gap-2 text-slate-400 hover:text-white hover:border-slate-500 bg-slate-900">
+                      <Plus className="w-4 h-4" /> Añadir Foto
+                    </button>
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+                  {kaizenSuccess ? (
+                    <span className="text-emerald-400 font-bold text-sm bg-emerald-500/20 px-3 py-1.5 rounded-lg">
+                      ¡Idea registrada con éxito!
+                    </span>
+                  ) : <span></span>}
+                  <button
+                    type="submit"
+                    className="px-6 py-3 rounded-2xl bg-yellow-600 hover:bg-yellow-500 text-white font-black text-sm shadow-lg shadow-yellow-900/30 flex items-center gap-2 transition-all active:scale-95"
+                  >
+                    <Check className="w-4 h-4" /> Enviar Idea de Mejora
+                  </button>
+                </div>
+              </form>
             </div>
           </motion.div>
         )}

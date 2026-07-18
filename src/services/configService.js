@@ -46,7 +46,8 @@ export const DEFAULT_APP_CONFIG = {
   checklistCategorias: [
     { id: 'calidad', label: 'Calidad (QC)', color: 'blue' },
     { id: 'cil', label: 'CIL (Limpieza/Insp/Lub)', color: 'cyan' },
-    { id: 'mantenimiento', label: 'Mantenimiento Preventivo', color: 'amber' }
+    { id: 'mantenimiento', label: 'Mantenimiento Preventivo', color: 'amber' },
+    { id: '5s', label: '5S (Auditoría)', color: 'purple' }
   ],
 };
 
