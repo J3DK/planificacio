@@ -6,6 +6,7 @@ import {
   Plus, Trash2, ArrowLeft, CheckCircle2, AlertOctagon,
   Wrench, Activity, Maximize2, Minimize2, RefreshCw
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export const LOCAL_ESTADO_OT_COLORS = {
   'abierta': 'bg-slate-500/20 text-slate-400 border-slate-500/30',
@@ -32,6 +33,7 @@ export default function OTDetallePanel({
   activos = [], operariosList = [], ots = [], repuestosList = [],
   onGenerarPDF
 }) {
+  const { perfil, user } = useAuth();
   const [formData, setFormData] = useState({});
   const [activeTab, setActiveTab] = useState('datos');
   const [lightboxFoto, setLightboxFoto] = useState(null);
@@ -384,7 +386,7 @@ export default function OTDetallePanel({
                         const newEntry = {
                           id: Date.now().toString(),
                           fecha: new Date().toISOString(),
-                          autor: formData.tecnico || 'Técnico', // fallback
+                          autor: perfil?.nombre || user?.email || formData.tecnico || 'Usuario',
                           texto: input.value.trim()
                         };
                         handleChange('bitacora', [newEntry, ...current]);
