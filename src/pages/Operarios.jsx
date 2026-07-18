@@ -771,7 +771,7 @@ export default function Operarios() {
 
                     <div className="flex items-center gap-3.5">
                       {/* Avatar foto o iniciales */}
-                      <div className="relative flex-shrink-0 cursor-pointer" onClick={() => handleOpenFicha(op)}>
+                      <div className="relative flex-shrink-0 cursor-pointer" onClick={() => handleOpenFicha(op)}
                         {op.avatar ? (
                           <img
                             src={op.avatar}
@@ -789,7 +789,7 @@ export default function Operarios() {
                         </div>
                       </div>
 
-                      <div className="min-w-0 pr-12 cursor-pointer" onClick={() => handleOpenFicha(op)}>
+                      <div className="min-w-0 pr-12 cursor-pointer" onClick={() => handleOpenFicha(op)}
                         <h3 className="font-black text-white text-base leading-tight truncate hover:text-blue-400 transition-colors">
                           {op.nombre}
                         </h3>
@@ -891,7 +891,7 @@ export default function Operarios() {
                 {/* Pie con Acciones */}
                 <div className="px-5 py-3 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between">
                   <button
-                    onClick={() => handleOpenFicha(op)}>
+                    onClick={() => handleOpenFicha(op)}
                     className="text-xs font-black text-blue-400 hover:text-blue-300 flex items-center gap-1 group/btn"
                   >
                     <span>Ficha 360° Completa</span>
@@ -941,7 +941,7 @@ export default function Operarios() {
                   const isActivo = op.estado === 'activo';
                   return (
                     <tr key={op.id} className="hover:bg-slate-800/40 transition-colors group">
-                      <td className="py-4 px-6 cursor-pointer" onClick={() => handleOpenFicha(op)}>
+                      <td className="py-4 px-6 cursor-pointer" onClick={() => handleOpenFicha(op)}
                         <div className="flex items-center gap-3.5">
                           {op.avatar ? (
                             <img src={op.avatar} alt={op.nombre} className="w-10 h-10 rounded-xl object-cover border border-slate-700" />
@@ -1036,7 +1036,7 @@ export default function Operarios() {
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => handleOpenFicha(op)}>
+                            onClick={() => handleOpenFicha(op)}
                             className="p-2 bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white rounded-xl transition-all border border-blue-500/30"
                             title="Ficha Completa 360°"
                           >
