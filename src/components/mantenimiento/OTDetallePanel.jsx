@@ -64,8 +64,6 @@ export default function OTDetallePanel({
     }
   }, [isOpen, ot, isCreate]);
 
-  if (!isOpen) return null;
-
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -136,6 +134,8 @@ export default function OTDetallePanel({
     { id: 'repuestos', label: 'Repuestos', icon: <Box className="w-4 h-4" /> },
     { id: 'historial', label: 'Historial del Activo', icon: <Activity className="w-4 h-4" /> },
   ];
+
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence>

@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS public.alertas (
   linea TEXT,
   timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   leida BOOLEAN DEFAULT FALSE,
+  "origenId" TEXT,
+  resuelta BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
