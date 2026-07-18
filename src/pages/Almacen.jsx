@@ -259,105 +259,148 @@ function TabEntradas({ materiales, ubicaciones, entradas, perfil }) {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* FORMULARIO */}
-      <div className="lg:col-span-1 space-y-4">
-        <div className="card p-5">
-          <h2 className="text-lg font-black text-white mb-4">Nuevo Albarán</h2>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in">
+      {/* LATERAL: DATOS ALBARÁN Y AÑADIR MANUAL */}
+      <div className="lg:col-span-4 space-y-6">
+        
+        {/* Tarjeta Datos Albarán */}
+        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-bl-full -z-10 group-hover:bg-blue-500/10 transition-colors"></div>
+          <h2 className="text-sm font-black text-white mb-4 flex items-center gap-2 uppercase tracking-wide">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            Datos del Albarán
+          </h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-400 mb-1">Nº Albarán Proveedor *</label>
-              <input type="text" value={form.numeroAlbaran} onChange={e => setForm({...form, numeroAlbaran: e.target.value})} className="input-field" placeholder="ALB-0001" />
+              <label className="block text-[10px] font-black text-slate-400 mb-1.5 uppercase tracking-wider">Nº Albarán Proveedor *</label>
+              <input type="text" value={form.numeroAlbaran} onChange={e => setForm({...form, numeroAlbaran: e.target.value})} className="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-600 font-medium" placeholder="Ej. ALB-2026-001" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 mb-1">Proveedor</label>
-              <input type="text" value={form.proveedor} onChange={e => setForm({...form, proveedor: e.target.value})} className="input-field" placeholder="Nombre Proveedor" />
+              <label className="block text-[10px] font-black text-slate-400 mb-1.5 uppercase tracking-wider">Proveedor</label>
+              <input type="text" value={form.proveedor} onChange={e => setForm({...form, proveedor: e.target.value})} className="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-600" placeholder="Nombre de la empresa" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 mb-1">Observaciones</label>
-              <textarea value={form.observaciones} onChange={e => setForm({...form, observaciones: e.target.value})} className="input-field min-h-[80px]" placeholder="Notas..." />
+              <label className="block text-[10px] font-black text-slate-400 mb-1.5 uppercase tracking-wider">Observaciones</label>
+              <textarea value={form.observaciones} onChange={e => setForm({...form, observaciones: e.target.value})} className="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-600 min-h-[80px] resize-none" placeholder="Anotaciones adicionales..." />
             </div>
           </div>
         </div>
 
-        <div className="card p-5">
-          <h2 className="text-sm font-black text-white mb-4">Añadir Línea Manual</h2>
-          <div className="space-y-3">
-            <select value={matSel} onChange={e => setMatSel(e.target.value)} className="input-field">
-              <option value="">Seleccionar material...</option>
-              {materiales.map(m => (
-                <option key={m.id} value={m.id}>{m.codigo} - {m.descripcion}</option>
-              ))}
-            </select>
-            <div className="grid grid-cols-2 gap-3">
-              <input type="number" min="0.01" step="0.01" value={cantSel} onChange={e => setCantSel(e.target.value)} className="input-field" placeholder="Cantidad" />
-              <input type="text" value={loteSel} onChange={e => setLoteSel(e.target.value)} className="input-field" placeholder="Lote (Opc)" />
+        {/* Tarjeta Añadir Línea Manual / Escáner */}
+        <div className="bg-gradient-to-br from-indigo-900/20 to-slate-900/60 border border-indigo-500/20 rounded-2xl p-5 shadow-lg">
+          <h2 className="text-sm font-black text-white mb-4 flex items-center gap-2 uppercase tracking-wide">
+            <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+            Añadir Artículo
+          </h2>
+          
+          <button 
+            onClick={() => setScannerOpen(true)} 
+            className="w-full flex items-center justify-center gap-3 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black transition-all shadow-lg shadow-indigo-900/50 mb-6 group active:scale-95"
+          >
+            <ScanBarcode className="w-5 h-5 group-hover:scale-110 transition-transform" /> 
+            <span>Abrir Lector Inteligente</span>
+          </button>
+
+          <div className="relative py-4 mb-4">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
+            <div className="relative flex justify-center"><span className="bg-slate-950 px-3 text-[10px] text-slate-500 uppercase font-black tracking-widest rounded-full">Entrada Manual</span></div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <select value={matSel} onChange={e => setMatSel(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all appearance-none">
+                <option value="" className="text-slate-500">Seleccionar material del catálogo...</option>
+                {materiales.map(m => (
+                  <option key={m.id} value={m.id}>{m.codigo} - {m.descripcion}</option>
+                ))}
+              </select>
             </div>
-            <button onClick={() => addLine(matSel)} disabled={!matSel} className="btn-primary w-full justify-center">
-              Añadir a la lista
-            </button>
-            <div className="relative py-2">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700"></div></div>
-              <div className="relative flex justify-center"><span className="bg-slate-900 px-2 text-xs text-slate-500 uppercase font-bold">O usa el escáner</span></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-1 ml-1">Cantidad</label>
+                <input type="number" min="0.01" step="0.01" value={cantSel} onChange={e => setCantSel(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-center font-mono" placeholder="0.00" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-1 ml-1">Lote (Opcional)</label>
+                <input type="text" value={loteSel} onChange={e => setLoteSel(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-center font-mono uppercase" placeholder="LOTE-XYZ" />
+              </div>
             </div>
-            <button onClick={() => setScannerOpen(true)} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 font-bold transition-all">
-              <ScanBarcode className="w-4 h-4" /> Abrir Lector Código Barras
+            <button 
+              onClick={() => addLine(matSel)} 
+              disabled={!matSel} 
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white font-bold hover:bg-slate-700 hover:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-2"
+            >
+              Añadir Línea Manualmente
             </button>
           </div>
         </div>
       </div>
 
       {/* LINEAS */}
-      <div className="lg:col-span-2 card p-5 flex flex-col min-h-[500px]">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-black text-white">Líneas del Albarán</h2>
-          <span className="badge-neutral">{lineas.length} líneas</span>
+      <div className="lg:col-span-8 bg-slate-900/40 border border-slate-800 rounded-2xl flex flex-col min-h-[600px] overflow-hidden shadow-2xl">
+        <div className="p-5 flex justify-between items-center border-b border-slate-800 bg-slate-900/60 backdrop-blur-md">
+          <h2 className="text-lg font-black text-white flex items-center gap-2">
+            Líneas del Albarán
+            {form.numeroAlbaran && <span className="text-slate-500 font-medium ml-2">({form.numeroAlbaran})</span>}
+          </h2>
+          <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-xs font-black">
+            {lineas.length} {lineas.length === 1 ? 'LÍNEA' : 'LÍNEAS'}
+          </span>
         </div>
 
-        <div className="flex-1 overflow-auto border border-slate-700 rounded-xl bg-slate-950">
+        <div className="flex-1 overflow-auto bg-slate-950/30">
           {lineas.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500 p-8">
-              <ArrowDownToLine className="w-12 h-12 mb-3 opacity-20" />
-              <p className="font-bold">No hay líneas en este albarán</p>
-              <p className="text-xs mt-1 text-center">Escanea un código de barras o añade un material manualmente.</p>
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 p-12">
+              <div className="w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center mb-6 shadow-inner border border-slate-800">
+                <ScanBarcode className="w-10 h-10 text-slate-700" />
+              </div>
+              <h3 className="text-lg font-black text-white mb-2">No hay líneas añadidas</h3>
+              <p className="text-sm text-center max-w-sm">Escanea un código de barras con el lector inteligente o añade artículos manualmente desde el panel izquierdo.</p>
             </div>
           ) : (
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-800/50 text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                  <th className="p-3">Material</th>
-                  <th className="p-3">Cantidad</th>
-                  <th className="p-3">Lote</th>
-                  <th className="p-3">Ubicación Destino</th>
-                  <th className="p-3 text-right">Acción</th>
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-slate-900/90 backdrop-blur-sm text-[10px] font-black uppercase text-slate-400 tracking-wider border-b border-slate-800">
+                  <th className="p-4 pl-6">Material</th>
+                  <th className="p-4 w-32">Cantidad</th>
+                  <th className="p-4 w-40">Lote</th>
+                  <th className="p-4 w-48">Ubicación Destino</th>
+                  <th className="p-4 w-16 text-right pr-6"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
-                {lineas.map(l => (
-                  <tr key={l.idTemp} className="hover:bg-slate-800/20">
-                    <td className="p-3">
-                      <p className="text-sm font-bold text-white">{l.codigo}</p>
-                      <p className="text-[10px] text-slate-500 truncate max-w-[150px]">{l.descripcion}</p>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <input type="number" min="0" step="0.01" value={l.cantidad} onChange={e => updateLine(l.idTemp, 'cantidad', e.target.value)} className="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white text-sm" />
-                        <span className="text-xs text-slate-500">{l.unidad}</span>
+              <tbody className="divide-y divide-slate-800/50">
+                {lineas.map((l, i) => (
+                  <tr key={l.idTemp} className="group hover:bg-slate-800/40 focus-within:bg-slate-800/40 transition-colors animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
+                    <td className="p-4 pl-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                          <Layers3 className="w-5 h-5 text-slate-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-white">{l.codigo}</p>
+                          <p className="text-[11px] text-slate-400 truncate max-w-[200px] xl:max-w-[300px] font-medium">{l.descripcion}</p>
+                        </div>
                       </div>
                     </td>
-                    <td className="p-3">
-                      <input type="text" value={l.lote} onChange={e => updateLine(l.idTemp, 'lote', e.target.value)} className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white text-sm" placeholder="Opcional" />
+                    <td className="p-4">
+                      <div className="relative flex items-center">
+                        <input type="number" min="0" step="0.01" value={l.cantidad} onChange={e => updateLine(l.idTemp, 'cantidad', e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 rounded-lg pl-3 pr-8 py-2 text-white text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all hover:bg-slate-900" />
+                        <span className="absolute right-3 text-[10px] font-bold text-slate-500 pointer-events-none">{l.unidad}</span>
+                      </div>
                     </td>
-                    <td className="p-3">
-                      <select value={l.ubicacionId} onChange={e => updateLine(l.idTemp, 'ubicacionId', e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white text-sm">
-                        <option value="">Sin asignar</option>
+                    <td className="p-4">
+                      <input type="text" value={l.lote} onChange={e => updateLine(l.idTemp, 'lote', e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all hover:bg-slate-900 uppercase" placeholder="---" />
+                    </td>
+                    <td className="p-4">
+                      <select value={l.ubicacionId} onChange={e => updateLine(l.idTemp, 'ubicacionId', e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all hover:bg-slate-900 appearance-none">
+                        <option value="">(Sin asignar)</option>
                         {ubicaciones.map(u => (
                           <option key={u.id} value={u.id}>{u.codigo}</option>
                         ))}
                       </select>
                     </td>
-                    <td className="p-3 text-right">
-                      <button onClick={() => removeLine(l.idTemp)} className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
+                    <td className="p-4 pr-6 text-right">
+                      <button onClick={() => removeLine(l.idTemp)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -368,9 +411,20 @@ function TabEntradas({ materiales, ubicaciones, entradas, perfil }) {
           )}
         </div>
 
-        <div className="mt-4 pt-4 border-t border-slate-800 flex justify-end">
-          <button onClick={handleConfirmar} disabled={saving || lineas.length === 0 || !form.numeroAlbaran} className="btn-primary py-3 px-8 text-sm">
-            {saving ? 'Procesando...' : 'Confirmar y Guardar Albarán'}
+        <div className="p-5 border-t border-slate-800 bg-slate-900/60 backdrop-blur-md flex justify-between items-center">
+          <div className="text-xs text-slate-500 font-medium">
+            {lineas.length > 0 && <span>Revisa que las ubicaciones de destino sean correctas.</span>}
+          </div>
+          <button 
+            onClick={handleConfirmar} 
+            disabled={saving || lineas.length === 0 || !form.numeroAlbaran} 
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-black transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none active:scale-95"
+          >
+            {saving ? (
+              <><RefreshCw className="w-4 h-4 animate-spin" /> Procesando...</>
+            ) : (
+              <><CheckCircle2 className="w-5 h-5" /> Confirmar Albarán</>
+            )}
           </button>
         </div>
       </div>
