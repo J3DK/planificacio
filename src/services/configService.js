@@ -10,6 +10,7 @@ export const DEFAULT_MENU_ITEMS = [
   { path: '/lineas',             label: 'Líneas',               iconName: 'Factory',         visible: true },
   { path: '/operarios',          label: 'Operarios',            iconName: 'Users',           visible: true },
   { path: '/cualificaciones',    label: 'Cualificación & Cursos', iconName: 'Award',           visible: true },
+  { path: '/lean',               label: 'Lean (Opex)',          iconName: 'Sparkles',        visible: true },
   { path: '/productos',          label: 'Productos',            iconName: 'Boxes',           visible: true },
   { path: '/produccion',         label: 'Producción',           iconName: 'BarChart2',       visible: true },
   { path: '/calidad',            label: 'Calidad',              iconName: 'CheckSquare',     visible: true },

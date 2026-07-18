@@ -77,6 +77,21 @@ export default function Sidebar() {
         list.push(cualifItem);
       }
     }
+
+    if (!list.some(i => i.path === '/lean')) {
+      const cualifIdx = list.findIndex(i => i.path === '/cualificaciones');
+      const opIdx = list.findIndex(i => i.path === '/operarios');
+      const leanItem = { path: '/lean', label: 'Lean (Opex)', iconName: 'Sparkles', visible: true };
+      
+      if (cualifIdx >= 0) {
+        list.splice(cualifIdx + 1, 0, leanItem);
+      } else if (opIdx >= 0) {
+        list.splice(opIdx + 1, 0, leanItem);
+      } else {
+        list.push(leanItem);
+      }
+    }
+
     if (!list.some(i => i.path === '/checklists')) {
       const mtoIdx = list.findIndex(i => i.path === '/mantenimiento');
       const chkItem = { path: '/checklists', label: 'Checklists & Pautas', iconName: 'ListChecks', visible: true };
