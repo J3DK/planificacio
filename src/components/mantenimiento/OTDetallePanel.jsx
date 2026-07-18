@@ -386,7 +386,7 @@ export default function OTDetallePanel({
                         const newEntry = {
                           id: Date.now().toString(),
                           fecha: new Date().toISOString(),
-                          autor: perfil?.nombre || user?.email || formData.tecnico || 'Usuario',
+                          autor: perfil?.nombre || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || formData.tecnico || 'Usuario',
                           texto: input.value.trim()
                         };
                         handleChange('bitacora', [newEntry, ...current]);
