@@ -9,6 +9,8 @@ export default function EscanerMovil() {
   const [error, setError] = useState(null);
   const [scannedCodes, setScannedCodes] = useState([]);
   const [channel, setChannel] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [scannerInstance, setScannerInstance] = useState(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -54,6 +56,10 @@ export default function EscanerMovil() {
       );
 
       scanner.render((decodedText) => {
+        // Pausar inmediatamente para evitar escaneos múltiples
+        scanner.pause(true);
+        setIsPaused(true);
+
         // Al detectar un código
         const payload = {
           codigo: decodedText,
@@ -78,6 +84,8 @@ export default function EscanerMovil() {
     } catch (err) {
       setError('Error al iniciar la cámara. Verifica los permisos.');
     }
+
+    setScannerInstance(scanner);
 
     return () => {
       if (scanner) {
@@ -151,6 +159,23 @@ export default function EscanerMovil() {
                   </span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {isPaused && (
+            <div className="mt-4 animate-fade-in-up">
+              <button
+                onClick={() => {
+                  if (scannerInstance) {
+                    scannerInstance.resume();
+                    setIsPaused(false);
+                  }
+                }}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-xl shadow-lg shadow-indigo-900/50 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <ScanLine className="w-5 h-5" />
+                Escanear Siguiente
+              </button>
             </div>
           )}
         </div>
