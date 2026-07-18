@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS public.materias_primas (
 DO $$ BEGIN
   ALTER TABLE public.materias_primas ADD COLUMN IF NOT EXISTS imagen TEXT;
   ALTER TABLE public.materias_primas ADD COLUMN IF NOT EXISTS stock_reservado NUMERIC DEFAULT 0;
+  ALTER TABLE public.materias_primas ADD COLUMN IF NOT EXISTS codigo_barras TEXT;
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 

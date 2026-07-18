@@ -975,6 +975,7 @@ export async function insertMaterial(material) {
       if (error && (error.code === 'PGRST204' || error.message?.includes('column'))) {
         delete dbPayload.imagen;
         delete dbPayload.stock_reservado;
+        delete dbPayload.codigo_barras;
         const fallback = await supabase.from('materias_primas').insert([dbPayload]).select().single();
         data = fallback.data;
         error = fallback.error;
