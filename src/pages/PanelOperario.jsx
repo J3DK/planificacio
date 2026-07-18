@@ -7,7 +7,7 @@ import {
   ShieldAlert, Sparkles, Check, X, AlertOctagon, ArrowRight,
   ClipboardList, HelpCircle, LogOut, Maximize2, Lock,
   History, BoxesIcon, Edit2, Trash2, Save, XCircle, TrendingUp,
-  BarChart2, Activity, Filter, ChevronDown, CheckSquare, Users, Key, ShieldCheck
+  BarChart2, Activity, Filter, ChevronDown, CheckSquare, Users, Key, ShieldCheck, Lightbulb
 } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
