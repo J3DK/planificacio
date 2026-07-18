@@ -13,7 +13,12 @@ export function useRealtimeSync(tableName, onChange) {
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
 
-    const channel = supabase.channel(`realtime:${tableName}`)
+    // Use a unique channel name per hook instance to prevent
+    // "cannot add postgres_changes callbacks after subscribe()" errors
+    // when multiple components listen to the same table or React StrictMode re-mounts.
+    const channelName = `realtime:${tableName}:${Math.random().toString(36).substring(2, 9)}`;
+
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: tableName }, (payload) => {
         if (onChange) onChange(payload);
       })
@@ -22,5 +27,6 @@ export function useRealtimeSync(tableName, onChange) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tableName, onChange]);
+  }, [tableName]); // Remove onChange from deps to avoid re-subscribing if onChange changes without useCallback
+
 }
