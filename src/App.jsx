@@ -29,6 +29,7 @@ import Lean from '@/pages/Lean';
 import Usuarios from '@/pages/Usuarios';
 import Auditoria from '@/pages/Auditoria';
 import Login from '@/pages/Login';
+import EscanerMovil from '@/pages/EscanerMovil';
 import { Loader2 } from 'lucide-react';
 
 function Layout({ children }) {
@@ -115,6 +116,7 @@ export default function App() {
           {/* Rutas de Planta (Accesibles para cualquier usuario autenticado) */}
           <Route path="/panel-operario" element={<RequireAuth><PanelOperario /></RequireAuth>} />
           <Route path="/panel-calidad" element={<RequireAuth><PanelCalidad /></RequireAuth>} />
+          <Route path="/escaner-movil/:sessionId" element={<RequireAuth><EscanerMovil /></RequireAuth>} />
 
           {/* Rutas de Back-Office */}
           <Route path="/" element={<RequireAuth><Layout><Dashboard /></Layout></RequireAuth>} />

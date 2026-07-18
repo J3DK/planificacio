@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Keyboard, X, AlertCircle } from 'lucide-react';
+import { Camera, Keyboard, X, AlertCircle, Smartphone, CheckCircle2 } from 'lucide-react';
 import { Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
+import { QRCodeSVG } from 'qrcode.react';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export default function LectorCodigoBarras({ onScan, onClose }) {
-  const [mode, setMode] = useState('usb'); // 'usb' | 'camera'
+  const [mode, setMode] = useState('usb'); // 'usb' | 'camera' | 'movil_remoto'
   const [error, setError] = useState(null);
   const inputRef = useRef(null);
+
+  // Estados para modo móvil remoto
+  const [sessionId, setSessionId] = useState(null);
+  const [remoteCodes, setRemoteCodes] = useState([]);
+  const [channel, setChannel] = useState(null);
 
   // MODO USB (Escáner físico emulando teclado)
   useEffect(() => {
@@ -71,6 +78,50 @@ export default function LectorCodigoBarras({ onScan, onClose }) {
     };
   }, [mode, onScan]);
 
+  // MODO MÓVIL REMOTO
+  useEffect(() => {
+    if (mode === 'movil_remoto') {
+      if (!isSupabaseConfigured()) {
+        setError('El escáner remoto requiere Supabase configurado y conexión a Internet.');
+        return;
+      }
+
+      // Generar nuevo sessionId para evitar que sesiones antiguas envíen datos aquí
+      const newSessionId = crypto.randomUUID();
+      setSessionId(newSessionId);
+      setRemoteCodes([]); // Limpiar la lista al iniciar nueva sesión
+
+      const ch = supabase.channel(`escaner-remoto:${newSessionId}`);
+      
+      ch.on('broadcast', { event: 'scan' }, (payload) => {
+        const codigo = payload.payload.codigo;
+        const fecha = payload.payload.fecha;
+        onScan(codigo);
+        setRemoteCodes(prev => [{ codigo, fecha }, ...prev].slice(0, 5)); // Guardar últimos 5 para UI
+      }).subscribe();
+
+      setChannel(ch);
+
+      return () => {
+        supabase.removeChannel(ch);
+        setSessionId(null);
+        setChannel(null);
+      };
+    } else {
+      // Limpiar canal si cambiamos a otro modo
+      if (channel) {
+        supabase.removeChannel(channel);
+        setChannel(null);
+      }
+      setSessionId(null);
+    }
+  }, [mode, onScan]);
+
+  const getRemoteUrl = () => {
+    if (!sessionId) return '';
+    return `${window.location.origin}/escaner-movil/${sessionId}`;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
@@ -92,10 +143,10 @@ export default function LectorCodigoBarras({ onScan, onClose }) {
         <div className="p-6 flex flex-col gap-6">
           
           {/* Toggle Mode */}
-          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 flex-wrap gap-1">
             <button
               onClick={() => { setMode('usb'); setError(null); }}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 min-w-[100px] py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
                 mode === 'usb' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -104,13 +155,27 @@ export default function LectorCodigoBarras({ onScan, onClose }) {
             </button>
             <button
               onClick={() => { setMode('camera'); setError(null); }}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 min-w-[100px] py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
                 mode === 'camera' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Camera className="w-4 h-4" />
               Cámara
             </button>
+            
+            {/* Opción de Móvil (Solo visible si Supabase está configurado o si queremos mostrarlo deshabilitado) */}
+            {isSupabaseConfigured() && (
+              <button
+                onClick={() => { setMode('movil_remoto'); setError(null); }}
+                className={`flex-1 min-w-[100px] py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                  mode === 'movil_remoto' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                }`}
+                title="Requiere conexión a Supabase"
+              >
+                <Smartphone className="w-4 h-4" />
+                Móvil Remoto
+              </button>
+            )}
           </div>
 
           {error && (
@@ -121,8 +186,8 @@ export default function LectorCodigoBarras({ onScan, onClose }) {
           )}
 
           {/* Área de Escaneo */}
-          <div className="bg-slate-950/50 border border-slate-800 rounded-2xl flex items-center justify-center min-h-[300px] relative overflow-hidden">
-            {mode === 'usb' ? (
+          <div className="bg-slate-950/50 border border-slate-800 rounded-2xl flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden">
+            {mode === 'usb' && (
               <div className="text-center p-8 flex flex-col items-center">
                 <div className="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
                   <Keyboard className="w-10 h-10 text-indigo-400 animate-pulse" />
@@ -141,8 +206,10 @@ export default function LectorCodigoBarras({ onScan, onClose }) {
                   aria-hidden="true"
                 />
               </div>
-            ) : (
-              <div className="w-full h-full flex flex-col">
+            )}
+            
+            {mode === 'camera' && (
+              <div className="w-full h-full flex flex-col min-h-[300px]">
                 <style>{`
                   #reader { border: none !important; }
                   #reader__scan_region { background: transparent !important; }
@@ -152,6 +219,46 @@ export default function LectorCodigoBarras({ onScan, onClose }) {
                   #reader__dashboard_section_swaplink { color: #818cf8 !important; text-decoration: none !important; }
                 `}</style>
                 <div id="reader" className="w-full h-full"></div>
+              </div>
+            )}
+
+            {mode === 'movil_remoto' && !error && sessionId && (
+              <div className="w-full h-full flex flex-col items-center justify-start p-6">
+                <h3 className="text-white font-bold mb-2 text-center">Escanea este código con tu móvil</h3>
+                <p className="text-xs text-slate-400 mb-6 text-center max-w-[250px]">
+                  Utiliza la cámara de tu teléfono móvil para vincular el escáner a esta pantalla.
+                </p>
+                
+                <div className="bg-white p-3 rounded-2xl mb-6 shadow-lg">
+                  <QRCodeSVG value={getRemoteUrl()} size={160} />
+                </div>
+                
+                <div className="w-full flex flex-col items-center">
+                  {remoteCodes.length === 0 ? (
+                    <div className="flex items-center gap-2 text-indigo-400 animate-pulse">
+                      <Smartphone className="w-4 h-4" />
+                      <span className="text-sm font-bold">Esperando conexión del móvil...</span>
+                    </div>
+                  ) : (
+                    <div className="w-full space-y-3">
+                      <div className="flex items-center justify-center gap-2 text-emerald-400 mb-2">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="text-sm font-bold">Móvil conectado ✅</span>
+                      </div>
+                      <p className="text-xs font-black uppercase text-slate-500 text-center tracking-widest mb-2 border-b border-slate-800 pb-2">
+                        {remoteCodes.length} códigos recibidos
+                      </p>
+                      <div className="flex flex-col gap-2 w-full max-h-[80px] overflow-y-auto pr-1 no-scrollbar">
+                        {remoteCodes.map((rc, idx) => (
+                          <div key={idx} className="bg-slate-900 border border-slate-800 rounded-lg p-2 flex justify-between items-center animate-fade-in-up">
+                            <span className="text-sm text-white font-mono">{rc.codigo}</span>
+                            <span className="text-[10px] text-slate-500">{new Date(rc.fecha).toLocaleTimeString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
