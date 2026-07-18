@@ -1371,16 +1371,6 @@ export async function insertProducto(producto) {
     try {
       const dbPayload = { ...newItem };
       let { data, error } = await supabase.from('productos').insert([dbPayload]).select().single();
-      if (error && (error.code === 'PGRST204' || error.message?.includes('column') || error.status === 400)) {
-        delete dbPayload.imagen;
-        delete dbPayload.bom;
-        delete dbPayload.bomPendiente;
-        delete dbPayload.tiempoCiclo;
-        delete dbPayload.objetivoHora;
-        const fallback = await supabase.from('productos').insert([dbPayload]).select().single();
-        data = fallback.data;
-        error = fallback.error;
-      }
       if (!error && data) {
         if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('productos_updated'));
         return { data: mapProducto({ ...data, imagen: newItem.imagen, bom: newItem.bom }), error: null };
@@ -1417,15 +1407,6 @@ export async function updateProducto(id, producto) {
       const dbPayload = { ...nextProd };
       delete dbPayload.id; // Evitar conflictos al actualizar primary key en PATCH
       let { data, error } = await supabase.from('productos').update(dbPayload).eq('id', id).select().single();
-      if (error && (error.code === 'PGRST204' || error.message?.includes('column') || error.status === 400)) {
-        console.warn('Supabase PATCH 400/PGRST204 en productos. Intentando fallback sin columnas nuevas...');
-        delete dbPayload.imagen;
-        delete dbPayload.bom;
-        delete dbPayload.bomPendiente;
-        const fallback = await supabase.from('productos').update(dbPayload).eq('id', id).select().single();
-        data = fallback.data;
-        error = fallback.error;
-      }
       if (!error && data) {
         if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('productos_updated'));
         return { data: mapProducto({ ...data, imagen: nextProd.imagen, bom: nextProd.bom }), error: null };
