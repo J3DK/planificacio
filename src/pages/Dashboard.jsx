@@ -94,10 +94,13 @@ export default function Dashboard() {
     };
   });
 
+  const [sintesis, setSintesis] = useState('Analizando datos en tiempo real...');
+
   const [indicadores, setIndicadores] = useState({
     disponibilidad: 92.6,
     rendimiento: 97.4,
     calidad: 98.8,
+
     oee: 88.7,
     tiempoCiclo: 6.2,
     scrap: 640,

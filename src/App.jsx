@@ -130,6 +130,7 @@ export default function App() {
           <Route path="/alertas" element={<RequireAuth><Layout><Alertas /></Layout></RequireAuth>} />
           <Route path="/metricas" element={<RequireAuth><Layout><Metricas /></Layout></RequireAuth>} />
           <Route path="/historial" element={<RequireAuth><Layout><Historial /></Layout></RequireAuth>} />
+          <Route path="/lean" element={<RequireAuth><Layout><Lean /></Layout></RequireAuth>} />
 
           {/* Rutas Sensibles - RBAC */}
           <Route path="/configuracion" element={<RequireAuth><RequireRole roles={['admin', 'supervisor']}><Layout><Configuracion /></Layout></RequireRole></RequireAuth>} />
