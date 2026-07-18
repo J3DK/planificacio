@@ -17,20 +17,23 @@ CREATE TABLE IF NOT EXISTS public.perfiles (
 -- 2. Configurar RLS (Row Level Security)
 ALTER TABLE public.perfiles ENABLE ROW LEVEL SECURITY;
 
--- Política 1: Todos los usuarios autenticados pueden leer su propio perfil
-CREATE POLICY "Los usuarios pueden ver su propio perfil" 
+-- Política 1: Lectura abierta para evitar bucles de recursión
+CREATE POLICY "Lectura libre para autenticados" 
   ON public.perfiles FOR SELECT 
-  USING (auth.uid() = id);
+  USING (true);
 
--- Política 2: Solo los administradores pueden leer y editar todos los perfiles
--- (asumimos que verificamos el rol del propio usuario que hace la petición)
-CREATE POLICY "Los administradores pueden gestionar todos los perfiles" 
-  ON public.perfiles FOR ALL 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.perfiles WHERE id = auth.uid() AND rol = 'admin'
-    )
-  );
+-- Política 2: Solo los administradores pueden modificar perfiles
+CREATE POLICY "Admin Update" 
+  ON public.perfiles FOR UPDATE 
+  USING ( (SELECT rol FROM public.perfiles WHERE id = auth.uid()) = 'admin' );
+
+CREATE POLICY "Admin Insert" 
+  ON public.perfiles FOR INSERT 
+  WITH CHECK ( (SELECT rol FROM public.perfiles WHERE id = auth.uid()) = 'admin' );
+
+CREATE POLICY "Admin Delete" 
+  ON public.perfiles FOR DELETE 
+  USING ( (SELECT rol FROM public.perfiles WHERE id = auth.uid()) = 'admin' );
 
 -- ==============================================================================
 -- INSTRUCCIONES PARA CREAR EL PRIMER ADMINISTRADOR:
