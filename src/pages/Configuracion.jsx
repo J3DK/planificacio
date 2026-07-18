@@ -601,7 +601,7 @@ export default function Configuracion() {
             </div>
 
             <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 md:p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="flex flex-col gap-2">
                 {(Array.isArray(config.menuOrder) ? config.menuOrder : DEFAULT_MENU_ITEMS).map((item, idx, arr) => (
                   <motion.div
                     key={item.path}

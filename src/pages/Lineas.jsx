@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity, Zap, AlertTriangle, Wrench, ChevronRight, RefreshCw, Plus,
-  Pencil, Trash2, Users, UserCheck, ShieldCheck, Star, X, CheckCircle2, LayoutGrid, List
+  Pencil, Trash2, Users, UserCheck, ShieldCheck, Star, X, CheckCircle2, LayoutGrid, List, Info
 } from 'lucide-react';
 import {
   fetchLineas, insertLinea, updateLinea, deleteLinea, getCurrentShiftInfo,
@@ -307,7 +307,12 @@ export default function Lineas() {
 
                 <div className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 rounded-2xl px-4 py-2.5">
                   <div>
-                    <p className="text-[9px] text-slate-500 uppercase font-black tracking-wider">OEE Global</p>
+                    <p className="text-[9px] text-slate-500 uppercase font-black tracking-wider flex items-center gap-1">
+                      OEE Global
+                      {linea._fuenteOee === 'fallback' && (
+                        <Info className="w-3 h-3 text-slate-500 hover:text-slate-300 transition-colors" title="Estimado — datos insuficientes del turno actual" />
+                      )}
+                    </p>
                     <p className={`text-xl font-black ${linea.oee >= 85 ? 'text-emerald-400' : linea.oee >= 75 ? 'text-amber-400' : 'text-rose-400'}`}>{linea.oee?.toFixed(1)}%</p>
                   </div>
                   <div className="text-right">

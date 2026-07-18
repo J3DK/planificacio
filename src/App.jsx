@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { generarAlertasAutomaticas } from '@/services/dataService';
+import { generarAlertasAutomaticas, calcularOEEPorLinea } from '@/services/dataService';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
@@ -78,7 +78,11 @@ function RequireRole({ roles, children }) {
 export default function App() {
   useEffect(() => {
     generarAlertasAutomaticas();
-    const handler = () => generarAlertasAutomaticas();
+    calcularOEEPorLinea();
+    const handler = () => {
+      generarAlertasAutomaticas();
+      calcularOEEPorLinea();
+    };
     window.addEventListener('materiales_updated', handler);
     window.addEventListener('mantenimiento_updated', handler);
     window.addEventListener('planificacion_updated', handler);

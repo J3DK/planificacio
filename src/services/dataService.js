@@ -11,7 +11,7 @@ import { historialProduccion as mockHistorial } from '@/data/mockHistorial';
 import { mockProductos } from '@/data/mockProductos';
 import { operarios as mockOperarios } from '@/data/mockOperarios';
 import { skillsMasterIniciales, formacionesMasterIniciales, permisosMasterIniciales, capacitacionesMasterIniciales, autorizacionesMasterIniciales } from '@/data/mockCualificaciones';
-import { ordenesTrabajoIniciales, activosJerarquia as mockActivos, planesPreventivosIniciales, sensoresPredictivosIniciales, repuestosAlmacenIniciales } from '@/data/mockMantenimiento';
+import { ordenesTrabajoIniciales, activosJerarquia as mockActivos, planesPreventivosIniciales, sensoresPredictivosIniciales, repuestosAlmacenIniciales, tablaDisponibilidadLineas } from '@/data/mockMantenimiento';
 import { checklistTemplates as mockChecklistTemplates } from '@/data/mockChecklistsTemplates';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -351,7 +351,7 @@ export async function fetchCalidad() {
       if (!error && data && data.length > 0) return { data, fromSupabase: true };
     } catch (e) {}
   }
-  return { data: mockCalidad, fromSupabase: false };
+  return { data: [...mockDefectos, ...mockScraps], fromSupabase: false };
 }
 
 export async function fetchProduccion() {
@@ -2735,4 +2735,85 @@ export async function getChecklistEjecuciones() {
   }
   return { data: getChecklistEjecucionesLocal(), error: null };
 }
+
+// ─── CÁLCULO DE OEE ────────────────────────────────────────────────────────
+export async function calcularOEEPorLinea() {
+  try {
+    const [{ data: lineas }, { data: paradas }, { data: produccion }, { data: calidad }] = await Promise.all([
+      fetchLineas(),
+      fetchParadas(),
+      fetchProduccion(),
+      fetchCalidad()
+    ]);
+
+    const { shift } = getCurrentShiftInfo();
+    const tiempoTurnoMins = 8 * 60; // 480 mins
+
+    const paradasTurno = (paradas || []).filter(p => p.turno === shift || !p.turno);
+    const prodTurno = (produccion || []).filter(p => p.turno === shift || !p.turno);
+    const calidadTurno = (calidad || []).filter(c => c.turno === shift || !c.turno);
+
+    const resultados = [];
+
+    for (const linea of (lineas || [])) {
+      let fuente = 'calculado';
+      
+      // DISPONIBILIDAD
+      let disponibilidad = 0;
+      const paradasLinea = paradasTurno.filter(p => p.linea === linea.nombre);
+      if (paradasLinea.length > 0) {
+        const minsParado = paradasLinea.reduce((acc, p) => acc + (Number(p.duracion) || 0), 0);
+        disponibilidad = Math.max(0, ((tiempoTurnoMins - minsParado) / tiempoTurnoMins) * 100);
+      } else {
+        // Fallback a tablaDisponibilidadLineas si no hay paradas pero la linea puede estar activa
+        const refMto = tablaDisponibilidadLineas.find(t => t.linea === linea.nombre);
+        disponibilidad = refMto ? Number(refMto.real) : Number(linea.disponibilidad || 100);
+        if (refMto) fuente = 'fallback';
+      }
+
+      // RENDIMIENTO
+      let rendimiento = 0;
+      const ph = Number(linea.produccionHoy) || 0;
+      const oh = Number(linea.objetivoHoy) || 0;
+      if (oh > 0) {
+        rendimiento = (ph / oh) * 100;
+      } else if (Number(linea.velocidadNominal) > 0) {
+        rendimiento = (Number(linea.velocidadActual || 0) / Number(linea.velocidadNominal)) * 100;
+      } else {
+        rendimiento = Number(linea.rendimiento || 100);
+        fuente = 'fallback';
+      }
+
+      // CALIDAD
+      let calidadPct = 0;
+      const defectosLinea = calidadTurno.filter(c => c.linea === linea.nombre);
+      if (ph > 0) {
+        const totalDefectos = defectosLinea.reduce((acc, c) => acc + (Number(c.cantidad) || 0), 0);
+        calidadPct = Math.max(0, ((ph - totalDefectos) / ph) * 100);
+      } else {
+        calidadPct = Number(linea.calidad || 100);
+        fuente = 'fallback';
+      }
+
+      const oee = (disponibilidad * rendimiento * calidadPct) / 10000;
+
+      const newVals = {
+        disponibilidad: Number(disponibilidad.toFixed(1)),
+        rendimiento: Number(rendimiento.toFixed(1)),
+        calidad: Number(calidadPct.toFixed(1)),
+        oee: Number(oee.toFixed(1)),
+        _fuenteOee: fuente
+      };
+
+      await updateLinea(linea.id, newVals);
+      resultados.push({ lineaId: linea.id, ...newVals });
+    }
+    
+    return resultados;
+  } catch (err) {
+    console.error('Error calculando OEE:', err);
+    return [];
+  }
+}
+
 

@@ -169,7 +169,7 @@ export default function Dashboard() {
         let scrap = 640;
         let dispMat = 96.5;
 
-        if (lineas.length > 0 && resLineas?.fromSupabase) {
+        if (lineas.length > 0) {
           const sumDisp = lineas.reduce((acc, l) => acc + (Number(l.disponibilidad) || 0), 0);
           const sumRend = lineas.reduce((acc, l) => acc + (Number(l.rendimiento) || 0), 0);
           const sumCal = lineas.reduce((acc, l) => acc + (Number(l.calidad) || 0), 0);
@@ -187,12 +187,12 @@ export default function Dashboard() {
           }
         }
 
-        if (calidadList.length > 0 && resCal?.fromSupabase) {
+        if (calidadList.length > 0) {
           const def = calidadList.reduce((acc, c) => acc + (Number(c.defectos) || 0), 0);
           if (def > 0) scrap = Math.round((def / 1250) * 10000);
         }
 
-        if (materiales.length > 0 && resMat?.fromSupabase) {
+        if (materiales.length > 0) {
           const dispList = materiales.filter(m => (Number(m.stockActual || 0) - (Number(m.stockReservado) || 0)) >= (Number(m.stockMinimo) || 0));
           dispMat = Number(((dispList.length / materiales.length) * 100).toFixed(1));
         }
