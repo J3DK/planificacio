@@ -771,7 +771,7 @@ export default function Operarios() {
 
                     <div className="flex items-center gap-3.5">
                       {/* Avatar foto o iniciales */}
-                      <div className="relative flex-shrink-0 cursor-pointer" onClick={() => handleOpenFicha(op)}
+                      <div className="relative flex-shrink-0 cursor-pointer" onClick={() => handleOpenFicha(op)}>
                         {op.avatar ? (
                           <img
                             src={op.avatar}
@@ -789,7 +789,7 @@ export default function Operarios() {
                         </div>
                       </div>
 
-                      <div className="min-w-0 pr-12 cursor-pointer" onClick={() => handleOpenFicha(op)}
+                      <div className="min-w-0 pr-12 cursor-pointer" onClick={() => handleOpenFicha(op)}>
                         <h3 className="font-black text-white text-base leading-tight truncate hover:text-blue-400 transition-colors">
                           {op.nombre}
                         </h3>
@@ -941,7 +941,7 @@ export default function Operarios() {
                   const isActivo = op.estado === 'activo';
                   return (
                     <tr key={op.id} className="hover:bg-slate-800/40 transition-colors group">
-                      <td className="py-4 px-6 cursor-pointer" onClick={() => handleOpenFicha(op)}
+                      <td className="py-4 px-6 cursor-pointer" onClick={() => handleOpenFicha(op)}>
                         <div className="flex items-center gap-3.5">
                           {op.avatar ? (
                             <img src={op.avatar} alt={op.nombre} className="w-10 h-10 rounded-xl object-cover border border-slate-700" />
