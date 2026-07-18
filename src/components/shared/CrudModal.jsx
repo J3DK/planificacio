@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save, Plus } from 'lucide-react';
+import ConfirmDialog from './ConfirmDialog';
 
 /**
  * CrudModal — Modal genérico reutilizable para Crear / Editar entidades.
@@ -17,6 +18,7 @@ import { X, Save, Plus } from 'lucide-react';
  */
 export default function CrudModal({ isOpen, onClose, onSave, title, fields = [], initialData = {}, saving = false, children = null, onFormChange = null }) {
   const [formData, setFormData] = React.useState({});
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -26,6 +28,7 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
       });
       setFormData(initial);
       if (onFormChange) onFormChange(initial);
+      setShowConfirm(false);
     }
   }, [isOpen, initialData]);
 
@@ -36,7 +39,12 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
   });
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    setShowConfirm(true);
+  };
+
+  const handleConfirmSave = () => {
+    setShowConfirm(false);
     onSave(formData);
   };
 
@@ -269,6 +277,17 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
           </motion.div>
         </div>
       )}
+
+      {/* Popup Global de Confirmación de Guardado */}
+      <ConfirmDialog
+        isOpen={showConfirm}
+        title="Confirmar Guardado"
+        message="¿Estás seguro de que quieres guardar los datos introducidos?"
+        onConfirm={handleConfirmSave}
+        onCancel={() => setShowConfirm(false)}
+        isDestructive={false}
+        confirmText="Sí, Guardar"
+      />
     </AnimatePresence>
   );
 }

@@ -10,12 +10,14 @@ import {
 } from 'lucide-react';
 import { getAppConfig, updateAppConfig, DEFAULT_APP_CONFIG, DEFAULT_MENU_ITEMS } from '@/services/configService';
 import { getCurrentShiftInfo } from '@/services/dataService';
+import ConfirmDialog from '@/components/shared/ConfirmDialog';
 
 export default function Configuracion() {
   const [config, setConfig] = useState(getAppConfig());
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [activeTab, setActiveTab] = useState('branding'); // branding | empresa | sistema | navegacion
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     setConfig(getAppConfig());
@@ -130,7 +132,12 @@ export default function Configuracion() {
   };
 
   const handleSave = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    setShowConfirm(true);
+  };
+
+  const executeSave = () => {
+    setShowConfirm(false);
     setSaving(true);
     updateAppConfig(config);
     setTimeout(() => {
@@ -757,6 +764,16 @@ export default function Configuracion() {
           </div>
         )}
       </form>
+
+      <ConfirmDialog
+        isOpen={showConfirm}
+        title="Confirmar Guardado"
+        message="¿Estás seguro de que quieres guardar los ajustes de configuración?"
+        onConfirm={executeSave}
+        onCancel={() => setShowConfirm(false)}
+        isDestructive={false}
+        confirmText="Sí, Guardar"
+      />
     </div>
   );
 }

@@ -29,6 +29,7 @@ export default function Checklists() {
   const [modalMode, setModalMode] = useState('create'); // create | edit
   const [editItem, setEditItem] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
   // Modal Confirm Delete
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -90,9 +91,14 @@ export default function Checklists() {
     setConfirmDeleteOpen(true);
   };
 
-  const handleSaveTemplate = async (e) => {
-    e.preventDefault();
+  const handleSaveTemplate = (e) => {
+    if (e) e.preventDefault();
     if (!editItem.nombre) return;
+    setShowSaveConfirm(true);
+  };
+
+  const executeSaveTemplate = async () => {
+    setShowSaveConfirm(false);
     setSaving(true);
 
     if (modalMode === 'create') {
@@ -775,6 +781,13 @@ export default function Checklists() {
                 })}
               </div>
 
+              {selectedEjecucion.comentarios && (
+                <div className="mt-4 bg-slate-900 border border-slate-700 p-4 rounded-2xl">
+                  <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Comentarios / Observaciones</span>
+                  <p className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">{selectedEjecucion.comentarios}</p>
+                </div>
+              )}
+
               <div className="flex justify-end pt-3 border-t border-slate-800">
                 <button
                   onClick={() => setModalEjecucionOpen(false)}
@@ -790,11 +803,22 @@ export default function Checklists() {
 
       <ConfirmDialog
         isOpen={confirmDeleteOpen}
-        onClose={() => setConfirmDeleteOpen(false)}
+        title="Eliminar Plantilla"
+        message={`¿Estás seguro de que quieres eliminar la plantilla "${deleteTarget?.nombre}"? Esta acción no afectará al historial de ejecuciones pasadas, pero impedirá que se use en el futuro.`}
         onConfirm={handleDeleteTemplate}
-        title="Eliminar Plantilla de Checklist"
-        message={`¿Estás seguro de que deseas eliminar permanentemente la plantilla "${deleteTarget?.nombre}"? Dejará de estar disponible en las pantallas de planta.`}
-        deleting={deleting}
+        onCancel={() => setConfirmDeleteOpen(false)}
+        isDestructive={true}
+        confirmText={deleting ? 'Eliminando...' : 'Sí, Eliminar'}
+      />
+
+      <ConfirmDialog
+        isOpen={showSaveConfirm}
+        title="Confirmar Guardado"
+        message={`¿Estás seguro de que quieres guardar la plantilla "${editItem?.nombre}"?`}
+        onConfirm={executeSaveTemplate}
+        onCancel={() => setShowSaveConfirm(false)}
+        isDestructive={false}
+        confirmText="Sí, Guardar"
       />
     </div>
   );

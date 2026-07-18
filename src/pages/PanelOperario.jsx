@@ -23,6 +23,7 @@ import {
   fetchOperarios, updateOperario, registrarHistorialOperario, getCurrentShiftInfo, restoreOperariosCatalog, fetchOrdenesTrabajo,
   getChecklistTemplates, insertChecklistEjecucion
 } from '@/services/dataService';
+import ConfirmDialog from '@/components/shared/ConfirmDialog';
 
 export default function PanelOperario() {
   const navigate = useNavigate();
@@ -50,6 +51,8 @@ export default function PanelOperario() {
   const [allTemplates, setAllTemplates] = useState([]);
   const [selectedCilTplId, setSelectedCilTplId] = useState('');
   const [cilPoints, setCilPoints] = useState([]);
+  const [cilComentarios, setCilComentarios] = useState('');
+  const [showCilConfirm, setShowCilConfirm] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Estados modales o acciones temporales
@@ -354,7 +357,12 @@ export default function PanelOperario() {
     setActiveTab('paradas');
   };
 
-  const handleRegistrarEjecucionCIL = async () => {
+  const handleRegistrarEjecucionCIL = () => {
+    setShowCilConfirm(true);
+  };
+
+  const executeRegistrarCIL = async () => {
+    setShowCilConfirm(false);
     await insertChecklistEjecucion({
       templateId: activeCilTemplate.id,
       templateNombre: activeCilTemplate.nombre,
@@ -368,9 +376,11 @@ export default function PanelOperario() {
         texto: p.text,
         estado: p.status,
         critico: p.critico
-      }))
+      })),
+      comentarios: cilComentarios
     });
-    alert(`⚡ Checklist CIL ("${activeCilTemplate.nombre}") finalizado y firmado en el historial central por ${operarioNombre}.`);
+    alert(`✔ Checklist CIL ("${activeCilTemplate.nombre}") finalizado y firmado en el historial central por ${operarioNombre}.`);
+    setCilComentarios('');
   };
 
   // ─── 1. ACCIONES DE PRODUCCIÓN ──────────────────────────────────────────────
@@ -1686,6 +1696,19 @@ export default function PanelOperario() {
                     </div>
                   </motion.div>
                 )}
+                {/* Comentarios del Checklist */}
+                <div className="bg-slate-950 p-5 rounded-3xl border border-slate-800">
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    Comentarios / Observaciones
+                  </label>
+                  <textarea
+                    value={cilComentarios}
+                    onChange={(e) => setCilComentarios(e.target.value)}
+                    placeholder="Indica aquí cualquier anomalía, fuga, o nota relevante sobre la ejecución de la pauta..."
+                    rows={2}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-sm text-slate-300 focus:outline-none focus:border-cyan-500 transition-colors resize-none"
+                  />
+                </div>
 
                 <div className="flex items-center justify-between bg-slate-950/80 p-5 rounded-3xl border border-slate-800 flex-wrap gap-4">
                   <div>
@@ -1983,6 +2006,16 @@ export default function PanelOperario() {
           </div>
         )}
       </AnimatePresence>
+      {/* Modal Confirmación CIL */}
+      <ConfirmDialog
+        isOpen={showCilConfirm}
+        title="Confirmar Registro de Checklist"
+        message={`¿Estás seguro de que quieres firmar y registrar la pauta "${activeCilTemplate?.nombre || 'CIL'}" en el historial central?`}
+        onConfirm={executeRegistrarCIL}
+        onCancel={() => setShowCilConfirm(false)}
+        isDestructive={false}
+        confirmText="Sí, Registrar"
+      />
     </div>
   );
 }
