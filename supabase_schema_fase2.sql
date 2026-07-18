@@ -166,21 +166,35 @@ ALTER TABLE public.checklist_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.checklist_ejecuciones ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de lectura para autenticados
+DROP POLICY IF EXISTS "Lectura productos" ON public.productos;
 CREATE POLICY "Lectura productos" ON public.productos FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Lectura operarios" ON public.operarios;
 CREATE POLICY "Lectura operarios" ON public.operarios FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Lectura activos" ON public.activos_mantenimiento;
 CREATE POLICY "Lectura activos" ON public.activos_mantenimiento FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Lectura planes" ON public.planes_preventivos;
 CREATE POLICY "Lectura planes" ON public.planes_preventivos FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Lectura ordenes" ON public.ordenes_trabajo;
 CREATE POLICY "Lectura ordenes" ON public.ordenes_trabajo FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Lectura checklist_templates" ON public.checklist_templates;
 CREATE POLICY "Lectura checklist_templates" ON public.checklist_templates FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Lectura checklist_ejecuciones" ON public.checklist_ejecuciones;
 CREATE POLICY "Lectura checklist_ejecuciones" ON public.checklist_ejecuciones FOR SELECT USING (auth.role() = 'authenticated');
 
 -- Políticas de escritura (ALL) para autenticados
+DROP POLICY IF EXISTS "Escritura productos" ON public.productos;
 CREATE POLICY "Escritura productos" ON public.productos FOR ALL USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Escritura operarios" ON public.operarios;
 CREATE POLICY "Escritura operarios" ON public.operarios FOR ALL USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Escritura activos" ON public.activos_mantenimiento;
 CREATE POLICY "Escritura activos" ON public.activos_mantenimiento FOR ALL USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Escritura planes" ON public.planes_preventivos;
 CREATE POLICY "Escritura planes" ON public.planes_preventivos FOR ALL USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Escritura ordenes" ON public.ordenes_trabajo;
 CREATE POLICY "Escritura ordenes" ON public.ordenes_trabajo FOR ALL USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Escritura checklist_templates" ON public.checklist_templates;
 CREATE POLICY "Escritura checklist_templates" ON public.checklist_templates FOR ALL USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Escritura checklist_ejecuciones" ON public.checklist_ejecuciones;
 CREATE POLICY "Escritura checklist_ejecuciones" ON public.checklist_ejecuciones FOR ALL USING (auth.role() = 'authenticated');
 
 -- ==========================================
@@ -226,9 +240,13 @@ CREATE TABLE IF NOT EXISTS public.repuestos_almacen (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.repuestos_almacen ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Lectura repuestos" ON public.repuestos_almacen;
 CREATE POLICY "Lectura repuestos" ON public.repuestos_almacen FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Insercion repuestos" ON public.repuestos_almacen;
 CREATE POLICY "Insercion repuestos" ON public.repuestos_almacen FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Actualizacion repuestos" ON public.repuestos_almacen;
 CREATE POLICY "Actualizacion repuestos" ON public.repuestos_almacen FOR UPDATE USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Borrado repuestos" ON public.repuestos_almacen;
 CREATE POLICY "Borrado repuestos" ON public.repuestos_almacen FOR DELETE USING (auth.role() = 'authenticated');
 ALTER PUBLICATION supabase_realtime ADD TABLE public.repuestos_almacen;
 
@@ -246,7 +264,9 @@ CREATE TABLE IF NOT EXISTS public.audit_log (
   fecha TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Lectura auditoria" ON public.audit_log;
 CREATE POLICY "Lectura auditoria" ON public.audit_log FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Insercion auditoria" ON public.audit_log;
 CREATE POLICY "Insercion auditoria" ON public.audit_log FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- ==========================================
@@ -260,6 +280,7 @@ CREATE TABLE IF NOT EXISTS public.push_subscriptions (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Gestión push_subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Gestión push_subscriptions" ON public.push_subscriptions USING (auth.role() = 'authenticated');
 
 
