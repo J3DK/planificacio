@@ -279,23 +279,7 @@ function ChecklistEditor({ plan, onToggle, onAddItem, onUpdateItem, onRemoveItem
   const [selectedTplId, setSelectedTplId] = useState('');
   const [showSelector, setShowSelector] = useState(false);
 
-    useRealtimeSync('ordenes_trabajo', () => window.dispatchEvent(new CustomEvent('mantenimiento_updated')));
-  useRealtimeSync('planes_preventivos', () => window.dispatchEvent(new CustomEvent('mantenimiento_updated')));
 
-
-  useEffect(() => {
-    const loadSintesis = async () => {
-      const txt = await generarSintesisAutomatica('mantenimiento');
-      setSintesis(txt);
-    };
-    loadSintesis();
-    window.addEventListener('mantenimiento_updated', loadSintesis);
-    window.addEventListener('lineas_updated', loadSintesis); // fallback for dashboard
-    return () => {
-      window.removeEventListener('mantenimiento_updated', loadSintesis);
-      window.removeEventListener('lineas_updated', loadSintesis);
-    };
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -445,6 +429,23 @@ function ChecklistEditor({ plan, onToggle, onAddItem, onUpdateItem, onRemoveItem
 export default function Mantenimiento() {
   const [activeTab, setActiveTab] = useState('resumen');
   const [sintesis, setSintesis] = useState('Analizando datos en tiempo real...');
+
+  useRealtimeSync('ordenes_trabajo', () => window.dispatchEvent(new CustomEvent('mantenimiento_updated')));
+  useRealtimeSync('planes_preventivos', () => window.dispatchEvent(new CustomEvent('mantenimiento_updated')));
+
+  useEffect(() => {
+    const loadSintesis = async () => {
+      const txt = await generarSintesisAutomatica('mantenimiento');
+      setSintesis(txt);
+    };
+    loadSintesis();
+    window.addEventListener('mantenimiento_updated', loadSintesis);
+    window.addEventListener('lineas_updated', loadSintesis); // fallback for dashboard
+    return () => {
+      window.removeEventListener('mantenimiento_updated', loadSintesis);
+      window.removeEventListener('lineas_updated', loadSintesis);
+    };
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
