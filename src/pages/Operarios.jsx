@@ -14,10 +14,12 @@ import {
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { useAuth } from '@/context/AuthContext';
+import { useAppConfig } from '@/services/configService';
 
 export default function Operarios() {
   const { perfil } = useAuth();
   const isAdmin = perfil?.rol === 'admin';
+  const appConfig = useAppConfig();
   const [operarios, setOperarios] = useState([]);
   const [lineas, setLineas] = useState([]);
   const [catalogoSkills, setCatalogoSkills] = useState([]);
@@ -2092,10 +2094,7 @@ export default function Operarios() {
                       disabled={!isAdmin}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <option value="Operario Especialista">Operario Especialista</option>
-                      <option value="Jefe de Línea">Jefe de Línea</option>
-                      <option value="Electromecánico">Electromecánico</option>
-                      <option value="Operario de Calidad">Operario de Calidad</option>
+                      {appConfig.rolesOperario?.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
 

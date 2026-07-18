@@ -38,6 +38,10 @@ export const DEFAULT_APP_CONFIG = {
   moneda: 'EUR',
   objetivoOEEPlanta: 85,
   menuOrder: DEFAULT_MENU_ITEMS,
+  rolesOperario: [
+    'Operario Especialista', 'Jefe de Línea', 'Técnico de Mantenimiento',
+    'Inspector de Calidad', 'Supervisor de Turno', 'Carretillero', 'Mecánico', 'Operador de Maquinaria Pesada'
+  ],
   checklistCategorias: [
     { id: 'calidad', label: 'Calidad (QC)', color: 'blue' },
     { id: 'cil', label: 'CIL (Limpieza/Insp/Lub)', color: 'cyan' },

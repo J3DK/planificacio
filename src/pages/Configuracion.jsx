@@ -131,7 +131,7 @@ export default function Configuracion() {
     handleChange('checklistCategorias', cats.filter(c => c.id !== id));
   };
 
-  const handleSave = (e) => {
+  const handleAddRole = () => { const roles = config.rolesOperario || []; handleChange('rolesOperario', [...roles, 'Nuevo Rol']); }; const handleUpdateRole = (idx, value) => { const roles = [...(config.rolesOperario || [])]; roles[idx] = value; handleChange('rolesOperario', roles); }; const handleRemoveRole = (idx) => { const roles = [...(config.rolesOperario || [])]; roles.splice(idx, 1); handleChange('rolesOperario', roles); }; const handleSave = (e) => {
     if (e) e.preventDefault();
     setShowConfirm(true);
   };
@@ -274,6 +274,18 @@ export default function Configuracion() {
         >
           <ListChecks className="w-4 h-4" />
           <span>Categorías de Checklists</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('roles')}
+          className={`px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2.5 transition-all whitespace-nowrap ${
+            activeTab === 'roles'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Roles de Operarios</span>
         </button>
       </div>
 
@@ -819,6 +831,61 @@ export default function Configuracion() {
               </p>
               <p className="text-[11px] text-amber-200 mt-1.5 leading-relaxed">
                 Las categorías con ID <strong>calidad</strong>, <strong>cil</strong> y <strong>mantenimiento</strong> están enlazadas internamente con los Paneles de Planta. Puedes cambiar su "Nombre Visible", pero no se recomienda cambiar su ID ni eliminarlas, ya que eso desvincularía las plantillas de las vistas de los operarios e inspectores.
+              </p>
+            </div>
+          </div>
+        )}
+        {activeTab === 'roles' && (
+          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl space-y-6 animate-fade-in">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="font-black text-white text-lg flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-400" /> Roles y Posiciones
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">Configura el catálogo de puestos y responsabilidades de la planta.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddRole}
+                className="px-4 py-2 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 border border-indigo-500/30 rounded-xl font-bold text-xs flex items-center gap-2 transition-colors"
+              >
+                + Añadir Nuevo Rol
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {(config.rolesOperario || []).map((rol, idx) => (
+                <div key={idx} className="flex gap-3 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
+                  <input
+                    type="text"
+                    value={rol}
+                    onChange={(e) => handleUpdateRole(idx, e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                    placeholder="Ej. Operario Especialista"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveRole(idx)}
+                    title="Eliminar rol"
+                    className="p-3 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {(!config.rolesOperario || config.rolesOperario.length === 0) && (
+                <div className="text-center p-6 text-sm text-slate-500 bg-slate-950 rounded-2xl border border-slate-800 border-dashed">
+                  No hay roles definidos en el sistema.
+                </div>
+              )}
+            </div>
+            
+            <div className="bg-indigo-500/10 border-l-4 border-indigo-500 p-4 rounded-r-2xl">
+              <p className="text-xs text-indigo-400 font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" /> Información
+              </p>
+              <p className="text-[11px] text-indigo-200 mt-1.5 leading-relaxed">
+                Los roles que configures aquí serán los que aparezcan en el menú desplegable a la hora de dar de alta o editar un operario desde el panel central.
               </p>
             </div>
           </div>
