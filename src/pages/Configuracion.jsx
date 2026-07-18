@@ -131,7 +131,25 @@ export default function Configuracion() {
     handleChange('checklistCategorias', cats.filter(c => c.id !== id));
   };
 
-  const handleAddRole = () => { const roles = config.rolesOperario || []; handleChange('rolesOperario', [...roles, 'Nuevo Rol']); }; const handleUpdateRole = (idx, value) => { const roles = [...(config.rolesOperario || [])]; roles[idx] = value; handleChange('rolesOperario', roles); }; const handleRemoveRole = (idx) => { const roles = [...(config.rolesOperario || [])]; roles.splice(idx, 1); handleChange('rolesOperario', roles); }; const handleSave = (e) => {
+  const handleAddRole = () => { const roles = config.rolesOperario || []; handleChange('rolesOperario', [...roles, 'Nuevo Rol']); }; 
+  const handleUpdateRole = (idx, value) => { const roles = [...(config.rolesOperario || [])]; roles[idx] = value; handleChange('rolesOperario', roles); }; 
+  const handleRemoveRole = (idx) => { const roles = [...(config.rolesOperario || [])]; roles.splice(idx, 1); handleChange('rolesOperario', roles); }; 
+  
+  const handleAddZona5s = () => {
+    const zonas = config.zonas5s || [];
+    const newId = `z_${Date.now()}`;
+    handleChange('zonas5s', [...zonas, { id: newId, nombre: 'Nueva Zona' }]);
+  };
+  const handleUpdateZona5s = (id, nombre) => {
+    const zonas = config.zonas5s || [];
+    handleChange('zonas5s', zonas.map(z => z.id === id ? { ...z, nombre } : z));
+  };
+  const handleRemoveZona5s = (id) => {
+    const zonas = config.zonas5s || [];
+    handleChange('zonas5s', zonas.filter(z => z.id !== id));
+  };
+
+  const handleSave = (e) => {
     if (e) e.preventDefault();
     setShowConfirm(true);
   };
@@ -590,6 +608,50 @@ export default function Configuracion() {
                   <option value="MXN">Pesos Mexicanos ($ - MXN)</option>
                   <option value="GBP">Libras Esterlinas (£ - GBP)</option>
                 </select>
+              </div>
+            </div>
+            {/* ─── ZONAS 5S ─── */}
+            <div className="pt-6 border-t border-slate-800">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider block">
+                    Zonas 5S (Auditorías Lean)
+                  </label>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Define las zonas de planta donde se realizarán las auditorías 5S en lugar de usar líneas.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddZona5s}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-indigo-900/20"
+                >
+                  + Añadir Zona
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {(config.zonas5s || []).map(z => (
+                  <div key={z.id} className="flex items-center gap-2 bg-slate-950/60 border border-slate-800 rounded-xl p-2 relative group transition-all focus-within:border-indigo-500">
+                    <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-400 flex-shrink-0">
+                      Z
+                    </div>
+                    <input
+                      type="text"
+                      value={z.nombre}
+                      onChange={(e) => handleUpdateZona5s(z.id, e.target.value)}
+                      className="w-full bg-transparent border-none text-sm text-slate-200 font-bold focus:outline-none focus:ring-0 px-1"
+                      placeholder="Nombre de la Zona"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveZona5s(z.id)}
+                      className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           

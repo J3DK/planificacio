@@ -50,6 +50,11 @@ export const DEFAULT_APP_CONFIG = {
     { id: 'mantenimiento', label: 'Mantenimiento Preventivo', color: 'amber' },
     { id: '5s', label: '5S (Auditoría)', color: 'purple' }
   ],
+  zonas5s: [
+    { id: 'z1', nombre: 'Almacén Principal' },
+    { id: 'z2', nombre: 'Línea 1 - Ensamblaje' },
+    { id: 'z3', nombre: 'Zona de Expediciones' }
+  ],
 };
 
 export function getAppConfig() {

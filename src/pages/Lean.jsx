@@ -12,10 +12,12 @@ import {
   PolarAngleAxis, PolarRadiusAxis, Radar 
 } from 'recharts';
 import { useAuth } from '@/context/AuthContext';
+import { useAppConfig } from '@/services/configService';
 
 export default function Lean() {
   const { perfil } = useAuth();
   const userName = perfil?.nombre || perfil?.email || 'Usuario';
+  const config = useAppConfig();
   const [activeTab, setActiveTab] = useState('kaizen'); // kaizen, smed, 5s
   const [smedData, setSmedData] = useState([]);
   const [smedEstandar, setSmedEstandar] = useState([]);
@@ -25,7 +27,7 @@ export default function Lean() {
   const [lineas, setLineas] = useState([]);
   
   // Auditoría en curso
-  const [auditoriaActiva, setAuditoriaActiva] = useState(null); // { templateId, lineaId, items: { id: puntuacion } }
+  const [auditoriaActiva, setAuditoriaActiva] = useState(null); // { templateId, zonaId, items: { id: puntuacion } }
 
   // Radar 5S data (promedios históricos por dimensión)
   const data5S = React.useMemo(() => {
@@ -106,7 +108,7 @@ export default function Lean() {
     setAuditoriaActiva({
       templateId: tpl.id,
       templateName: tpl.nombre,
-      lineaId: lineas[0]?.id || 'L1',
+      zonaId: (config.zonas5s && config.zonas5s.length > 0) ? config.zonas5s[0].id : 'Z1',
       items: initItems,
       observaciones: {}
     });
@@ -127,7 +129,7 @@ export default function Lean() {
     await insertChecklistEjecucion({
       templateId: tpl.id,
       categoria: '5s',
-      linea: lineas.find(l=>l.id===auditoriaActiva.lineaId)?.nombre || auditoriaActiva.lineaId,
+      linea: config.zonas5s?.find(z=>z.id===auditoriaActiva.zonaId)?.nombre || auditoriaActiva.zonaId,
       ordenFabricacion: 'N/A',
       operario: userName,
       fecha: new Date().toISOString(),
@@ -381,13 +383,13 @@ export default function Lean() {
                       <p className="text-slate-400 mt-1">Puntúa del 1 (Muy deficiente) al 5 (Excelente)</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <label className="text-xs font-bold text-slate-400 uppercase">Línea Auditada:</label>
+                      <label className="text-xs font-bold text-slate-400 uppercase">Zona Auditada:</label>
                       <select
-                        value={auditoriaActiva.lineaId}
-                        onChange={e => setAuditoriaActiva({...auditoriaActiva, lineaId: e.target.value})}
+                        value={auditoriaActiva.zonaId}
+                        onChange={e => setAuditoriaActiva({...auditoriaActiva, zonaId: e.target.value})}
                         className="bg-slate-900 border border-slate-700 text-white px-3 py-1.5 rounded-lg text-sm font-bold focus:outline-none"
                       >
-                        {lineas.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+                        {(config.zonas5s || []).map(z => <option key={z.id} value={z.id}>{z.nombre}</option>)}
                       </select>
                     </div>
                   </div>
