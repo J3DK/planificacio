@@ -37,6 +37,11 @@ export const DEFAULT_APP_CONFIG = {
   moneda: 'EUR',
   objetivoOEEPlanta: 85,
   menuOrder: DEFAULT_MENU_ITEMS,
+  checklistCategorias: [
+    { id: 'calidad', label: 'Calidad (QC)', color: 'blue' },
+    { id: 'cil', label: 'CIL (Limpieza/Insp/Lub)', color: 'cyan' },
+    { id: 'mantenimiento', label: 'Mantenimiento Preventivo', color: 'amber' }
+  ],
 };
 
 export function getAppConfig() {
@@ -93,7 +98,12 @@ export function getAppConfig() {
         }
       }
 
-      return { ...DEFAULT_APP_CONFIG, ...parsed, menuOrder: currentMenu };
+      // Reconciliación para categorías de checklists
+      let currentChecklistCats = Array.isArray(parsed.checklistCategorias) && parsed.checklistCategorias.length > 0
+        ? parsed.checklistCategorias
+        : DEFAULT_APP_CONFIG.checklistCategorias;
+
+      return { ...DEFAULT_APP_CONFIG, ...parsed, menuOrder: currentMenu, checklistCategorias: currentChecklistCats };
     }
   } catch (_) {}
   return DEFAULT_APP_CONFIG;

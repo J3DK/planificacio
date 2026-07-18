@@ -6,7 +6,7 @@ import {
   SlidersHorizontal, Check, AlertCircle, Laptop, Printer, ArrowUp, ArrowDown,
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users, Boxes,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, Cpu, History, Menu, Wrench
+  Bell, Cpu, History, Menu, Wrench, ListChecks
 } from 'lucide-react';
 import { getAppConfig, updateAppConfig, DEFAULT_APP_CONFIG, DEFAULT_MENU_ITEMS } from '@/services/configService';
 import { getCurrentShiftInfo } from '@/services/dataService';
@@ -104,6 +104,29 @@ export default function Configuracion() {
 
   const handleRemoveLogo = () => {
     handleChange('logoUrl', '');
+  };
+
+  const handleAddChecklistCategory = () => {
+    const cats = config.checklistCategorias || [];
+    const newId = `cat_${Date.now()}`;
+    const newCat = { id: newId, label: 'Nueva Categoría', color: 'slate' };
+    handleChange('checklistCategorias', [...cats, newCat]);
+  };
+
+  const handleUpdateChecklistCategory = (id, field, value) => {
+    const cats = config.checklistCategorias || [];
+    const newCats = cats.map(c => c.id === id ? { ...c, [field]: value } : c);
+    handleChange('checklistCategorias', newCats);
+  };
+
+  const handleRemoveChecklistCategory = (id) => {
+    if (['calidad', 'cil', 'mantenimiento'].includes(id)) {
+      if (!window.confirm('Estás borrando una categoría interna del sistema. Esto puede causar que los paneles de Operario, Calidad y Mantenimiento dejen de enlazar las pautas predefinidas. ¿Estás seguro?')) {
+        return;
+      }
+    }
+    const cats = config.checklistCategorias || [];
+    handleChange('checklistCategorias', cats.filter(c => c.id !== id));
   };
 
   const handleSave = (e) => {
@@ -232,6 +255,18 @@ export default function Configuracion() {
         >
           <SlidersHorizontal className="w-4 h-4" />
           <span>Orden del Menú & Navegación</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('checklists')}
+          className={`px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2.5 transition-all whitespace-nowrap ${
+            activeTab === 'checklists'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <ListChecks className="w-4 h-4" />
+          <span>Categorías de Checklists</span>
         </button>
       </div>
 
@@ -623,6 +658,101 @@ export default function Configuracion() {
                   </motion.div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── PESTAÑA 5: CATEGORÍAS DE CHECKLISTS ── */}
+        {activeTab === 'checklists' && (
+          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl space-y-6 animate-fade-in">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="font-black text-white text-lg flex items-center gap-2">
+                  <ListChecks className="w-5 h-5 text-cyan-400" /> Categorías de Checklists y Pautas
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">Configura las categorías para agrupar plantillas en la sección de Checklists.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddChecklistCategory}
+                className="px-4 py-2 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 rounded-xl font-bold text-xs flex items-center gap-2 transition-colors"
+              >
+                + Nueva Categoría
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {(config.checklistCategorias || []).map((cat, idx) => {
+                const isSystemCat = ['calidad', 'cil', 'mantenimiento'].includes(cat.id);
+                return (
+                  <div key={idx} className="flex flex-col sm:flex-row gap-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
+                    <div className="flex-1 space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">ID Sistema (Fijo / Interno)</label>
+                      <input
+                        type="text"
+                        value={cat.id}
+                        disabled={isSystemCat}
+                        onChange={(e) => handleUpdateChecklistCategory(cat.id, 'id', e.target.value)}
+                        className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-xs font-bold focus:outline-none transition-colors ${
+                          isSystemCat ? 'border-slate-800 text-slate-500 cursor-not-allowed' : 'border-slate-700 text-white focus:border-cyan-500'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Nombre Visible (Etiqueta)</label>
+                      <input
+                        type="text"
+                        value={cat.label}
+                        onChange={(e) => handleUpdateChecklistCategory(cat.id, 'label', e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                      />
+                    </div>
+                    <div className="w-full sm:w-32 space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Color</label>
+                      <select
+                        value={cat.color || 'slate'}
+                        onChange={(e) => handleUpdateChecklistCategory(cat.id, 'color', e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-cyan-500"
+                      >
+                        <option value="slate">Gris (Slate)</option>
+                        <option value="blue">Azul (Blue)</option>
+                        <option value="cyan">Cyan</option>
+                        <option value="emerald">Esmeralda</option>
+                        <option value="amber">Ámbar</option>
+                        <option value="rose">Rosa/Rojo</option>
+                        <option value="indigo">Índigo</option>
+                        <option value="fuchsia">Fucsia</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end pb-1">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveChecklistCategory(cat.id)}
+                        title={isSystemCat ? 'Advertencia: Categoría del sistema' : 'Eliminar categoría'}
+                        className={`p-2 rounded-xl transition-all ${
+                          isSystemCat ? 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border border-amber-500/20' : 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20'
+                        }`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {(!config.checklistCategorias || config.checklistCategorias.length === 0) && (
+                <div className="text-center p-6 text-sm text-slate-500 bg-slate-950 rounded-2xl border border-slate-800 border-dashed">
+                  No hay categorías definidas.
+                </div>
+              )}
+            </div>
+            
+            <div className="bg-amber-500/10 border-l-4 border-amber-500 p-4 rounded-r-2xl">
+              <p className="text-xs text-amber-400 font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" /> Importante: Categorías de Sistema
+              </p>
+              <p className="text-[11px] text-amber-200 mt-1.5 leading-relaxed">
+                Las categorías con ID <strong>calidad</strong>, <strong>cil</strong> y <strong>mantenimiento</strong> están enlazadas internamente con los Paneles de Planta. Puedes cambiar su "Nombre Visible", pero no se recomienda cambiar su ID ni eliminarlas, ya que eso desvincularía las plantillas de las vistas de los operarios e inspectores.
+              </p>
             </div>
           </div>
         )}

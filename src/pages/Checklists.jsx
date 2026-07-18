@@ -3,23 +3,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ListChecks, CheckSquare, ClipboardCheck, Wrench, Plus, Pencil, Trash2,
   CheckCircle2, AlertTriangle, Filter, Search, ShieldCheck, Clock,
-  Factory, Eye, Save, XCircle, Check, X, History, User, Calendar
+  Factory, Eye, Save, XCircle, Check, X, History, User, Calendar, LayoutGrid, List
 } from 'lucide-react';
 import {
   getChecklistTemplates, insertChecklistTemplate, updateChecklistTemplate, deleteChecklistTemplate,
   getChecklistEjecuciones, fetchLineas
 } from '@/services/dataService';
+import { useAppConfig } from '@/services/configService';
 import ChecklistTemplateEditor from '@/components/shared/ChecklistTemplateEditor';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 
 export default function Checklists() {
+  const appConfig = useAppConfig();
   const [templates, setTemplates] = useState([]);
   const [ejecuciones, setEjecuciones] = useState([]);
   const [lineas, setLineas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterCat, setFilterCat] = useState('todas'); // todas | calidad | cil | mantenimiento
+  const [filterCat, setFilterCat] = useState('todas'); // todas | id de categoría
   const [searchTerm, setSearchTerm] = useState('');
   const [activeView, setActiveView] = useState('plantillas'); // plantillas | historial
+  const [viewMode, setViewMode] = useState('grid'); // grid | table
 
   // Modal Crear/Editar Plantilla
   const [modalOpen, setModalOpen] = useState(false);
@@ -140,11 +143,31 @@ export default function Checklists() {
     });
   }, [templates, filterCat, searchTerm]);
 
-  const catColors = {
-    calidad: { badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', icon: CheckSquare, label: 'Calidad (QC)' },
-    cil: { badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40', icon: ClipboardCheck, label: 'CIL (Limpieza/Insp/Lub)' },
-    mantenimiento: { badge: 'bg-amber-500/20 text-amber-300 border-amber-500/40', icon: Wrench, label: 'Mantenimiento Preventivo' }
-  };
+  const catColors = useMemo(() => {
+    const defaultColors = {
+      calidad: { badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', icon: CheckSquare, label: 'Calidad (QC)' },
+      cil: { badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40', icon: ClipboardCheck, label: 'CIL (Limpieza/Insp/Lub)' },
+      mantenimiento: { badge: 'bg-amber-500/20 text-amber-300 border-amber-500/40', icon: Wrench, label: 'Mantenimiento Preventivo' }
+    };
+    const bgMap = {
+      slate: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
+      blue: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+      cyan: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+      emerald: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+      amber: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+      rose: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+      indigo: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
+      fuchsia: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40',
+    };
+    const out = { ...defaultColors };
+    (appConfig.checklistCategorias || []).forEach(cat => {
+      let icon = ClipboardCheck;
+      if (cat.id === 'calidad') icon = CheckSquare;
+      if (cat.id === 'mantenimiento') icon = Wrench;
+      out[cat.id] = { badge: bgMap[cat.color] || bgMap.slate, icon, label: cat.label };
+    });
+    return out;
+  }, [appConfig.checklistCategorias]);
 
   const frecLabels = {
     por_orden: 'Por Orden (OF / Referencia)',
@@ -209,13 +232,23 @@ export default function Checklists() {
           {/* Filtros de Categoría y Búsqueda */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-slate-900/80 p-4 rounded-3xl border border-slate-800">
             <div className="flex flex-wrap items-center gap-2">
-              {[
-                { id: 'todas', label: 'Todas las Categorías', icon: Filter },
-                { id: 'calidad', label: 'Calidad (QC)', icon: CheckSquare },
-                { id: 'cil', label: 'CIL (Limpieza/Insp/Lub)', icon: ClipboardCheck },
-                { id: 'mantenimiento', label: 'Mantenimiento Preventivo', icon: Wrench }
-              ].map(cat => {
+              <button
+                onClick={() => setFilterCat('todas')}
+                className={`px-3.5 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2 border ${
+                  filterCat === 'todas'
+                    ? 'bg-slate-800 text-white border-emerald-500 shadow-lg shadow-emerald-900/20'
+                    : 'bg-slate-950/80 text-slate-400 border-slate-800/80 hover:text-white hover:border-slate-700'
+                }`}
+              >
+                <Filter className={`w-3.5 h-3.5 ${filterCat === 'todas' ? 'text-emerald-400' : 'text-slate-500'}`} />
+                Todas las Categorías
+              </button>
+              {(appConfig.checklistCategorias || []).map(cat => {
                 const isSel = filterCat === cat.id;
+                let IconComp = ClipboardCheck;
+                if (cat.id === 'calidad') IconComp = CheckSquare;
+                if (cat.id === 'mantenimiento') IconComp = Wrench;
+                
                 return (
                   <button
                     key={cat.id}
@@ -226,26 +259,47 @@ export default function Checklists() {
                         : 'bg-slate-950/80 text-slate-400 border-slate-800/80 hover:text-white hover:border-slate-700'
                     }`}
                   >
-                    <cat.icon className={`w-3.5 h-3.5 ${isSel ? 'text-emerald-400' : 'text-slate-500'}`} />
+                    <IconComp className={`w-3.5 h-3.5 ${isSel ? 'text-emerald-400' : 'text-slate-500'}`} />
                     {cat.label}
                   </button>
                 );
               })}
             </div>
 
-            <div className="relative min-w-[240px]">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Buscar por nombre o descripción..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-2 text-xs text-white font-bold focus:outline-none focus:border-emerald-500"
-              />
+            <div className="flex items-center gap-3">
+              <div className="relative min-w-[200px] flex-1">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Buscar por nombre o descripción..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-2 text-xs text-white font-bold focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center bg-slate-950 border border-slate-800 p-1 rounded-2xl shrink-0">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-xl transition-all ${
+                    viewMode === 'grid' ? 'bg-slate-800 text-emerald-400 shadow-md' : 'text-slate-500 hover:text-white'
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`p-1.5 rounded-xl transition-all ${
+                    viewMode === 'table' ? 'bg-slate-800 text-emerald-400 shadow-md' : 'text-slate-500 hover:text-white'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Grid de Plantillas */}
+          {/* Listado de Plantillas */}
           {loading ? (
             <div className="p-12 text-center text-slate-400 text-sm animate-pulse">Cargando plantillas de check...</div>
           ) : filteredTemplates.length === 0 ? (
@@ -259,10 +313,10 @@ export default function Checklists() {
                 <Plus className="w-4 h-4" /> Crear primera plantilla
               </button>
             </div>
-          ) : (
+          ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
               {filteredTemplates.map(tpl => {
-                const catInfo = catColors[tpl.categoria] || catColors.calidad;
+                const catInfo = catColors[tpl.categoria] || catColors.calidad || { badge: 'bg-slate-500/20 text-slate-300', icon: ClipboardCheck, label: tpl.categoria };
                 const criticosCount = (tpl.items || []).filter(i => i.critico).length;
                 return (
                   <motion.div
@@ -278,7 +332,7 @@ export default function Checklists() {
                       <div className="flex items-center justify-between gap-2">
                         <span className={`px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${catInfo.badge}`}>
                           <catInfo.icon className="w-3.5 h-3.5" />
-                          {tpl.categoria}
+                          {catInfo.label}
                         </span>
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-black ${tpl.activo ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-500'}`}>
@@ -306,8 +360,8 @@ export default function Checklists() {
                           </span>
                           <span className="font-black text-emerald-300 truncate max-w-[150px]">
                             {tpl.aplicaA?.tipo === 'general'
-                              ? 'General (Todas las líneas)'
-                              : `Líneas: ${(tpl.aplicaA?.ids || []).join(', ') || 'Especificar'}`}
+                              ? 'General'
+                              : `Líneas: ${(tpl.aplicaA?.ids || []).join(', ') || 'Todas'}`}
                           </span>
                         </div>
                         <div className="flex items-center justify-between pt-1 border-t border-slate-800">
@@ -351,6 +405,81 @@ export default function Checklists() {
                   </motion.div>
                 );
               })}
+            </div>
+          ) : (
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead className="bg-slate-950/80 border-b border-slate-800 text-xs uppercase tracking-wider text-slate-400">
+                    <tr>
+                      <th className="p-4 font-black">ID</th>
+                      <th className="p-4 font-black">Categoría</th>
+                      <th className="p-4 font-black">Nombre de la Plantilla</th>
+                      <th className="p-4 font-black">Frecuencia</th>
+                      <th className="p-4 font-black">Puntos</th>
+                      <th className="p-4 font-black">Estado</th>
+                      <th className="p-4 font-black text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {filteredTemplates.map(tpl => {
+                      const catInfo = catColors[tpl.categoria] || catColors.calidad || { badge: 'bg-slate-500/20 text-slate-300', icon: ClipboardCheck, label: tpl.categoria };
+                      const criticosCount = (tpl.items || []).filter(i => i.critico).length;
+                      return (
+                        <tr key={tpl.id} className="hover:bg-slate-800/40 transition-colors group">
+                          <td className="p-4 font-mono text-[11px] font-bold text-slate-500">{tpl.id}</td>
+                          <td className="p-4">
+                            <span className={`px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 ${catInfo.badge}`}>
+                              <catInfo.icon className="w-3 h-3" />
+                              {catInfo.label}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="font-bold text-white">{tpl.nombre}</div>
+                            {tpl.descripcion && <div className="text-xs text-slate-500 truncate max-w-[200px]">{tpl.descripcion}</div>}
+                          </td>
+                          <td className="p-4 text-xs font-medium text-slate-300">
+                            {frecLabels[tpl.frecuencia] || tpl.frecuencia}
+                          </td>
+                          <td className="p-4 text-xs">
+                            <span className="font-bold text-slate-300">{tpl.items?.length || 0}</span>
+                            {criticosCount > 0 && <span className="ml-2 px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-bold text-[10px]">({criticosCount} ⚡)</span>}
+                          </td>
+                          <td className="p-4">
+                            <button
+                              onClick={async () => {
+                                const upd = await updateChecklistTemplate(tpl.id, { activo: !tpl.activo });
+                                if (upd.data) setTemplates(prev => prev.map(t => t.id === tpl.id ? upd.data : t));
+                              }}
+                              className={`px-2.5 py-1 rounded text-[10px] font-black transition-colors ${
+                                tpl.activo ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-slate-300'
+                              }`}
+                            >
+                              {tpl.activo ? 'ACTIVO' : 'INACTIVO'}
+                            </button>
+                          </td>
+                          <td className="p-4 text-right space-x-2">
+                            <button
+                              onClick={() => openEditModal(tpl)}
+                              className="p-1.5 rounded-lg bg-slate-800/50 hover:bg-emerald-600/20 text-slate-400 hover:text-emerald-400 transition-colors inline-flex"
+                              title="Editar"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => openDeleteConfirm(tpl)}
+                              className="p-1.5 rounded-lg bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors inline-flex"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </>
@@ -476,9 +605,9 @@ export default function Checklists() {
                       onChange={e => setEditItem({ ...editItem, categoria: e.target.value })}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-black focus:outline-none"
                     >
-                      <option value="calidad">Calidad (Inspecciones QC)</option>
-                      <option value="cil">CIL (Limpieza / Inspección / Lubricación)</option>
-                      <option value="mantenimiento">Mantenimiento Preventivo / Correctivo</option>
+                      {(appConfig.checklistCategorias || []).map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.label}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
