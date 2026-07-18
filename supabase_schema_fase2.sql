@@ -284,3 +284,30 @@ DROP POLICY IF EXISTS "Gestión push_subscriptions" ON public.push_subscriptions
 CREATE POLICY "Gestión push_subscriptions" ON public.push_subscriptions USING (auth.role() = 'authenticated');
 
 
+CREATE TABLE IF NOT EXISTS public.ubicaciones (
+  id TEXT PRIMARY KEY,
+  codigo TEXT UNIQUE NOT NULL,
+  zona TEXT,
+  pasillo TEXT,
+  estanteria TEXT,
+  nivel TEXT,
+  capacidad_maxima NUMERIC,
+  tipo_almacen TEXT DEFAULT 'ambiente',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE public.ubicaciones ENABLE ROW LEVEL SECURITY;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.ubicaciones;
+
+CREATE TABLE IF NOT EXISTS public.entradas_mercancia (
+  id TEXT PRIMARY KEY,
+  numero_albaran TEXT,
+  proveedor TEXT,
+  fecha TIMESTAMPTZ DEFAULT now(),
+  estado TEXT DEFAULT 'confirmada',
+  lineas JSONB DEFAULT '[]',
+  corregida_de TEXT REFERENCES public.entradas_mercancia(id),
+  observaciones TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE public.entradas_mercancia ENABLE ROW LEVEL SECURITY;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.entradas_mercancia;

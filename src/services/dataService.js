@@ -1103,10 +1103,54 @@ export function calcularCosteEscandallo(producto, materiales = []) {
 
 // ─── ALMACÉN: UBICACIONES Y ENTRADAS DE MERCANCÍA ──────────────────────────
 
+function ubicacionToDb(u) {
+  return {
+    id: u.id, codigo: u.codigo, zona: u.zona, pasillo: u.pasillo,
+    estanteria: u.estanteria, nivel: u.nivel,
+    capacidad_maxima: u.capacidadMaxima ?? u.capacidad_maxima ?? 0,
+    tipo_almacen: u.tipoAlmacen ?? u.tipo_almacen ?? 'ambiente'
+  };
+}
+
+function mapUbicacion(u) {
+  return {
+    id: u.id, codigo: u.codigo, zona: u.zona, pasillo: u.pasillo,
+    estanteria: u.estanteria, nivel: u.nivel,
+    capacidadMaxima: u.capacidad_maxima ?? u.capacidadMaxima ?? 0,
+    tipoAlmacen: u.tipo_almacen ?? u.tipoAlmacen ?? 'ambiente'
+  };
+}
+
+function entradaMercanciaToDb(e) {
+  return {
+    id: e.id, numero_albaran: e.numeroAlbaran ?? e.numero_albaran,
+    proveedor: e.proveedor, fecha: e.fecha, estado: e.estado,
+    lineas: e.lineas || [], corregida_de: e.corregidaDe ?? e.corregida_de ?? null,
+    observaciones: e.observaciones
+  };
+}
+
+function mapEntradaMercancia(e) {
+  return {
+    id: e.id, numeroAlbaran: e.numero_albaran ?? e.numeroAlbaran,
+    proveedor: e.proveedor, fecha: e.fecha, estado: e.estado,
+    lineas: e.lineas || [], corregidaDe: e.corregida_de ?? e.corregidaDe ?? null,
+    observaciones: e.observaciones
+  };
+}
+
 function getUbicacionesLocal() { try { const r = localStorage.getItem('mes_ubicaciones'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
 function setUbicacionesLocal(d) { try { localStorage.setItem('mes_ubicaciones', JSON.stringify(d)); } catch (_) {} }
 
 export async function fetchUbicaciones() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('ubicaciones').select('*');
+      if (!error && data) {
+        return { data: data.map(mapUbicacion), error: null };
+      }
+    } catch (e) { console.warn('Supabase fetchUbicaciones error:', e); }
+  }
   const local = getUbicacionesLocal();
   if (local) return { data: local, error: null };
   return { data: mockUbicaciones, error: null };
@@ -1126,6 +1170,17 @@ export async function updateUbicacion(id, ubicacion) {
     next = [...local, updated];
     setUbicacionesLocal(next);
   }
+
+  if (isSupabaseConfigured()) {
+    try {
+      const dbPayload = ubicacionToDb(updated);
+      const { data, error } = await supabase.from('ubicaciones').upsert(dbPayload).select().single();
+      if (!error && data) {
+        updated = mapUbicacion(data);
+      }
+    } catch (e) { console.warn('Supabase updateUbicacion error:', e); }
+  }
+
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ubicaciones_updated'));
   return { data: updated, error: null };
 }
@@ -1133,6 +1188,13 @@ export async function updateUbicacion(id, ubicacion) {
 export async function deleteUbicacion(id) {
   const local = getUbicacionesLocal() || [...mockUbicaciones];
   setUbicacionesLocal(local.filter(u => u.id !== id));
+  
+  if (isSupabaseConfigured()) {
+    try {
+      await supabase.from('ubicaciones').delete().eq('id', id);
+    } catch (e) { console.warn('Supabase deleteUbicacion error:', e); }
+  }
+
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ubicaciones_updated'));
   return { error: null };
 }
@@ -1141,6 +1203,14 @@ function getEntradasLocal() { try { const r = localStorage.getItem('mes_entradas
 function setEntradasLocal(d) { try { localStorage.setItem('mes_entradas_mercancia', JSON.stringify(d)); } catch (_) {} }
 
 export async function fetchEntradasMercancia() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('entradas_mercancia').select('*').order('fecha', { ascending: false });
+      if (!error && data) {
+        return { data: data.map(mapEntradaMercancia), error: null };
+      }
+    } catch (e) { console.warn('Supabase fetchEntradasMercancia error:', e); }
+  }
   const local = getEntradasLocal();
   if (local) return { data: local, error: null };
   return { data: mockEntradasMercancia, error: null };
@@ -1148,7 +1218,7 @@ export async function fetchEntradasMercancia() {
 
 export async function insertEntradaMercancia(entrada) {
   const local = getEntradasLocal() || [...mockEntradasMercancia];
-  const nueva = {
+  let nueva = {
     ...entrada,
     id: entrada.id || `ENT-${Date.now()}`,
     fecha: entrada.fecha || new Date().toISOString(),
@@ -1157,6 +1227,17 @@ export async function insertEntradaMercancia(entrada) {
     corregidaDe: entrada.corregidaDe || null
   };
   setEntradasLocal([nueva, ...local]);
+
+  if (isSupabaseConfigured()) {
+    try {
+      const dbPayload = entradaMercanciaToDb(nueva);
+      const { data, error } = await supabase.from('entradas_mercancia').insert(dbPayload).select().single();
+      if (!error && data) {
+        nueva = mapEntradaMercancia(data);
+      }
+    } catch (e) { console.warn('Supabase insertEntradaMercancia error:', e); }
+  }
+
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('entradas_updated'));
   return { data: nueva, error: null };
 }
@@ -1165,9 +1246,21 @@ export async function updateEntradaMercancia(id, entradaUpdate) {
   const local = getEntradasLocal() || [...mockEntradasMercancia];
   const idx = local.findIndex(e => e.id === id);
   if (idx === -1) return { error: 'No encontrado' };
-  const updated = { ...local[idx], ...entradaUpdate };
+  let updated = { ...local[idx], ...entradaUpdate };
   local[idx] = updated;
   setEntradasLocal(local);
+
+  if (isSupabaseConfigured()) {
+    try {
+      const dbPayload = entradaMercanciaToDb(updated);
+      delete dbPayload.id; // Evitar conflictos de PK en update
+      const { data, error } = await supabase.from('entradas_mercancia').update(dbPayload).eq('id', id).select().single();
+      if (!error && data) {
+        updated = mapEntradaMercancia(data);
+      }
+    } catch (e) { console.warn('Supabase updateEntradaMercancia error:', e); }
+  }
+
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('entradas_updated'));
   return { data: updated, error: null };
 }
