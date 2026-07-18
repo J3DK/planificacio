@@ -107,6 +107,8 @@ CREATE TABLE IF NOT EXISTS public.ordenes_trabajo (
   "causaRaiz" TEXT,
   "paradaId" INTEGER, -- opcionalmente foreign key a paradas
   "costeTotal" NUMERIC DEFAULT 0,
+  fotos JSONB DEFAULT '[]'::jsonb,
+  bitacora JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );

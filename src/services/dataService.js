@@ -144,6 +144,60 @@ export function setImagenGuardada(key, dataUrl) {
   }
 }
 
+export async function setImagenesGuardadas(key, arrayDataUrls) {
+  if (!key) return;
+  try {
+    const mapStr = localStorage.getItem('mes_imagenes_asociadas');
+    const map = mapStr ? JSON.parse(mapStr) : {};
+    
+    if (arrayDataUrls && arrayDataUrls.length > 0) {
+      // Comprimir cada imagen si aplica
+      const compressed = await Promise.all(arrayDataUrls.map(async (img) => {
+        if (!img.dataUrl || img.dataUrl.length < 100) return img; // already short or invalid
+        return new Promise((resolve) => {
+          compressImageHelper(img.dataUrl, 1200, 0.7, (compressedUrl) => {
+            resolve({ ...img, dataUrl: compressedUrl });
+          });
+        });
+      }));
+      map[key + '_array'] = compressed;
+    } else {
+      delete map[key + '_array'];
+    }
+    
+    try {
+      localStorage.setItem('mes_imagenes_asociadas', JSON.stringify(map));
+    } catch (e) {
+      if (e.name === 'QuotaExceededError') {
+        console.warn('Quota exceeded, clearing old images to make space.');
+        // naive eviction: clear random keys until we can save
+        const keys = Object.keys(map);
+        if (keys.length > 5) {
+          for(let i=0; i<Math.max(1, Math.floor(keys.length/3)); i++){
+            delete map[keys[i]];
+          }
+          localStorage.setItem('mes_imagenes_asociadas', JSON.stringify(map));
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error al guardar array de imágenes:', err);
+  }
+}
+
+export function getImagenesGuardadas(key) {
+  if (!key) return [];
+  try {
+    const mapStr = localStorage.getItem('mes_imagenes_asociadas');
+    if (!mapStr) return [];
+    const map = JSON.parse(mapStr);
+    return map[key + '_array'] || [];
+  } catch (err) {
+    return [];
+  }
+}
+
+
 export function mapMaterial(m) {
   if (!m) return m;
   const img = getImagenGuardada(m.codigo) || getImagenGuardada(m.id) || m.imagen || '';

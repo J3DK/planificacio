@@ -542,3 +542,173 @@ export const generarInformePersonalizado = async (desde, hasta, lineaSeleccionad
   doc.save(`${fileName}.pdf`);
   return { name: fileName + '.pdf', type: 'Personalizado', size: '220 KB', format: 'PDF' };
 };
+
+
+export function generarInformeOT(ot) {
+  try {
+    const doc = new jsPDF();
+    renderPdfHeaderAndFooter(doc, `INFORME DE ORDEN DE TRABAJO (${ot.codigo || 'OT'})`);
+
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('1. Datos de la Intervención', 14, 40);
+
+    autoTable(doc, {
+      startY: 44,
+      head: [['Título', 'Tipo', 'Prioridad', 'Estado']],
+      body: [[
+        ot.titulo || '-',
+        ot.tipo ? ot.tipo.toUpperCase() : '-',
+        ot.prioridad ? ot.prioridad.toUpperCase() : '-',
+        ot.estado ? ot.estado.toUpperCase() : '-'
+      ]],
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] },
+      styles: { fontSize: 10, halign: 'center' }
+    });
+
+    let nextY = doc.lastAutoTable.finalY + 8;
+
+    autoTable(doc, {
+      startY: nextY,
+      head: [['Activo / Equipo Afectado', 'Línea', 'Técnico Asignado', 'Turno']],
+      body: [[
+        ot.activoNombre || '-',
+        ot.linea || '-',
+        ot.tecnico || '-',
+        ot.turno || '-'
+      ]],
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] },
+      styles: { fontSize: 10, halign: 'center' }
+    });
+
+    nextY = doc.lastAutoTable.finalY + 8;
+
+    autoTable(doc, {
+      startY: nextY,
+      head: [['Fecha Apertura', 'Fecha Cierre', 'Tiempo Estimado', 'Tiempo Real']],
+      body: [[
+        ot.fechaApertura ? new Date(ot.fechaApertura).toLocaleString() : '-',
+        ot.fechaCierre ? new Date(ot.fechaCierre).toLocaleString() : '-',
+        (ot.tiempoEst || 0) + ' min',
+        (ot.tiempoReal || 0) + ' min'
+      ]],
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] },
+      styles: { fontSize: 10, halign: 'center' }
+    });
+
+    nextY = doc.lastAutoTable.finalY + 12;
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('2. Causa Raíz y Repuestos Utilizados', 14, nextY);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Causa Raíz Identificada: ${ot.causaRaiz || 'No especificada'}`, 14, nextY + 6);
+
+    const repuestos = Array.isArray(ot.repuestos) ? ot.repuestos : [];
+    if (repuestos.length > 0) {
+      autoTable(doc, {
+        startY: nextY + 10,
+        head: [['Código', 'Nombre', 'Cantidad', 'Coste Unit.', 'Coste Total']],
+        body: repuestos.map(r => [
+          r.codigo,
+          r.nombre,
+          `${r.cantidad || 1} uds`,
+          `${r.costeUnitario || 0} €`,
+          `${(r.cantidad || 1) * (r.costeUnitario || 0)} €`
+        ]),
+        foot: [['', '', '', 'Total Repuestos:', `${ot.costeTotal || 0} €`]],
+        theme: 'striped',
+        headStyles: { fillColor: [139, 92, 246] },
+        footStyles: { fillColor: [241, 245, 249], textColor: [30, 41, 59], fontStyle: 'bold' },
+        styles: { fontSize: 9 }
+      });
+      nextY = doc.lastAutoTable.finalY + 12;
+    } else {
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100, 116, 139);
+      doc.text('No se han registrado repuestos para esta intervención.', 14, nextY + 12);
+      nextY += 20;
+      doc.setTextColor(30, 41, 59);
+    }
+
+    const bitacora = Array.isArray(ot.bitacora) ? ot.bitacora : [];
+    if (bitacora.length > 0) {
+      if (nextY > 250) {
+        doc.addPage();
+        renderPdfHeaderAndFooter(doc, `INFORME DE ORDEN DE TRABAJO (${ot.codigo || 'OT'})`);
+        nextY = 40;
+      }
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('3. Bitácora de Intervención (Histórico cronológico)', 14, nextY);
+      
+      const bitacoraRows = [...bitacora].reverse().map(b => [
+        new Date(b.fecha).toLocaleString(),
+        b.autor || 'Sistema',
+        b.texto || ''
+      ]);
+
+      autoTable(doc, {
+        startY: nextY + 4,
+        head: [['Fecha/Hora', 'Autor', 'Anotación']],
+        body: bitacoraRows,
+        theme: 'plain',
+        headStyles: { fillColor: [226, 232, 240], textColor: [15, 23, 42] },
+        styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak' },
+        columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 30 }, 2: { cellWidth: 'auto' } }
+      });
+      nextY = doc.lastAutoTable.finalY + 12;
+    }
+
+    const fotos = Array.isArray(ot.fotos) ? ot.fotos : [];
+    if (fotos.length > 0) {
+      if (nextY > 200) {
+        doc.addPage();
+        renderPdfHeaderAndFooter(doc, `INFORME DE ORDEN DE TRABAJO (${ot.codigo || 'OT'})`);
+        nextY = 40;
+      }
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('4. Evidencias Visuales (Fotografías)', 14, nextY);
+      
+      let curX = 14;
+      let curY = nextY + 6;
+      const imgWidth = 85;
+      const imgHeight = 85;
+
+      fotos.forEach((foto, i) => {
+        if (i > 0 && i % 2 === 0) {
+          curX = 14;
+          curY += imgHeight + 15;
+          if (curY > 220) {
+            doc.addPage();
+            renderPdfHeaderAndFooter(doc, `INFORME DE ORDEN DE TRABAJO (${ot.codigo || 'OT'})`);
+            curY = 40;
+          }
+        }
+        try {
+          doc.addImage(foto.dataUrl, 'JPEG', curX, curY, imgWidth, imgHeight);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`${foto.etiqueta || 'Evidencia'} - ${new Date(foto.fecha).toLocaleString()}`, curX, curY + imgHeight + 5);
+        } catch (err) {
+          console.warn('No se pudo añadir imagen al PDF', err);
+        }
+        curX += imgWidth + 10;
+      });
+    }
+
+    doc.save(`Informe_OT_${ot.codigo || Date.now()}.pdf`);
+    return { name: `Informe_OT_${ot.codigo || Date.now()}.pdf`, type: 'OT', format: 'PDF' };
+  } catch (error) {
+    console.error('Error generando PDF de OT:', error);
+    alert('Error al generar el informe PDF. Revisa la consola.');
+    return null;
+  }
+}

@@ -185,6 +185,131 @@ export default function CrudModal({ isOpen, onClose, onSave, title, fields = [],
                     />
                   )}
 
+                  
+                  {/* bitacora: Lista de logs cronologicos */}
+                  {field.type === 'bitacora' && (
+                    <div className="space-y-3 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+                      <div className="max-h-64 overflow-y-auto pr-2 space-y-3">
+                        {(!formData[field.key] || formData[field.key].length === 0) ? (
+                          <p className="text-xs text-slate-500 italic">No hay entradas en la bitácora.</p>
+                        ) : (
+                          [...(formData[field.key] || [])].reverse().map(entry => (
+                            <div key={entry.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-sm">
+                              <div className="flex justify-between items-start mb-1.5">
+                                <span className="text-[11px] font-black text-blue-400 bg-blue-900/20 px-2 py-0.5 rounded-full">{entry.autor || 'Sistema'}</span>
+                                <span className="text-[10px] text-slate-500 font-medium">
+                                  {new Date(entry.fecha).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-300 leading-relaxed break-words">{entry.texto}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2 pt-2 border-t border-slate-800">
+                        <textarea
+                          id={`bitacora-input-${field.key}`}
+                          placeholder="Añadir una nueva nota a la intervención..."
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none h-16"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const input = document.getElementById(`bitacora-input-${field.key}`);
+                            if (!input || !input.value.trim()) return;
+                            const current = Array.isArray(formData[field.key]) ? formData[field.key] : [];
+                            const newEntry = {
+                              id: Date.now().toString(),
+                              fecha: new Date().toISOString(),
+                              autor: field.userContext || 'Técnico',
+                              texto: input.value.trim()
+                            };
+                            handleChange(field.key, [...current, newEntry]);
+                            input.value = '';
+                          }}
+                          className="self-end px-4 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-bold transition-colors"
+                        >
+                          Añadir Nota
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* gallery: Multiples fotos etiquetadas */}
+                  {field.type === 'gallery' && (
+                    <div className="space-y-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl cursor-pointer transition-colors border border-slate-700 shadow-sm text-xs font-bold">
+                          <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                          Tomar o Adjuntar Foto
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                const dataUrl = event.target.result;
+                                const current = Array.isArray(formData[field.key]) ? formData[field.key] : [];
+                                const newPic = {
+                                  id: Date.now().toString(),
+                                  fecha: new Date().toISOString(),
+                                  dataUrl: dataUrl,
+                                  etiqueta: 'Evidencia visual'
+                                };
+                                handleChange(field.key, [...current, newPic]);
+                              };
+                              reader.readAsDataURL(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                      
+                      {Array.isArray(formData[field.key]) && formData[field.key].length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {formData[field.key].map(pic => (
+                            <div key={pic.id} className="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-900 shadow-sm aspect-square">
+                              <img src={pic.dataUrl} alt="Evidencia" className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-between">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const current = formData[field.key].filter(p => p.id !== pic.id);
+                                    handleChange(field.key, current);
+                                  }}
+                                  className="self-end p-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg shadow transition-colors"
+                                  title="Eliminar foto"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                                
+                                <select
+                                  value={pic.etiqueta}
+                                  onChange={(e) => {
+                                    const current = formData[field.key].map(p => p.id === pic.id ? { ...p, etiqueta: e.target.value } : p);
+                                    handleChange(field.key, current);
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-full bg-slate-800/90 text-xs text-white border-0 rounded p-1 focus:ring-1 focus:ring-blue-500 truncate"
+                                >
+                                  <option value="Antes">Antes</option>
+                                  <option value="Durante">Durante</option>
+                                  <option value="Después">Después</option>
+                                  <option value="Detalle del fallo">Detalle del fallo</option>
+                                  <option value="Evidencia visual">Evidencia</option>
+                                </select>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+
                   {/* image_upload: subida de archivos de imagen locales con FileReader y preview */}
                   {field.type === 'image_upload' && (
                     <div className="space-y-2.5 bg-slate-950/60 p-3 rounded-xl border border-slate-800">

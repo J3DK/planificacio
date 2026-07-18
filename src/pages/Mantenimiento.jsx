@@ -28,6 +28,7 @@ import {
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { generarInformeOT } from '@/services/reportService';
 
 
 const TAB_OPTIONS = [
@@ -56,7 +57,7 @@ const ESTADO_OT_COLORS = {
 const OT_FIELDS = [
   { key: 'titulo', label: 'Título / Descripción de la OT', type: 'text', required: true, placeholder: 'ej: Sustitución de rodamiento motor tracción' },
   { key: 'linea', label: 'Línea Afectada', type: 'select', required: true, options: ['Línea 1', 'Línea 2', 'Línea 3', 'Línea 4', 'Línea 5'] },
-  { key: 'activoNombre', label: 'Activo / Equipo Afectado', type: 'text', required: true, placeholder: 'ej: Motor Principal Tracción Rodillos (MQ-401)' },
+  { key: 'activoId', label: 'Activo / Equipo Afectado', type: 'select', required: true, options: [] },
   { key: 'tipo', label: 'Tipo de Intervención', type: 'select', required: true, options: [
     { value: 'correctivo', label: '🔴 Correctivo (Avería / Rotura)' },
     { value: 'preventivo', label: '🟠 Preventivo (Programado / Horas)' },
@@ -80,7 +81,9 @@ const OT_FIELDS = [
   { key: 'tiempoReal', label: 'Tiempo Real Invertido (min)', type: 'number', min: 0, default: 0 },
   { key: 'paradaId', label: 'Vínculo ID Parada MES (Si procede)', type: 'number', placeholder: 'ID de evento de Parada en módulo Paradas' },
   { key: 'causaRaiz', label: 'Código y Comentario Causa Raíz', type: 'textarea', placeholder: 'ej: ERR-MEC-01 — Sobrecarga por desgaste mecánico en eje de arrastre' },
-  { key: 'costeTotal', label: 'Coste Estimado/Real (€)', type: 'number', min: 0, default: 0 }
+  { key: 'costeTotal', label: 'Coste Estimado/Real (€)', type: 'number', min: 0, default: 0 },
+  { key: 'fotos', label: 'Evidencias Visuales', type: 'gallery' },
+  { key: 'bitacora', label: 'Bitácora de Intervención', type: 'bitacora', userContext: 'Técnico MTO' }
 ];
 
 const PLAN_PREVENTIVO_FIELDS = [
@@ -495,6 +498,8 @@ export default function Mantenimiento() {
 
   // ─── Modales Equipo / Árbol ────────────────────────────────────────────────
   const [equipoModalOpen, setEquipoModalOpen] = useState(false);
+  const [vistaActivos, setVistaActivos] = useState('arbol');
+  const [filtroHistorial, setFiltroHistorial] = useState('');
   const [equipoModalMode, setEquipoModalMode] = useState('create'); // 'create'|'edit'|'componente'
   const [editEquipoItem, setEditEquipoItem] = useState({});
   const [equipoParentNode, setEquipoParentNode] = useState(null); // nodo línea o máquina padre
@@ -582,6 +587,21 @@ export default function Mantenimiento() {
           type: 'select',
           placeholder: 'Seleccionar técnico del catálogo...',
           options
+        };
+      }
+      if (f.key === 'activoId') {
+        // Flatten hierarchy
+        const flatActivos = [];
+        const traverse = (node, pathLabel) => {
+          const currentLabel = pathLabel ? `${pathLabel} > ${node.nombre}` : node.nombre;
+          flatActivos.push({ value: node.id, label: currentLabel, originalName: node.nombre });
+          if (node.hijos) node.hijos.forEach(h => traverse(h, currentLabel));
+        };
+        activos.forEach(a => traverse(a, ''));
+        return {
+          ...f,
+          options: flatActivos,
+          placeholder: 'Seleccionar activo en la jerarquía...'
         };
       }
       return f;
@@ -1026,6 +1046,7 @@ export default function Mantenimiento() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {vistaActivos === 'arbol' && (
               <div className="card p-5 border border-slate-800 bg-slate-950">
                 <h3 className="section-title text-white font-black mb-4">Evolución de Disponibilidad por Línea (%)</h3>
                 <ResponsiveContainer width="100%" height={260}>
@@ -1130,9 +1151,16 @@ export default function Mantenimiento() {
           <motion.div key="activos" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="card p-5 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-black text-white flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-indigo-400" /> Jerarquía y Árbol de Activos de la Planta
-                </h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                  <div>
+                    <h3 className="text-lg font-black text-white flex items-center gap-2 mb-2">
+                      <Layers className="w-5 h-5 text-indigo-400" /> Jerarquía y Activos
+                    </h3>
+                    <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-800 w-fit">
+                      <button onClick={() => setVistaActivos('arbol')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${vistaActivos === 'arbol' ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white'}`}>Árbol de Jerarquía</button>
+                      <button onClick={() => setVistaActivos('historial')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${vistaActivos === 'historial' ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white'}`}>Historial de Averías</button>
+                    </div>
+                  </div>
                 <p className="text-xs text-slate-400 mt-1">
                   Haz clic en cada nivel para expandir su estructura. Usa los botones de acción para gestionar equipos y componentes.
                 </p>
@@ -1184,6 +1212,83 @@ export default function Mantenimiento() {
                 </div>
               )}
             </div>
+            )}
+
+            {vistaActivos === 'historial' && (
+              <div className="card p-5 border border-slate-800 bg-slate-950">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por activo, causa raíz, bitácora..."
+                      value={filtroHistorial}
+                      onChange={e => setFiltroHistorial(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                  {(() => {
+                    // Filter closed OTs
+                    let hOts = ordenesTrabajo.filter(o => o.estado?.toLowerCase() === 'cerrada');
+                    if (filtroHistorial) {
+                      const q = filtroHistorial.toLowerCase();
+                      hOts = hOts.filter(o => 
+                        (o.activoNombre || '').toLowerCase().includes(q) ||
+                        (o.causaRaiz || '').toLowerCase().includes(q) ||
+                        (o.titulo || '').toLowerCase().includes(q) ||
+                        (Array.isArray(o.bitacora) && o.bitacora.some(b => b.texto.toLowerCase().includes(q)))
+                      );
+                    }
+                    
+                    if (hOts.length === 0) return <p className="text-sm text-slate-500 italic py-4 text-center">No hay intervenciones históricas que coincidan con la búsqueda.</p>;
+
+                    // Find recurring
+                    const causeCounts = {};
+                    hOts.forEach(o => {
+                      if(o.causaRaiz) {
+                        const code = o.causaRaiz.split('-')[0]?.trim();
+                        if(code) causeCounts[code] = (causeCounts[code] || 0) + 1;
+                      }
+                    });
+
+                    return hOts.map(ot => {
+                      const ccode = ot.causaRaiz?.split('-')[0]?.trim();
+                      const isRecurrent = ccode && causeCounts[ccode] > 1;
+                      return (
+                        <div key={ot.id} className="bg-slate-900/60 hover:bg-slate-900 border border-slate-800 rounded-xl p-4 transition-colors">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-black text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-lg">{ot.activoNombre || ot.activoId || 'Activo Desconocido'}</span>
+                                <span className="text-[10px] text-slate-500">{new Date(ot.fechaCierre || ot.fechaApertura).toLocaleDateString()}</span>
+                                {isRecurrent && <span className="text-[10px] font-bold text-red-400 bg-red-500/20 border border-red-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Recurrente</span>}
+                              </div>
+                              <h4 className="text-sm font-bold text-slate-200">{ot.titulo}</h4>
+                              <p className="text-xs text-slate-400 mt-1 line-clamp-2"><span className="font-bold">Causa:</span> {ot.causaRaiz || 'No especificada'}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">{(ot.costeTotal || 0).toLocaleString()} €</span>
+                              <div className="flex gap-2">
+                                <button onClick={() => openEditOt(ot)} className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors" title="Ver Ficha">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                </button>
+                                <button onClick={() => generarInformeOT(ot)} className="p-1.5 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded-lg transition-colors" title="Descargar Informe">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            )}
+
           </motion.div>
         )}
 
