@@ -55,6 +55,18 @@ export default function Sidebar() {
       : navItems;
 
     let list = [...baseList];
+    
+    // Inyectar /almacen si no existe (para usuarios con config guardada)
+    if (!list.some(i => i.path === '/almacen')) {
+      const matIdx = list.findIndex(i => i.path === '/materias-primas');
+      const almacenItem = { path: '/almacen', label: 'Almacén', iconName: 'Warehouse', visible: true };
+      if (matIdx >= 0) {
+        list.splice(matIdx + 1, 0, almacenItem);
+      } else {
+        list.push(almacenItem);
+      }
+    }
+
     if (!list.some(i => i.path === '/cualificaciones')) {
       const opIdx = list.findIndex(i => i.path === '/operarios');
       const cualifItem = { path: '/cualificaciones', label: 'Cualificación & Cursos', iconName: 'Award', visible: true };
