@@ -1046,7 +1046,7 @@ export default function Mantenimiento() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {vistaActivos === 'arbol' && (
+
               <div className="card p-5 border border-slate-800 bg-slate-950">
                 <h3 className="section-title text-white font-black mb-4">Evolución de Disponibilidad por Línea (%)</h3>
                 <ResponsiveContainer width="100%" height={260}>
@@ -1161,6 +1161,7 @@ export default function Mantenimiento() {
                       <button onClick={() => setVistaActivos('historial')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${vistaActivos === 'historial' ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white'}`}>Historial de Averías</button>
                     </div>
                   </div>
+                </div>
                 <p className="text-xs text-slate-400 mt-1">
                   Haz clic en cada nivel para expandir su estructura. Usa los botones de acción para gestionar equipos y componentes.
                 </p>
@@ -1194,6 +1195,7 @@ export default function Mantenimiento() {
               </div>
             )}
 
+            {vistaActivos === 'arbol' && (
             <div className="card p-5 border border-slate-800 bg-slate-950">
               {activos.map(nodo => (
                 <NodoActivo

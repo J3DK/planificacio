@@ -9,8 +9,8 @@ import {
   TrendingUp, BarChart2, Activity, CheckSquare, Users, Key,
   ShieldCheck, MessageSquareWarning, Zap
 } from 'lucide-react';
-import {
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import {
 
   fetchLineas, updateLinea,
   fetchDefectos, insertDefecto, updateDefecto, deleteDefecto,
