@@ -13,9 +13,11 @@ import {
 } from '@/services/dataService';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
-
+import { useAuth } from '@/context/AuthContext';
 
 export default function Operarios() {
+  const { perfil } = useAuth();
+  const isAdmin = perfil?.rol === 'admin';
   const [operarios, setOperarios] = useState([]);
   const [lineas, setLineas] = useState([]);
   const [catalogoSkills, setCatalogoSkills] = useState([]);
@@ -557,13 +559,15 @@ export default function Operarios() {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button
-            onClick={handleOpenNew}
-            className="px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-900/50 flex items-center gap-2.5 transition-all active:scale-95"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Nuevo Operario</span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={handleOpenNew}
+              className="px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-900/50 flex items-center gap-2.5 transition-all active:scale-95"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Nuevo Operario</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -767,7 +771,7 @@ export default function Operarios() {
 
                     <div className="flex items-center gap-3.5">
                       {/* Avatar foto o iniciales */}
-                      <div className="relative flex-shrink-0 cursor-pointer" onClick={() => handleOpenFicha(op)}>
+                      <div className="relative flex-shrink-0 cursor-pointer" onClick={() => handleOpenFicha(op)}
                         {op.avatar ? (
                           <img
                             src={op.avatar}
@@ -785,7 +789,7 @@ export default function Operarios() {
                         </div>
                       </div>
 
-                      <div className="min-w-0 pr-12 cursor-pointer" onClick={() => handleOpenFicha(op)}>
+                      <div className="min-w-0 pr-12 cursor-pointer" onClick={() => handleOpenFicha(op)}
                         <h3 className="font-black text-white text-base leading-tight truncate hover:text-blue-400 transition-colors">
                           {op.nombre}
                         </h3>
@@ -901,13 +905,15 @@ export default function Operarios() {
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      onClick={() => confirmDelete(op)}
-                      className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl transition-all active:scale-95 border border-rose-500/20"
-                      title="Eliminar operario"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => confirmDelete(op)}
+                        className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl transition-all active:scale-95 border border-rose-500/20"
+                        title="Eliminar operario"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -935,7 +941,7 @@ export default function Operarios() {
                   const isActivo = op.estado === 'activo';
                   return (
                     <tr key={op.id} className="hover:bg-slate-800/40 transition-colors group">
-                      <td className="py-4 px-6 cursor-pointer" onClick={() => handleOpenFicha(op)}>
+                      <td className="py-4 px-6 cursor-pointer" onClick={() => handleOpenFicha(op)}
                         <div className="flex items-center gap-3.5">
                           {op.avatar ? (
                             <img src={op.avatar} alt={op.nombre} className="w-10 h-10 rounded-xl object-cover border border-slate-700" />
@@ -1043,13 +1049,15 @@ export default function Operarios() {
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => confirmDelete(op)}
-                            className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl transition-all border border-rose-500/20"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => confirmDelete(op)}
+                              className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl transition-all border border-rose-500/20"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -2081,7 +2089,8 @@ export default function Operarios() {
                     <select
                       value={formData.rol}
                       onChange={e => setFormData({ ...formData, rol: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                      disabled={!isAdmin}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="Operario Especialista">Operario Especialista</option>
                       <option value="Jefe de Línea">Jefe de Línea</option>
