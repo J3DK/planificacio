@@ -279,7 +279,7 @@ function lineaToDb(l) {
 
 function materialToDb(m) {
   return {
-    id: m.id,
+    id: m.id ? String(m.id) : String(Date.now()),
     codigo: m.codigo,
     codigo_barras: m.codigoBarras,
     descripcion: m.descripcion,
@@ -958,7 +958,8 @@ export async function insertMaterial(material) {
   if (img && typeof img === 'string' && img.startsWith('data:image')) {
     img = await compressImageHelper(img, 400, 0.65);
   }
-  const newMat = mapMaterial({ ...material, imagen: img, id: material.id || Date.now(), stockReservado: material.stockReservado || 0 });
+  const id = material.id ? String(material.id) : String(Date.now());
+  const newMat = mapMaterial({ ...material, imagen: img, id, stockReservado: material.stockReservado || 0 });
   if (newMat.imagen !== undefined) {
     setImagenGuardada(newMat.codigo, newMat.imagen);
     setImagenGuardada(newMat.id, newMat.imagen);
@@ -982,7 +983,14 @@ export async function insertMaterial(material) {
         if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('materiales_updated'));
         return { data: mapMaterial({ ...data, imagen: newMat.imagen }), error: null };
       }
-    } catch (e) { console.warn('Supabase insert error:', e); }
+      if (error) {
+        console.error('Error inserting material in Supabase:', error);
+        return { data: null, error };
+      }
+    } catch (e) { 
+      console.error('Supabase insert error:', e); 
+      return { data: null, error: e };
+    }
   }
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('materiales_updated'));
   return { data: newMat, error: null };

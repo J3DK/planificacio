@@ -151,10 +151,18 @@ export default function MateriasPrimas() {
     const payload = { ...data, id: data.id || Date.now() };
     if (modalMode === 'create') {
       const { data: newItem, error } = await insertMaterial(payload);
-      if (!error) setMateriales(prev => [...prev, newItem || payload]);
+      if (error) {
+        alert('Error al guardar el material: ' + (error.message || JSON.stringify(error)));
+      } else {
+        setMateriales(prev => [...prev, newItem || payload]);
+      }
     } else {
       const { data: updated, error } = await updateMaterial(editItem.id, data);
-      if (!error) setMateriales(prev => prev.map(m => m.id === editItem.id ? (updated || { ...m, ...data }) : m));
+      if (error) {
+        alert('Error al actualizar el material: ' + (error.message || JSON.stringify(error)));
+      } else {
+        setMateriales(prev => prev.map(m => m.id === editItem.id ? (updated || { ...m, ...data }) : m));
+      }
     }
     setSaving(false);
     setModalOpen(false);
