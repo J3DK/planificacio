@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Plus, Calendar, Move, Edit2, Trash2, X, Check, RefreshCw, AlertCircle, Clock, Package, FileText, ArrowRight, Layers, Filter, Search, ShieldAlert, Zap, ArrowLeftCircle, Wrench } from 'lucide-react';
 import { fetchLineas, fetchPlanificacion, fetchMateriasPrimas, fetchProductos, fetchOrdenesTrabajo, fetchRetencionesCalidad, calcularTodosConsumosComprometidos, calcularDisponibilidadOrden, updateReservaMaterialesOrden, insertOrdenPlanificacion, updateOrdenPlanificacion, deleteOrdenPlanificacion, reordenarSecuenciaEnGantt, calcDuracionEstimada } from '@/services/dataService';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
 
 
 const SEMANA_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -18,6 +20,9 @@ export default function PlanificacionLineas() {
 
   // Reloj de tiempo real para la línea roja/ámbar de "Tiempo Actual" en el Gantt
   const [nowDate, setNowDate] = useState(new Date());
+    useRealtimeSync('secuencia', () => window.dispatchEvent(new CustomEvent('secuencia_updated')));
+  useRealtimeSync('materias_primas', () => window.dispatchEvent(new CustomEvent('materiales_updated')));
+
   useEffect(() => {
     const timer = setInterval(() => setNowDate(new Date()), 15000); // actualizar cada 15s
     return () => clearInterval(timer);

@@ -25,6 +25,7 @@ import Mantenimiento from '@/pages/Mantenimiento';
 import Checklists from '@/pages/Checklists';
 import Configuracion from '@/pages/Configuracion';
 import Usuarios from '@/pages/Usuarios';
+import Auditoria from '@/pages/Auditoria';
 import Login from '@/pages/Login';
 import { Loader2 } from 'lucide-react';
 

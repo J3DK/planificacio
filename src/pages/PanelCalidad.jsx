@@ -10,6 +10,8 @@ import {
   ShieldCheck, MessageSquareWarning, Zap
 } from 'lucide-react';
 import {
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
   fetchLineas, updateLinea,
   fetchDefectos, insertDefecto, updateDefecto, deleteDefecto,
   fetchRetrabajos, insertRetrabajo, updateRetrabajo, deleteRetrabajo,
@@ -18,13 +20,16 @@ import {
   fetchRetencionesCalidad, insertRetencionCalidad, updateRetencionCalidad, deleteRetencionCalidad,
   fetchSecuencia, fetchOperarios, getCurrentShiftInfo, registrarIncidenciaCalidad,
   getChecklistTemplates, insertChecklistEjecucion
-} from '@/services/dataService';
+, getOfflineQueueCount } from '@/services/dataService';
 
 export default function PanelCalidad() {
   const navigate = useNavigate();
 
   // Configuración del Puesto / Inspector
   const [lineaSelId, setLineaSelId] = useState('L1');
+  const [offlineQueue, setOfflineQueue] = useState(0);
+  const isOffline = typeof window !== 'undefined' && !navigator.onLine;
+
   const [turnoSel, setTurnoSel] = useState(() => getCurrentShiftInfo().shift);
   const [operarioNombre, setOperarioNombre] = useState('Laura Gómez (Inspector QC)');
   const [operarioSelId, setOperarioSelId] = useState('OP-QC1');
@@ -87,6 +92,25 @@ export default function PanelCalidad() {
     if (resTpl.data) setAllTemplates(resTpl.data);
     setLoading(false);
   };
+
+    useRealtimeSync('lineas', () => window.dispatchEvent(new CustomEvent('lineas_updated')));
+  useRealtimeSync('paradas', () => window.dispatchEvent(new CustomEvent('paradas_updated')));
+  useRealtimeSync('calidad', () => window.dispatchEvent(new CustomEvent('calidad_updated')));
+  useRealtimeSync('secuencia', () => window.dispatchEvent(new CustomEvent('secuencia_updated')));
+
+
+  useEffect(() => {
+    const updateQueue = () => setOfflineQueue(getOfflineQueueCount());
+    window.addEventListener('offline', updateQueue);
+    window.addEventListener('online', updateQueue);
+    window.addEventListener('offline_queue_updated', updateQueue);
+    updateQueue();
+    return () => {
+      window.removeEventListener('offline', updateQueue);
+      window.removeEventListener('online', updateQueue);
+      window.removeEventListener('offline_queue_updated', updateQueue);
+    };
+  }, []);
 
   useEffect(() => {
     loadAllData();

@@ -22,13 +22,18 @@ import {
   insertAlerta,
   fetchOperarios, updateOperario, registrarHistorialOperario, getCurrentShiftInfo, restoreOperariosCatalog, fetchOrdenesTrabajo,
   getChecklistTemplates, insertChecklistEjecucion
-} from '@/services/dataService';
+, getOfflineQueueCount } from '@/services/dataService';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
 
 export default function PanelOperario() {
   const navigate = useNavigate();
   // Configuración del Puesto / Operario
   const [lineaSelId, setLineaSelId] = useState('L1');
+  const [offlineQueue, setOfflineQueue] = useState(0);
+  const isOffline = typeof window !== 'undefined' && !navigator.onLine;
+
   const [turnoSel, setTurnoSel] = useState(() => getCurrentShiftInfo().shift);
   const [operarioNombre, setOperarioNombre] = useState('Carlos Mendoza');
   const [operarioSelId, setOperarioSelId] = useState('OP-001');
@@ -107,6 +112,25 @@ export default function PanelOperario() {
     }
     setLoading(false);
   };
+
+    useRealtimeSync('lineas', () => window.dispatchEvent(new CustomEvent('lineas_updated')));
+  useRealtimeSync('paradas', () => window.dispatchEvent(new CustomEvent('paradas_updated')));
+  useRealtimeSync('calidad', () => window.dispatchEvent(new CustomEvent('calidad_updated')));
+  useRealtimeSync('secuencia', () => window.dispatchEvent(new CustomEvent('secuencia_updated')));
+
+
+  useEffect(() => {
+    const updateQueue = () => setOfflineQueue(getOfflineQueueCount());
+    window.addEventListener('offline', updateQueue);
+    window.addEventListener('online', updateQueue);
+    window.addEventListener('offline_queue_updated', updateQueue);
+    updateQueue();
+    return () => {
+      window.removeEventListener('offline', updateQueue);
+      window.removeEventListener('online', updateQueue);
+      window.removeEventListener('offline_queue_updated', updateQueue);
+    };
+  }, []);
 
   useEffect(() => {
     loadAllData();

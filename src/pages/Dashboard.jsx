@@ -16,7 +16,9 @@ import {
 } from '@/data/mockDashboard';
 import { alertas as mockAlertas } from '@/data/mockAlertas';
 import KPICard from '@/components/shared/KPICard';
-import { fetchLineas, fetchMateriasPrimas, fetchCalidad, fetchSecuencia, updateLinea, getCurrentShiftInfo } from '@/services/dataService';
+import { fetchLineas, fetchMateriasPrimas, fetchCalidad, fetchSecuencia, updateLinea, getCurrentShiftInfo , generarSintesisAutomatica } from '@/services/dataService';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 16 },
@@ -101,6 +103,27 @@ export default function Dashboard() {
     scrap: 640,
     disponibilidadMaterial: 96.5,
   });
+
+    useRealtimeSync('lineas', () => window.dispatchEvent(new CustomEvent('lineas_updated')));
+  useRealtimeSync('paradas', () => window.dispatchEvent(new CustomEvent('paradas_updated')));
+  useRealtimeSync('calidad', () => window.dispatchEvent(new CustomEvent('calidad_updated')));
+  useRealtimeSync('alertas', () => window.dispatchEvent(new CustomEvent('alertas_updated')));
+  useRealtimeSync('ordenes_trabajo', () => window.dispatchEvent(new CustomEvent('mantenimiento_updated')));
+
+
+  useEffect(() => {
+    const loadSintesis = async () => {
+      const txt = await generarSintesisAutomatica('dashboard');
+      setSintesis(txt);
+    };
+    loadSintesis();
+    window.addEventListener('dashboard_updated', loadSintesis);
+    window.addEventListener('lineas_updated', loadSintesis); // fallback for dashboard
+    return () => {
+      window.removeEventListener('dashboard_updated', loadSintesis);
+      window.removeEventListener('lineas_updated', loadSintesis);
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;

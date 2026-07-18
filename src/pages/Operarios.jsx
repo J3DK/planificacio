@@ -12,6 +12,8 @@ import {
   fetchLineas, getCatalogoSkills, getCatalogoFormaciones, getCatalogoPermisos, getCatalogoCapacitaciones, getCatalogoAutorizaciones
 } from '@/services/dataService';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
 
 export default function Operarios() {
   const [operarios, setOperarios] = useState([]);
@@ -101,6 +103,8 @@ export default function Operarios() {
     }
     setLoading(false);
   };
+
+    useRealtimeSync('operarios', () => window.dispatchEvent(new CustomEvent('operarios_updated')));
 
   useEffect(() => {
     loadData();

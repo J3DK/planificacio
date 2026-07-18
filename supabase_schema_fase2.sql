@@ -129,16 +129,16 @@ CREATE TABLE IF NOT EXISTS public.checklist_templates (
 
 CREATE TABLE IF NOT EXISTS public.checklist_ejecuciones (
   id TEXT PRIMARY KEY,
-  "templateId" TEXT REFERENCES public.checklist_templates(id) ON DELETE CASCADE,
-  "templateNombre" TEXT,
+  template_id TEXT REFERENCES public.checklist_templates(id) ON DELETE CASCADE,
+  template_nombre TEXT,
   linea TEXT,
   turno TEXT,
-  "operarioId" TEXT, -- no FK para no romper nada
-  "fechaEjecucion" TEXT,
+  operario_id TEXT, -- no FK para no romper nada
+  fecha_ejecucion TEXT,
   respuestas JSONB DEFAULT '[]'::jsonb,
   estado TEXT,
   comentarios TEXT,
-  "tiempoReal" INTEGER,
+  tiempo_real INTEGER,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS public.checklist_ejecuciones (
 CREATE INDEX IF NOT EXISTS idx_activos_parent_id ON public.activos_mantenimiento(parent_id);
 CREATE INDEX IF NOT EXISTS idx_ot_linea ON public.ordenes_trabajo(linea);
 CREATE INDEX IF NOT EXISTS idx_ot_estado ON public.ordenes_trabajo(estado);
-CREATE INDEX IF NOT EXISTS idx_checklist_ejecuciones_template_id ON public.checklist_ejecuciones("templateId");
+CREATE INDEX IF NOT EXISTS idx_checklist_ejecuciones_template_id ON public.checklist_ejecuciones(template_id);
 CREATE INDEX IF NOT EXISTS idx_operario_turno ON public.operarios(turno);
 
 -- ==========================================
@@ -204,3 +204,60 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.planes_preventivos;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.ordenes_trabajo;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.checklist_templates;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.checklist_ejecuciones;
+
+
+-- ==========================================
+-- 5. REPUESTOS (ALMACEN)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS public.repuestos_almacen (
+  id TEXT PRIMARY KEY,
+  codigo TEXT UNIQUE,
+  nombre TEXT,
+  categoria TEXT,
+  stock_actual NUMERIC DEFAULT 0,
+  stock_minimo NUMERIC DEFAULT 0,
+  ubicacion TEXT,
+  coste_unitario NUMERIC,
+  compatibles_con TEXT[],
+  estado_stock TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE public.repuestos_almacen ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Lectura repuestos" ON public.repuestos_almacen FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Insercion repuestos" ON public.repuestos_almacen FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Actualizacion repuestos" ON public.repuestos_almacen FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Borrado repuestos" ON public.repuestos_almacen FOR DELETE USING (auth.role() = 'authenticated');
+ALTER PUBLICATION supabase_realtime ADD TABLE public.repuestos_almacen;
+
+-- ==========================================
+-- 6. AUDITORIA (AUDIT LOG)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS public.audit_log (
+  id BIGSERIAL PRIMARY KEY,
+  tabla TEXT NOT NULL,
+  registro_id TEXT NOT NULL,
+  accion TEXT NOT NULL,
+  usuario_id UUID REFERENCES auth.users(id),
+  usuario_nombre TEXT,
+  cambios JSONB,
+  fecha TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Lectura auditoria" ON public.audit_log FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Insercion auditoria" ON public.audit_log FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- ==========================================
+-- 7. PUSH SUBSCRIPTIONS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  id BIGSERIAL PRIMARY KEY,
+  usuario_id UUID REFERENCES auth.users(id),
+  endpoint TEXT NOT NULL,
+  keys JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Gestión push_subscriptions" ON public.push_subscriptions USING (auth.role() = 'authenticated');
+
+

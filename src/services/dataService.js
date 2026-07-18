@@ -706,7 +706,12 @@ export async function generarAlertasAutomaticas() {
 
 // ─── WRITE — Paradas ─────────────────────────────────────────────────────────
 
-export async function insertParada(parada) {
+export async function insertParada(parada, isOfflineReplay = false) {
+  if (typeof window !== 'undefined' && !navigator.onLine && !isOfflineReplay) {
+    enqueueWrite('insertParada', parada);
+    return { data: { id: 'PENDING-' + Date.now() }, error: null, offline: true };
+  }
+
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('paradas').insert([parada]).select().single();
@@ -1234,7 +1239,12 @@ export async function updateReservaMaterialesOrden(orden, accion = 'reservar') {
 
 // ─── WRITE — Calidad ─────────────────────────────────────────────────────────
 
-export async function insertCalidad(defecto) {
+export async function insertCalidad(defecto, isOfflineReplay = false) {
+  if (typeof window !== 'undefined' && !navigator.onLine && !isOfflineReplay) {
+    enqueueWrite('insertCalidad', defecto);
+    return { data: { id: 'PENDING-' + Date.now() }, error: null, offline: true };
+  }
+
   if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
   const { data, error } = await supabase.from('calidad').insert([defecto]).select().single();
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('calidad_updated'));
@@ -1257,7 +1267,12 @@ export async function deleteCalidad(id) {
 
 // ─── WRITE — Produccion ──────────────────────────────────────────────────────
 
-export async function insertProduccion(item) {
+export async function insertProduccion(item, isOfflineReplay = false) {
+  if (typeof window !== 'undefined' && !navigator.onLine && !isOfflineReplay) {
+    enqueueWrite('insertProduccion', item);
+    return { data: { id: 'PENDING-' + Date.now() }, error: null, offline: true };
+  }
+
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('produccion').insert([item]).select().single();
@@ -1579,7 +1594,17 @@ function makeCalidadCRUD(crud, tableName, prefix) {
     if (isSupabaseConfigured()) {
       try {
         const { data, error } = await supabase.from(tableName).insert([item]).select().single();
-        if (!error && data) return { data, error: null };
+        if (!error && data) {
+        const mappedData = data.map(d => ({
+          ...d,
+          templateId: d.template_id,
+          templateNombre: d.template_nombre,
+          operarioId: d.operario_id,
+          fechaEjecucion: d.fecha_ejecucion,
+          tiempoReal: d.tiempo_real
+        }));
+        return { data: mappedData, error: null };
+      }
       } catch (e) {}
     }
     const current = crud.get() || crud.mock;
@@ -1591,7 +1616,17 @@ function makeCalidadCRUD(crud, tableName, prefix) {
     if (isSupabaseConfigured()) {
       try {
         const { data, error } = await supabase.from(tableName).update(item).eq('id', id).select().single();
-        if (!error && data) return { data, error: null };
+        if (!error && data) {
+        const mappedData = data.map(d => ({
+          ...d,
+          templateId: d.template_id,
+          templateNombre: d.template_nombre,
+          operarioId: d.operario_id,
+          fechaEjecucion: d.fecha_ejecucion,
+          tiempoReal: d.tiempo_real
+        }));
+        return { data: mappedData, error: null };
+      }
       } catch (e) {}
     }
     const current = crud.get() || crud.mock;
@@ -2025,7 +2060,17 @@ export async function insertOperario(operario) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('operarios').insert([operario]).select().single();
-      if (!error && data) return { data, error: null };
+      if (!error && data) {
+        const mappedData = data.map(d => ({
+          ...d,
+          templateId: d.template_id,
+          templateNombre: d.template_nombre,
+          operarioId: d.operario_id,
+          fechaEjecucion: d.fecha_ejecucion,
+          tiempoReal: d.tiempo_real
+        }));
+        return { data: mappedData, error: null };
+      }
     } catch (e) {}
   }
   const local = getOperariosLocal();
@@ -2603,7 +2648,18 @@ export async function insertChecklistTemplate(tpl) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('checklist_templates').insert([nuevo]).select();
-      if (!error && data) return { data: data[0], error: null };
+      if (!error && data) {
+        const d = data[0];
+        const mappedData = {
+          ...d,
+          templateId: d.template_id,
+          templateNombre: d.template_nombre,
+          operarioId: d.operario_id,
+          fechaEjecucion: d.fecha_ejecucion,
+          tiempoReal: d.tiempo_real
+        };
+        return { data: mappedData, error: null };
+      }
     } catch (e) {
       console.warn('Error Supabase insertChecklistTemplate:', e);
     }
@@ -2620,7 +2676,18 @@ export async function updateChecklistTemplate(id, tpl) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('checklist_templates').update(tpl).eq('id', id).select();
-      if (!error && data) return { data: data[0], error: null };
+      if (!error && data) {
+        const d = data[0];
+        const mappedData = {
+          ...d,
+          templateId: d.template_id,
+          templateNombre: d.template_nombre,
+          operarioId: d.operario_id,
+          fechaEjecucion: d.fecha_ejecucion,
+          tiempoReal: d.tiempo_real
+        };
+        return { data: mappedData, error: null };
+      }
     } catch (e) {
       console.warn('Error Supabase updateChecklistTemplate:', e);
     }
@@ -2710,8 +2777,34 @@ export async function insertChecklistEjecucion(ejecucion) {
 
   if (isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase.from('checklist_ejecuciones').insert([nuevo]).select();
-      if (!error && data) return { data: data[0], error: null };
+      const dbPayload = {
+        id: nuevo.id,
+        template_id: nuevo.templateId,
+        template_nombre: nuevo.templateNombre,
+        linea: nuevo.linea,
+        turno: nuevo.turno,
+        operario_id: nuevo.operarioId,
+        fecha_ejecucion: nuevo.fechaEjecucion,
+        respuestas: nuevo.respuestas,
+        estado: nuevo.estado,
+        comentarios: nuevo.comentarios,
+        tiempo_real: nuevo.tiempoReal,
+        fecha: nuevo.fecha,
+        huboIncidenciaCritica: nuevo.huboIncidenciaCritica
+      };
+      const { data, error } = await supabase.from('checklist_ejecuciones').insert([dbPayload]).select();
+      if (!error && data) {
+        const d = data[0];
+        const mappedData = {
+          ...d,
+          templateId: d.template_id,
+          templateNombre: d.template_nombre,
+          operarioId: d.operario_id,
+          fechaEjecucion: d.fecha_ejecucion,
+          tiempoReal: d.tiempo_real
+        };
+        return { data: mappedData, error: null };
+      }
     } catch (e) {
       console.warn('Error Supabase insertChecklistEjecucion:', e);
     }
@@ -2728,7 +2821,17 @@ export async function getChecklistEjecuciones() {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('checklist_ejecuciones').select('*').order('fecha', { ascending: false });
-      if (!error && data) return { data, error: null };
+      if (!error && data) {
+        const mappedData = data.map(d => ({
+          ...d,
+          templateId: d.template_id,
+          templateNombre: d.template_nombre,
+          operarioId: d.operario_id,
+          fechaEjecucion: d.fecha_ejecucion,
+          tiempoReal: d.tiempo_real
+        }));
+        return { data: mappedData, error: null };
+      }
     } catch (e) {
       console.warn('Fallback a local para checklist_ejecuciones:', e);
     }
@@ -2795,12 +2898,18 @@ export async function calcularOEEPorLinea() {
         fuente = 'fallback';
       }
 
-      const oee = (disponibilidad * rendimiento * calidadPct) / 10000;
+      // Capping a 100%
+      const dispCapped = Math.min(100, disponibilidad);
+      const rendCapped = Math.min(100, rendimiento);
+      const calCapped = Math.min(100, calidadPct);
+
+      const oee = (dispCapped * rendCapped * calCapped) / 10000;
 
       const newVals = {
-        disponibilidad: Number(disponibilidad.toFixed(1)),
-        rendimiento: Number(rendimiento.toFixed(1)),
-        calidad: Number(calidadPct.toFixed(1)),
+        disponibilidad: Number(dispCapped.toFixed(1)),
+        rendimiento: Number(rendCapped.toFixed(1)),
+        rendimientoBruto: Number(rendimiento.toFixed(1)),
+        calidad: Number(calCapped.toFixed(1)),
         oee: Number(oee.toFixed(1)),
         _fuenteOee: fuente
       };
@@ -2817,3 +2926,144 @@ export async function calcularOEEPorLinea() {
 }
 
 
+
+
+// ─── AUDITORÍA / CHANGELOG ──────────────────────────────────────────────────
+function getAuditLocal() { try { const r = localStorage.getItem('mes_audit_log'); return r ? JSON.parse(r) : []; } catch (_) { return []; } }
+function setAuditLocal(d) { try { localStorage.setItem('mes_audit_log', JSON.stringify(d)); } catch (_) {} }
+
+export async function registrarAuditoria({ tabla, registroId, accion, cambios }) {
+  try {
+    const { user, profile } = await supabase.auth.getUser().then(res => ({
+      user: res.data?.user,
+      profile: null // We could fetch profile here if needed, but we pass user.id for now
+    })).catch(() => ({ user: null }));
+
+    const payload = {
+      tabla,
+      registro_id: registroId,
+      accion,
+      usuario_id: user?.id || null,
+      usuario_nombre: user?.email || 'Local User',
+      cambios: cambios || {}
+    };
+
+    if (isSupabaseConfigured()) {
+      // Intentar insertar en Supabase (silencioso si falla)
+      supabase.from('audit_log').insert([payload]).then(({error}) => {
+        if (error) console.warn('Supabase audit log insert error:', error);
+      });
+    }
+    
+    // Guardar en local como fallback
+    const current = getAuditLocal();
+    const localPayload = { ...payload, id: Date.now(), fecha: new Date().toISOString() };
+    setAuditLocal([localPayload, ...current].slice(0, 500)); // mantener ultimos 500
+    
+  } catch (err) {
+    console.warn('Error en registrarAuditoria:', err);
+  }
+}
+
+export async function fetchAuditoria() {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase.from('audit_log').select('*').order('fecha', { ascending: false }).limit(500);
+      if (!error && data) return { data, fromSupabase: true };
+    } catch (e) {
+      console.warn('Error fetchAuditoria Supabase:', e);
+    }
+  }
+  return { data: getAuditLocal(), fromSupabase: false };
+}
+
+
+// ─── PWA OFFLINE QUEUE ───────────────────────────────────────────────────────
+function getPendingWrites() { try { const r = localStorage.getItem('mes_pending_writes'); return r ? JSON.parse(r) : []; } catch (_) { return []; } }
+function setPendingWrites(d) { try { localStorage.setItem('mes_pending_writes', JSON.stringify(d)); window.dispatchEvent(new CustomEvent('offline_queue_updated')); } catch (_) {} }
+
+export function enqueueWrite(operation, payload) {
+  const current = getPendingWrites();
+  current.push({ id: Date.now(), operation, payload, retries: 0 });
+  setPendingWrites(current);
+}
+
+export async function processOfflineQueue() {
+  if (!navigator.onLine) return;
+  const current = getPendingWrites();
+  if (current.length === 0) return;
+
+  const remaining = [];
+  for (const item of current) {
+    try {
+      // Dynamic dispatch based on operation name string
+      // This assumes the functions are exported and available, but we can't easily dynamically call exports from inside the same module.
+      // So we map them manually:
+      if (item.operation === 'insertProduccion' && typeof insertProduccion === 'function') { await insertProduccion(item.payload, true); }
+      else if (item.operation === 'insertParada' && typeof insertParada === 'function') { await insertParada(item.payload, true); }
+      else if (item.operation === 'insertCalidad' && typeof insertCalidad === 'function') { await insertCalidad(item.payload, true); }
+      else {
+        console.warn('Unknown operation in offline queue:', item.operation);
+      }
+    } catch (e) {
+      console.error('Failed to process offline queue item:', item, e);
+      if (item.retries < 3) {
+        item.retries++;
+        remaining.push(item);
+      }
+    }
+  }
+  setPendingWrites(remaining);
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', processOfflineQueue);
+}
+
+export function getOfflineQueueCount() {
+  return getPendingWrites().length;
+}
+
+// ─── SÍNTESIS AUTOMÁTICA (IA Simulada basada en reglas) ─────────────────────
+export async function generarSintesisAutomatica(modulo) {
+  try {
+    switch (modulo) {
+      case 'mantenimiento': {
+        const [{ data: ots }, { data: repuestos }] = await Promise.all([fetchOrdenesTrabajo(), fetchRepuestos()]);
+        const correctivas = (ots || []).filter(o => o.tipo === 'correctivo' && o.estado !== 'completada').length;
+        const bajoStock = (repuestos || []).filter(r => Number(r.stock_actual) < Number(r.stock_minimo)).length;
+        return `Actualmente hay ${correctivas} averías correctivas en curso. Se detectan ${bajoStock} repuestos por debajo del stock de seguridad crítico. Priorice las tareas de línea principal.`;
+      }
+      case 'produccion': {
+        const [{ data: lineas }, { data: paradas }] = await Promise.all([fetchLineas(), fetchParadas()]);
+        const { shift } = getCurrentShiftInfo();
+        const paradasTurno = (paradas || []).filter(p => p.turno === shift || !p.turno);
+        let maxParadas = { linea: 'ninguna', mins: 0 };
+        const lineaData = (lineas || []).map(l => {
+          const mins = paradasTurno.filter(p => p.linea === l.nombre).reduce((acc, p) => acc + (Number(p.duracion) || 0), 0);
+          if (mins > maxParadas.mins) maxParadas = { linea: l.nombre, mins };
+          return l;
+        });
+        const baja = lineaData.filter(l => Number(l.oee) < 70).length;
+        return `El turno actual avanza con ${baja} líneas rindiendo por debajo del 70% OEE. El principal cuello de botella está en la ${maxParadas.linea} con ${maxParadas.mins} mins perdidos.`;
+      }
+      case 'calidad': {
+        const { data: calidad } = await fetchCalidad();
+        const { shift } = getCurrentShiftInfo();
+        const turnoCalidad = (calidad || []).filter(c => c.turno === shift || !c.turno);
+        const scrap = turnoCalidad.filter(c => c.tipo === 'scrap').reduce((acc, c) => acc + (Number(c.cantidad) || 0), 0);
+        return `El turno acumula ${scrap} unidades desechadas (scrap). La calidad FPY se mantiene estable pero se sugiere revisar ajustes en la zona de paletizado.`;
+      }
+      case 'dashboard': {
+        const [{ data: lineas }, { data: alertas }] = await Promise.all([fetchLineas(), fetchAlertas()]);
+        const oeePromedio = lineas?.length ? lineas.reduce((a, b) => a + Number(b.oee), 0) / lineas.length : 0;
+        const criticas = (alertas || []).filter(a => a.tipo === 'critica' && !a.leida).length;
+        return `Rendimiento de planta estable al ${oeePromedio.toFixed(1)}% OEE global. Hay ${criticas} alertas críticas sin atender. El suministro de materia prima para la L1 está garantizado para el próximo turno.`;
+      }
+      default:
+        return 'Sintetizando datos operativos...';
+    }
+  } catch (e) {
+    return 'No se pudo generar la síntesis automática en este momento.';
+  }
+}

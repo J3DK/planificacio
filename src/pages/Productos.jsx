@@ -6,6 +6,8 @@ import {
   FileText, Check, X, ArrowRight, Layers, Tag, Layers3, AlertTriangle, Palette, LayoutGrid, List
 } from 'lucide-react';
 import {
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
   fetchProductos, insertProducto, updateProducto, deleteProducto, fetchMateriasPrimas,
   fetchFamilias, insertFamilia, updateFamilia, deleteFamilia
 } from '@/services/dataService';
@@ -58,6 +60,8 @@ export default function Productos() {
     if (resF?.data) setFamilias(resF.data);
     setLoading(false);
   };
+
+    useRealtimeSync('productos', () => window.dispatchEvent(new CustomEvent('productos_updated')));
 
   useEffect(() => {
     loadData();

@@ -19,7 +19,7 @@ import {
   addChecklistItem, updateChecklistItem, removeChecklistItem,
   fetchSensoresPredictivos, insertSensorPredictivo, updateSensorPredictivo, deleteSensorPredictivo,
   getEquiposPlanos, fetchOperarios, registrarHistorialOperario, fetchParadas, updateParada, getChecklistTemplates
-} from '@/services/dataService';
+, generarSintesisAutomatica } from '@/services/dataService';
 import {
   kpisMantenimiento as mockKpis, evolucionDisponibilidadLinea, horasParadaPorCausaTecnica,
   tablaDisponibilidadLineas, topCausasAveria, mensajeClaveMantenimiento,
@@ -27,6 +27,8 @@ import {
 } from '@/data/mockMantenimiento';
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
 
 const TAB_OPTIONS = [
   { id: 'resumen', label: 'Resumen', icon: <Activity className="w-4 h-4" /> },
@@ -273,6 +275,24 @@ function ChecklistEditor({ plan, onToggle, onAddItem, onUpdateItem, onRemoveItem
   const [selectedTplId, setSelectedTplId] = useState('');
   const [showSelector, setShowSelector] = useState(false);
 
+    useRealtimeSync('ordenes_trabajo', () => window.dispatchEvent(new CustomEvent('mantenimiento_updated')));
+  useRealtimeSync('planes_preventivos', () => window.dispatchEvent(new CustomEvent('mantenimiento_updated')));
+
+
+  useEffect(() => {
+    const loadSintesis = async () => {
+      const txt = await generarSintesisAutomatica('mantenimiento');
+      setSintesis(txt);
+    };
+    loadSintesis();
+    window.addEventListener('mantenimiento_updated', loadSintesis);
+    window.addEventListener('lineas_updated', loadSintesis); // fallback for dashboard
+    return () => {
+      window.removeEventListener('mantenimiento_updated', loadSintesis);
+      window.removeEventListener('lineas_updated', loadSintesis);
+    };
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     getChecklistTemplates().then(res => {
@@ -420,6 +440,8 @@ function ChecklistEditor({ plan, onToggle, onAddItem, onUpdateItem, onRemoveItem
 
 export default function Mantenimiento() {
   const [activeTab, setActiveTab] = useState('resumen');
+  const [sintesis, setSintesis] = useState('Analizando datos en tiempo real...');
+
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 

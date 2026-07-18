@@ -580,7 +580,67 @@ export default function Configuracion() {
                 </select>
               </div>
             </div>
-          </div>
+          
+            {/* ─── NOTIFICACIONES PUSH (Scaffold) ─── */}
+            <div className="pt-6 border-t border-slate-800">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-3 block">
+                Notificaciones Push (Web)
+              </label>
+              <div className="flex items-center justify-between bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                <div>
+                  <p className="text-sm font-bold text-slate-200">Activar Notificaciones en este dispositivo</p>
+                  <p className="text-xs text-slate-400 mt-1">Recibe avisos críticos aunque la app esté cerrada (requiere HTTPS y VAPID keys).</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const perm = await Notification.requestPermission();
+                      if (perm === 'granted') {
+                        alert('Permiso concedido. La suscripción se guardaría en push_subscriptions.');
+                      } else {
+                        alert('Permiso denegado.');
+                      }
+                    } catch (e) {
+                      console.warn(e);
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl text-xs font-bold hover:bg-blue-600/30 transition-colors"
+                >
+                  Solicitar Permiso
+                </button>
+              </div>
+            </div>
+
+            {/* ─── INFORMES PROGRAMADOS (Scaffold) ─── */}
+            <div className="pt-6 border-t border-slate-800">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-3 block">
+                Informes Programados (Email)
+              </label>
+              <div className="space-y-4">
+                <p className="text-xs text-slate-400">
+                  Requiere configurar la Edge Function <code>informe-diario</code> en Supabase y el trigger <code>pg_cron</code>.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] uppercase text-slate-500 font-bold mb-1 block">Email Destinatario</label>
+                    <input
+                      type="email"
+                      placeholder="ej: planta@empresa.com"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase text-slate-500 font-bold mb-1 block">Frecuencia</label>
+                    <select className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+                      <option>Diario (Fin de Turno)</option>
+                      <option>Semanal</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+</div>
         )}
 
         {/* ── PESTAÑA 4: ORDEN DE LA BARRA DE NAVEGACIÓN LATERAL ── */}

@@ -12,6 +12,8 @@ import {
 import { useAppConfig } from '@/services/configService';
 import ChecklistTemplateEditor from '@/components/shared/ChecklistTemplateEditor';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
 
 export default function Checklists() {
   const appConfig = useAppConfig();
@@ -52,6 +54,9 @@ export default function Checklists() {
     if (resL.data) setLineas(resL.data);
     setLoading(false);
   };
+
+    useRealtimeSync('checklist_templates', () => window.dispatchEvent(new CustomEvent('checklists_updated')));
+  useRealtimeSync('checklist_ejecuciones', () => window.dispatchEvent(new CustomEvent('checklists_ejecutados')));
 
   useEffect(() => {
     loadData();

@@ -7,6 +7,8 @@ import { consumoPorDia } from '@/data/mockMaterias';
 import { AlertTriangle, CheckCircle2, TrendingDown, Search, Plus, Pencil, Trash2, RefreshCw, Layers3 } from 'lucide-react';
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
 
 const MATERIAL_FIELDS = [
   { key: 'codigo',           label: 'Código',              type: 'text',   required: true, placeholder: 'CAB-6MM-001' },
@@ -51,6 +53,8 @@ export default function MateriasPrimas() {
     setProductos(resProd?.data || []);
     setLoading(false);
   };
+
+    useRealtimeSync('materias_primas', () => window.dispatchEvent(new CustomEvent('materiales_updated')));
 
   useEffect(() => {
     loadData();

@@ -16,7 +16,7 @@ import {
   fetchScraps, insertScrap, updateScrap, deleteScrap,
   fetchRetencionesCalidad, insertRetencionCalidad, updateRetencionCalidad, deleteRetencionCalidad,
   getCurrentShiftInfo
-} from '@/services/dataService';
+, generarSintesisAutomatica } from '@/services/dataService';
 import { kpisCalidad, evolucionCalidad, calidadPorLinea } from '@/data/mockCalidad';
 import KPICard from '@/components/shared/KPICard';
 import MiniGauge from '@/components/shared/MiniGauge';
@@ -145,6 +145,8 @@ function AccionesFila({ id, confirmDel, setConfirmDel, onEdit, onDelete }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function Calidad() {
   const [activeTab, setActiveTab] = useState('resumen');
+  const [sintesis, setSintesis] = useState('Analizando datos en tiempo real...');
+
   const [loading, setLoading] = useState(true);
 
   // Datos de los 5 catálogos
@@ -180,6 +182,21 @@ export default function Calidad() {
     if (ret.data) setRetenciones(ret.data);
     setLoading(false);
   };
+
+
+  useEffect(() => {
+    const loadSintesis = async () => {
+      const txt = await generarSintesisAutomatica('calidad');
+      setSintesis(txt);
+    };
+    loadSintesis();
+    window.addEventListener('calidad_updated', loadSintesis);
+    window.addEventListener('lineas_updated', loadSintesis); // fallback for dashboard
+    return () => {
+      window.removeEventListener('calidad_updated', loadSintesis);
+      window.removeEventListener('lineas_updated', loadSintesis);
+    };
+  }, []);
 
   useEffect(() => { loadAll(); }, []);
 

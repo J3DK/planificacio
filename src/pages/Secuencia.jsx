@@ -17,6 +17,8 @@ import {
 import StatusBadge from '@/components/shared/StatusBadge';
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
 
 const statusIcon = {
   a_tiempo:  <CheckCircle2 className="w-4 h-4 text-emerald-400" />,
@@ -294,6 +296,8 @@ function ModalIncidencia({ orden, onConfirm, onClose }) {
 function MenuAcciones({ orden, onReasignar, onIncidencia }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+
+    useRealtimeSync('secuencia', () => window.dispatchEvent(new CustomEvent('secuencia_updated')));
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };

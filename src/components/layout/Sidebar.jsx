@@ -91,7 +91,7 @@ export default function Sidebar() {
       list = list.filter(i => ['/', '/panel-operario', '/mantenimiento', '/paradas', '/alertas'].includes(i.path));
     } else if (userRole !== 'admin') {
       // supervisor no ve usuarios
-      list = list.filter(i => i.path !== '/usuarios');
+      list = list.filter(i => i.path !== '/usuarios' && i.path !== '/auditoria');
     }
 
     return list;

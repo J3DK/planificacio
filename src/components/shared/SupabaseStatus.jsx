@@ -30,8 +30,8 @@ export default function SupabaseStatus() {
     <div
       title={
         status === 'online'
-          ? 'Conectado en tiempo real con Supabase DB'
-          : 'Ejecutando en Modo Demo con datos Mock locales de respaldo'
+          ? 'Sincronización multi-dispositivo Realtime activa'
+          : 'Sincronización inactiva. Modo local/fallback'
       }
       className={`flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-bold border transition-all duration-300 ${
         status === 'online'

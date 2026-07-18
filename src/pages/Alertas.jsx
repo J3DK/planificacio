@@ -4,6 +4,8 @@ import { AlertTriangle, Wrench, Clock, TrendingDown, Package, CheckCircle2, BarC
 import { fetchAlertas, insertAlerta, updateAlerta, deleteAlerta } from '@/services/dataService';
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
 
 const iconMap = { AlertTriangle, Wrench, Clock, TrendingDown, Package, CheckCircle: CheckCircle2, BarChart2 };
 const tipoConfig = {
@@ -46,6 +48,8 @@ export default function Alertas() {
     setAlertas(data || []);
     setLoading(false);
   };
+
+    useRealtimeSync('alertas', () => window.dispatchEvent(new CustomEvent('alertas_updated')));
 
   useEffect(() => {
     loadData();

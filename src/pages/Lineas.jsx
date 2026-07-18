@@ -12,6 +12,7 @@ import MiniGauge from '@/components/shared/MiniGauge';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
 const LINEA_FIELDS = [
   { key: 'id',                label: 'ID (ej: L6)',         type: 'text',   required: true, placeholder: 'L6' },
@@ -68,6 +69,11 @@ export default function Lineas() {
     setOperariosList(resOp?.data || []);
     setLoading(false);
   };
+
+  useRealtimeSync('lineas', () => window.dispatchEvent(new CustomEvent('lineas_updated')));
+  useRealtimeSync('paradas', () => window.dispatchEvent(new CustomEvent('paradas_updated')));
+  useRealtimeSync('ordenes_trabajo', () => window.dispatchEvent(new CustomEvent('mantenimiento_updated')));
+  useRealtimeSync('operarios', () => window.dispatchEvent(new CustomEvent('operarios_updated')));
 
   useEffect(() => {
     loadData();
