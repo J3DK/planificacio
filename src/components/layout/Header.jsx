@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, Link } from 'react-router-dom';
-import { Bell, RefreshCw, Clock, Cpu, ShieldCheck } from 'lucide-react';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
+import { Bell, RefreshCw, Clock, Cpu, ShieldCheck, LogOut } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import SupabaseStatus from '@/components/shared/SupabaseStatus';
 import { getCurrentShiftInfo, fetchAlertas } from '@/services/dataService';
 
@@ -28,8 +29,15 @@ const routeTitles = {
 
 export default function Header() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, perfil, signOut } = useAuth();
   const route = routeTitles[location.pathname] || { title: location.pathname, sub: '' };
   const [alertas, setAlertas] = useState([]);
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -112,6 +120,23 @@ export default function Header() {
           }`} />
           <span className="text-xs font-bold">Turno {shiftInfo.shift}</span>
         </div>
+
+        {/* User Profile Block */}
+        {user && perfil && (
+          <div className="flex items-center gap-3 ml-2 pl-4 border-l border-slate-800">
+            <div className="hidden sm:block text-right">
+              <div className="text-xs font-bold text-white leading-tight">{perfil.nombre || user.email?.split('@')[0]}</div>
+              <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">{perfil.rol}</div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors border border-red-500/20"
+              title="Cerrar sesión"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

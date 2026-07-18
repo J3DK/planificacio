@@ -21,6 +21,7 @@ export const DEFAULT_MENU_ITEMS = [
   { path: '/alertas',            label: 'Alertas',              iconName: 'Bell',            visible: true },
   { path: '/metricas',           label: 'Métricas',             iconName: 'SlidersHorizontal', visible: true },
   { path: '/historial',          label: 'Historial',            iconName: 'History',         visible: true },
+  { path: '/usuarios',           label: 'Gestión de Accesos',   iconName: 'Shield',          visible: true },
   { path: '/configuracion',      label: 'Configuración',        iconName: 'Settings',        visible: true },
 ];
 
@@ -95,6 +96,17 @@ export function getAppConfig() {
           currentMenu.splice(mtoIdx + 1, 0, chkItem);
         } else {
           currentMenu.push(chkItem);
+        }
+      }
+
+      // Reconciliación para el módulo de Usuarios (Gestión de Accesos)
+      if (!currentMenu.some(item => item.path === '/usuarios')) {
+        const confIdx = currentMenu.findIndex(item => item.path === '/configuracion');
+        const usuItem = { path: '/usuarios', label: 'Gestión de Accesos', iconName: 'Shield', visible: true };
+        if (confIdx >= 0) {
+          currentMenu.splice(confIdx, 0, usuItem);
+        } else {
+          currentMenu.push(usuItem);
         }
       }
 

@@ -3,16 +3,17 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings, Boxes, Wrench, Award, ListChecks
+  Bell, Menu, X, ChevronRight, Zap, SlidersHorizontal, Cpu, History, Settings, Boxes, Wrench, Award, ListChecks, Shield
 } from 'lucide-react';
 import { alertas } from '@/data/mockAlertas';
 import { useAppConfig } from '@/services/configService';
 import { getCurrentShiftInfo } from '@/services/dataService';
+import { useAuth } from '@/context/AuthContext';
 
 const ICON_MAP = {
   LayoutDashboard, CalendarDays, ListOrdered, Factory, Users, Boxes,
   BarChart2, CheckSquare, StopCircle, Package, FileBarChart,
-  Bell, SlidersHorizontal, Cpu, History, Settings, Wrench, Award, ListChecks
+  Bell, SlidersHorizontal, Cpu, History, Settings, Wrench, Award, ListChecks, Shield
 };
 
 const navItems = [
@@ -44,6 +45,9 @@ export default function Sidebar() {
   const appConfig = useAppConfig();
   const shiftInfo = getCurrentShiftInfo();
 
+  const { perfil } = useAuth();
+  const userRole = perfil?.rol || 'operario';
+
   const activeNavList = useMemo(() => {
     const baseList = (appConfig.menuOrder && Array.isArray(appConfig.menuOrder) && appConfig.menuOrder.length > 0)
       ? appConfig.menuOrder.filter(i => i.visible !== false)
@@ -68,8 +72,30 @@ export default function Sidebar() {
         list.push(chkItem);
       }
     }
+    if (!list.some(i => i.path === '/usuarios')) {
+      const confIdx = list.findIndex(i => i.path === '/configuracion');
+      const usuItem = { path: '/usuarios', label: 'Gestión de Accesos', iconName: 'Shield', visible: true };
+      if (confIdx >= 0) {
+        list.splice(confIdx, 0, usuItem);
+      } else {
+        list.push(usuItem);
+      }
+    }
+
+    // Filtrado de accesos por rol
+    if (userRole === 'operario') {
+      list = list.filter(i => ['/', '/panel-operario', '/alertas'].includes(i.path));
+    } else if (userRole === 'calidad') {
+      list = list.filter(i => ['/', '/panel-operario', '/panel-calidad', '/calidad', '/checklists', '/alertas'].includes(i.path));
+    } else if (userRole === 'mantenimiento') {
+      list = list.filter(i => ['/', '/panel-operario', '/mantenimiento', '/paradas', '/alertas'].includes(i.path));
+    } else if (userRole !== 'admin') {
+      // supervisor no ve usuarios
+      list = list.filter(i => i.path !== '/usuarios');
+    }
+
     return list;
-  }, [appConfig.menuOrder]);
+  }, [appConfig.menuOrder, userRole]);
 
   const alertasNoLeidas = alertas.filter(a => !a.leida).length;
 

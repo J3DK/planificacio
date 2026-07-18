@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { generarAlertasAutomaticas } from '@/services/dataService';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import Dashboard from '@/pages/Dashboard';
@@ -23,6 +24,9 @@ import Productos from '@/pages/Productos';
 import Mantenimiento from '@/pages/Mantenimiento';
 import Checklists from '@/pages/Checklists';
 import Configuracion from '@/pages/Configuracion';
+import Usuarios from '@/pages/Usuarios';
+import Login from '@/pages/Login';
+import { Loader2 } from 'lucide-react';
 
 function Layout({ children }) {
   return (
@@ -36,6 +40,39 @@ function Layout({ children }) {
       </main>
     </div>
   );
+}
+
+// Componente para proteger cualquier ruta que requiera usuario logueado
+function RequireAuth({ children }) {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
+// Componente para proteger rutas sensibles por rol
+function RequireRole({ roles, children }) {
+  const { perfil, loading } = useAuth();
+  
+  if (loading) return null;
+  
+  // Si no hay perfil o su rol no está incluido en la lista permitida, redirigir
+  if (!perfil || !roles.includes(perfil.rol)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
 }
 
 export default function App() {
@@ -63,29 +100,41 @@ export default function App() {
   }, []);
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Layout><Dashboard /></Layout>} />
-        <Route path="/panel-operario" element={<PanelOperario />} />
-        <Route path="/panel-calidad" element={<PanelCalidad />} />
-        <Route path="/operarios" element={<Layout><Operarios /></Layout>} />
-        <Route path="/cualificaciones" element={<Layout><Cualificaciones /></Layout>} />
-        <Route path="/productos" element={<Layout><Productos /></Layout>} />
-        <Route path="/planificacion" element={<Layout><PlanificacionLineas /></Layout>} />
-        <Route path="/secuencia" element={<Layout><Secuencia /></Layout>} />
-        <Route path="/lineas" element={<Layout><Lineas /></Layout>} />
-        <Route path="/produccion" element={<Layout><Produccion /></Layout>} />
-        <Route path="/calidad" element={<Layout><Calidad /></Layout>} />
-        <Route path="/paradas" element={<Layout><Paradas /></Layout>} />
-        <Route path="/mantenimiento" element={<Layout><Mantenimiento /></Layout>} />
-        <Route path="/checklists" element={<Layout><Checklists /></Layout>} />
-        <Route path="/materias-primas" element={<Layout><MateriasPrimas /></Layout>} />
-        <Route path="/informes" element={<Layout><Informes /></Layout>} />
-        <Route path="/alertas" element={<Layout><Alertas /></Layout>} />
-        <Route path="/metricas" element={<Layout><Metricas /></Layout>} />
-        <Route path="/historial" element={<Layout><Historial /></Layout>} />
-        <Route path="/configuracion" element={<Layout><Configuracion /></Layout>} />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          
+          {/* Rutas de Planta (Accesibles para cualquier usuario autenticado) */}
+          <Route path="/panel-operario" element={<RequireAuth><PanelOperario /></RequireAuth>} />
+          <Route path="/panel-calidad" element={<RequireAuth><PanelCalidad /></RequireAuth>} />
+
+          {/* Rutas de Back-Office */}
+          <Route path="/" element={<RequireAuth><Layout><Dashboard /></Layout></RequireAuth>} />
+          <Route path="/operarios" element={<RequireAuth><Layout><Operarios /></Layout></RequireAuth>} />
+          <Route path="/planificacion" element={<RequireAuth><Layout><PlanificacionLineas /></Layout></RequireAuth>} />
+          <Route path="/secuencia" element={<RequireAuth><Layout><Secuencia /></Layout></RequireAuth>} />
+          <Route path="/lineas" element={<RequireAuth><Layout><Lineas /></Layout></RequireAuth>} />
+          <Route path="/produccion" element={<RequireAuth><Layout><Produccion /></Layout></RequireAuth>} />
+          <Route path="/calidad" element={<RequireAuth><Layout><Calidad /></Layout></RequireAuth>} />
+          <Route path="/paradas" element={<RequireAuth><Layout><Paradas /></Layout></RequireAuth>} />
+          <Route path="/checklists" element={<RequireAuth><Layout><Checklists /></Layout></RequireAuth>} />
+          <Route path="/informes" element={<RequireAuth><Layout><Informes /></Layout></RequireAuth>} />
+          <Route path="/alertas" element={<RequireAuth><Layout><Alertas /></Layout></RequireAuth>} />
+          <Route path="/metricas" element={<RequireAuth><Layout><Metricas /></Layout></RequireAuth>} />
+          <Route path="/historial" element={<RequireAuth><Layout><Historial /></Layout></RequireAuth>} />
+
+          {/* Rutas Sensibles - RBAC */}
+          <Route path="/configuracion" element={<RequireAuth><RequireRole roles={['admin', 'supervisor']}><Layout><Configuracion /></Layout></RequireRole></RequireAuth>} />
+          <Route path="/cualificaciones" element={<RequireAuth><RequireRole roles={['admin', 'supervisor']}><Layout><Cualificaciones /></Layout></RequireRole></RequireAuth>} />
+          <Route path="/productos" element={<RequireAuth><RequireRole roles={['admin', 'supervisor']}><Layout><Productos /></Layout></RequireRole></RequireAuth>} />
+          <Route path="/materias-primas" element={<RequireAuth><RequireRole roles={['admin', 'supervisor']}><Layout><MateriasPrimas /></Layout></RequireRole></RequireAuth>} />
+          <Route path="/usuarios" element={<RequireAuth><RequireRole roles={['admin']}><Layout><Usuarios /></Layout></RequireRole></RequireAuth>} />
+          
+          {/* Mantenimiento: Permitir a admin, supervisor y rol de mantenimiento */}
+          <Route path="/mantenimiento" element={<RequireAuth><RequireRole roles={['admin', 'supervisor', 'mantenimiento']}><Layout><Mantenimiento /></Layout></RequireRole></RequireAuth>} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
