@@ -633,7 +633,7 @@ export default function PanelCalidad() {
                       }`}
                     >
                       <div className="flex items-start gap-3.5 max-w-xl">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 mt-0.5 ${
+                        <div className={`h-8 px-2.5 rounded-xl flex items-center justify-center font-black text-xs flex-shrink-0 mt-0.5 whitespace-nowrap ${
                           isOk ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-red-500/30 text-red-400 border border-red-500'
                         }`}>
                           {point.id}
