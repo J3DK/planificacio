@@ -29,6 +29,7 @@ import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { generarInformeOT } from '@/services/reportService';
+import OTDetallePanel from '@/components/mantenimiento/OTDetallePanel';
 
 
 const TAB_OPTIONS = [
@@ -1362,8 +1363,11 @@ export default function Mantenimiento() {
                           <div className="flex justify-between"><span className="text-slate-500">Tiempo / Coste:</span><span className="font-bold text-amber-400">{ot.tiempoReal || ot.tiempoEst} min · {ot.costeTotal} €</span></div>
                         </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-slate-800 w-full justify-end">
-                          <button onClick={() => openEditOt(ot)} className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all flex items-center gap-1">
-                            <Pencil className="w-3 h-3" /> Editar OT
+                          <button onClick={() => openEditOt(ot)} className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all flex items-center gap-1" title="Ver / Editar Ficha">
+                            <Pencil className="w-3 h-3" /> Ficha
+                          </button>
+                          <button onClick={() => generarInformeOT(ot)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 font-bold transition-all flex items-center gap-1" title="Descargar Informe PDF">
+                            <FileText className="w-3.5 h-3.5" /> PDF
                           </button>
                           <button onClick={() => openDeleteOt(ot)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all">
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1418,8 +1422,11 @@ export default function Mantenimiento() {
                           </td>
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              <button onClick={() => openEditOt(ot)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Modificar">
+                              <button onClick={() => openEditOt(ot)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all" title="Ver / Editar Ficha">
                                 <Pencil className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => generarInformeOT(ot)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 transition-all" title="Descargar Informe PDF">
+                                <FileText className="w-4 h-4" />
                               </button>
                               <button onClick={() => openDeleteOt(ot)} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all" title="Eliminar">
                                 <Trash2 className="w-4 h-4" />
@@ -1946,47 +1953,21 @@ export default function Mantenimiento() {
 
       {/* ══════════════ MODALES ══════════════ */}
 
-      {/* OT */}
-      <CrudModal
+      {/* OT - Sustituido por OTDetallePanel */}
+      <OTDetallePanel
         isOpen={otModalOpen}
         onClose={() => { setOtModalOpen(false); setFormOtData(null); }}
         onSave={handleSaveOt}
-        onFormChange={setFormOtData}
-        title={otModalMode === 'create' ? 'Crear Nueva Orden de Trabajo (OT)' : 'Modificar Orden de Trabajo'}
-        fields={otFieldsDynamic}
-        initialData={editOtItem}
+        ot={editOtItem}
+        isCreate={otModalMode === 'create'}
         saving={saving}
-      >
-        {(() => {
-          const techName = formOtData?.tecnico || editOtItem?.tecnico;
-          if (!techName) return null;
-          const opSelected = operariosList.find(o => o.nombre === techName || o.id === techName);
-          if (!opSelected) return null; // Texto libre previo / no catalogado
+        activos={activos}
+        operariosList={operariosList}
+        ots={ots}
+        repuestosList={repuestos}
+        onGenerarPDF={generarInformeOT}
+      />
 
-          const targetLinea = (formOtData?.linea || editOtItem?.linea || '').replace(/ínea\s*/i, 'L').trim();
-          const targetActivo = (formOtData?.activoNombre || editOtItem?.activoNombre || '').toLowerCase();
-          const esCualificado = (opSelected.lineaActualId && (opSelected.lineaActualId === targetLinea || targetLinea.includes(opSelected.lineaActualId))) ||
-            (Array.isArray(opSelected.lineas) && opSelected.lineas.some(l => l === targetLinea || targetLinea.includes(l))) ||
-            (Array.isArray(opSelected.permisos) && opSelected.permisos.some(p => {
-              const eq = (p.equipoId || '').toLowerCase();
-              return eq && (targetActivo.includes(eq) || eq === targetLinea.toLowerCase());
-            })) ||
-            ['electromecánico', 'mantenimiento', 'mecánico', 'eléctrico'].some(r => (opSelected.rol || '').toLowerCase().includes(r));
-
-          if (!esCualificado) {
-            return (
-              <div className="mt-3 p-3.5 bg-amber-500/10 border border-amber-500/40 rounded-xl flex items-start gap-3 text-xs text-amber-300 animate-fade-in shadow-lg">
-                <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                <div className="leading-relaxed">
-                  <span className="font-black text-amber-200 block mb-0.5">Aviso de Especialización / Asignación:</span>
-                  El operario <strong className="text-white font-bold">{opSelected.nombre}</strong> ({opSelected.rol}) no figura con asignación preferente o capacitación específica sobre <strong className="text-white font-mono">{targetLinea || targetActivo || 'esta línea/equipo'}</strong>. Puedes guardar la OT de todas formas si está realizando una intervención de apoyo o urgencia.
-                </div>
-              </div>
-            );
-          }
-          return null;
-        })()}
-      </CrudModal>
 
       {/* Repuesto */}
       <CrudModal isOpen={repModalOpen} onClose={() => setRepModalOpen(false)} onSave={handleSaveRep}
