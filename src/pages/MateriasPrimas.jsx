@@ -2,16 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchMateriasPrimas, fetchProductos, insertMaterial, updateMaterial, deleteMaterial, calcularTodosConsumosComprometidos } from '@/services/dataService';
+import { fetchMateriasPrimas, fetchProductos, insertMaterial, updateMaterial, deleteMaterial, calcularTodosConsumosComprometidos, registrarMovimientoStock } from '@/services/dataService';
 import { consumoPorDia } from '@/data/mockMaterias';
-import { AlertTriangle, CheckCircle2, TrendingDown, Search, Plus, Pencil, Trash2, RefreshCw, Layers3 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, TrendingDown, Search, Plus, Pencil, Trash2, RefreshCw, Layers3, ScanBarcode, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import CrudModal from '@/components/shared/CrudModal';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import LectorCodigoBarras from '@/components/shared/LectorCodigoBarras';
+import { useAuth } from '@/context/AuthContext';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
 
 const MATERIAL_FIELDS = [
-  { key: 'codigo',           label: 'Código',              type: 'text',   required: true, placeholder: 'CAB-6MM-001' },
+  { key: 'codigo',           label: 'Código Interno',      type: 'text',   required: true, placeholder: 'CAB-6MM-001' },
+  { key: 'codigoBarras',     label: 'Cód. Barras (Opcional)', type: 'text', placeholder: 'Ej. 8412345678901' },
   { key: 'descripcion',      label: 'Descripción',         type: 'text',   required: true, placeholder: 'Cable 6mm² negro...' },
   { key: 'imagen',           label: 'Imagen / Foto (Subir archivo)', type: 'image_upload' },
   { key: 'unidad',           label: 'Unidad',              type: 'select', required: true,
@@ -41,6 +44,12 @@ export default function MateriasPrimas() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Estados Lector de Código de Barras
+  const { perfil } = useAuth();
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [stockAdjustmentMaterial, setStockAdjustmentMaterial] = useState(null);
+  const [notFoundCode, setNotFoundCode] = useState(null);
+
   const location = useLocation();
 
   const loadData = async () => {
@@ -52,6 +61,26 @@ export default function MateriasPrimas() {
     setMateriales(resMat?.data || []);
     setProductos(resProd?.data || []);
     setLoading(false);
+  };
+
+  const handleScan = (codigo) => {
+    setNotFoundCode(null);
+    const materialEncontrado = materiales.find(m => 
+      m.codigoBarras === codigo || m.codigo === codigo
+    );
+    if (materialEncontrado) {
+      setStockAdjustmentMaterial(materialEncontrado);
+    } else {
+      setNotFoundCode(codigo);
+    }
+  };
+
+  const openNewMaterialWithCode = (codigo) => {
+    setNotFoundCode(null);
+    setScannerOpen(false);
+    setEditItem({ codigoBarras: codigo });
+    setModalMode('create');
+    setModalOpen(true);
   };
 
     useRealtimeSync('materias_primas', () => window.dispatchEvent(new CustomEvent('materiales_updated')));
@@ -146,6 +175,10 @@ export default function MateriasPrimas() {
           <button onClick={loadData} disabled={loading}
             className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all disabled:opacity-50">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button onClick={() => setScannerOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition-all shadow-lg shadow-indigo-900/30">
+            <ScanBarcode className="w-3.5 h-3.5" /> Escanear código
           </button>
           <button onClick={openCreate}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all shadow-lg shadow-blue-900/30">
@@ -421,10 +454,171 @@ export default function MateriasPrimas() {
             )}
           </div>
         )}
+        
+        {editItem?.codigo && (
+          <div className="space-y-2 mt-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <h4 className="text-xs font-black uppercase text-indigo-400 flex items-center gap-1.5 mb-3">
+              <Layers3 className="w-4 h-4" /> Movimientos recientes
+            </h4>
+            {(!editItem.movimientos || editItem.movimientos.length === 0) ? (
+              <p className="text-xs text-slate-500 italic">No hay historial de movimientos de stock.</p>
+            ) : (
+              <div className="overflow-x-auto max-h-48 overflow-y-auto pr-2">
+                <div className="flex flex-col gap-2 relative">
+                  <div className="absolute left-2.5 top-2 bottom-2 w-px bg-slate-800" />
+                  {editItem.movimientos.map((mov, i) => (
+                    <div key={mov.id || i} className="relative pl-8">
+                      <div className={`absolute left-1.5 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-slate-950 ${mov.tipo === 'entrada' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                      <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-bold text-slate-200">{mov.motivo}</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">
+                            {new Date(mov.fecha).toLocaleString()} • {mov.usuario} • {mov.origen}
+                          </p>
+                        </div>
+                        <div className={`text-xs font-black font-mono ${mov.tipo === 'entrada' ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {mov.tipo === 'entrada' ? '+' : '-'}{mov.cantidad}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </CrudModal>
 
       <ConfirmDialog isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleDelete}
         title="Eliminar Material" message={`Se eliminará "${deleteTarget?.descripcion}" (${deleteTarget?.codigo}). ¿Estás seguro?`} deleting={deleting} />
+
+      {/* MODAL ESCANER */}
+      {scannerOpen && (
+        <LectorCodigoBarras 
+          onClose={() => setScannerOpen(false)}
+          onScan={handleScan}
+        />
+      )}
+
+      {/* MODAL AJUSTE DE STOCK TRAS ESCANEAR */}
+      {stockAdjustmentMaterial && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl p-6 relative animate-fade-in-up">
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex items-center gap-4">
+                {stockAdjustmentMaterial.imagen ? (
+                  <img src={stockAdjustmentMaterial.imagen} alt="Material" className="w-12 h-12 object-cover rounded-xl border border-slate-700 bg-slate-800" />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700 text-slate-400">
+                    <Layers3 className="w-6 h-6" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-white font-black">{stockAdjustmentMaterial.codigo}</h3>
+                  <p className="text-xs text-slate-400 line-clamp-1">{stockAdjustmentMaterial.descripcion}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase font-bold text-slate-500">Stock Actual</p>
+                <p className="text-xl font-black font-mono text-white">{stockAdjustmentMaterial.stockActual}</p>
+              </div>
+            </div>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const tipo = formData.get('tipo');
+              const cantidad = formData.get('cantidad');
+              const motivo = formData.get('motivo');
+              
+              if (!cantidad || Number(cantidad) <= 0) return;
+              
+              setSaving(true);
+              const { error } = await registrarMovimientoStock(stockAdjustmentMaterial.id, {
+                tipo,
+                cantidad,
+                motivo,
+                origen: 'escaner',
+                usuario: perfil?.nombre || 'Operario'
+              });
+              setSaving(false);
+              
+              if (!error) {
+                setStockAdjustmentMaterial(null);
+                // No cerramos el scannerOpen, permitiendo lecturas consecutivas (pero el lector ya estaba oculto si hay modal? No, el lector sigue ahí de fondo)
+              }
+            }}>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="cursor-pointer">
+                    <input type="radio" name="tipo" value="entrada" defaultChecked className="peer sr-only" />
+                    <div className="p-3 border border-slate-700 rounded-xl flex flex-col items-center gap-2 peer-checked:bg-emerald-500/20 peer-checked:border-emerald-500 peer-checked:text-emerald-400 text-slate-400 transition-all">
+                      <ArrowDownToLine className="w-5 h-5" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Entrada</span>
+                    </div>
+                  </label>
+                  <label className="cursor-pointer">
+                    <input type="radio" name="tipo" value="salida" className="peer sr-only" />
+                    <div className="p-3 border border-slate-700 rounded-xl flex flex-col items-center gap-2 peer-checked:bg-red-500/20 peer-checked:border-red-500 peer-checked:text-red-400 text-slate-400 transition-all">
+                      <ArrowUpFromLine className="w-5 h-5" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Salida</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Cantidad ({stockAdjustmentMaterial.unidad})</label>
+                  <input type="number" name="cantidad" required min="1" step="0.01" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono" placeholder="0.00" autoFocus />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Motivo / Albarán (Opcional)</label>
+                  <input type="text" name="motivo" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm" placeholder="Ej. Recepción pedido #1234" />
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button type="button" onClick={() => setStockAdjustmentMaterial(null)} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-slate-400 hover:bg-slate-800 transition-all border border-slate-700">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-900/40 transition-all disabled:opacity-50">
+                  {saving ? 'Registrando...' : 'Confirmar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* AVISO: CODIGO NO RECONOCIDO */}
+      {notFoundCode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-red-500/30 rounded-3xl w-full max-w-sm shadow-2xl p-6 text-center animate-fade-in-up">
+            <div className="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/50">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-black text-white mb-2">Código no reconocido</h3>
+            <p className="text-slate-400 text-sm mb-6">
+              El código escaneado <strong className="text-white font-mono">{notFoundCode}</strong> no existe en el catálogo.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => openNewMaterialWithCode(notFoundCode)}
+                className="w-full py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+              >
+                Dar de alta nuevo material
+              </button>
+              <button 
+                onClick={() => setNotFoundCode(null)}
+                className="w-full py-2.5 rounded-xl font-bold border border-slate-700 text-slate-400 hover:bg-slate-800 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

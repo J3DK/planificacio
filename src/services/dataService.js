@@ -204,6 +204,7 @@ export function mapMaterial(m) {
   if (img && !m.imagen) m.imagen = img;
   return {
     ...m,
+    codigoBarras: m.codigo_barras || m.codigoBarras || null,
     stockActual: m.stock_actual ?? m.stockActual ?? 0,
     stockMinimo: m.stock_minimo ?? m.stockMinimo ?? 0,
     stockMaximo: m.stock_maximo ?? m.stockMaximo ?? 0,
@@ -211,6 +212,7 @@ export function mapMaterial(m) {
     fechaEntrega: m.fecha_entrega ?? m.fechaEntrega,
     stockReservado: m.stock_reservado ?? m.stockReservado ?? 0,
     imagen: img,
+    movimientos: m.movimientos || []
   };
 }
 
@@ -272,6 +274,7 @@ function materialToDb(m) {
   return {
     id: m.id,
     codigo: m.codigo,
+    codigo_barras: m.codigoBarras,
     descripcion: m.descripcion,
     unidad: m.unidad,
     stock_actual: m.stockActual ?? m.stock_actual ?? 0,
@@ -283,6 +286,7 @@ function materialToDb(m) {
     proveedor: m.proveedor,
     stock_reservado: m.stockReservado ?? m.stock_reservado ?? 0,
     imagen: m.imagen,
+    movimientos: m.movimientos || []
   };
 }
 
@@ -1019,6 +1023,54 @@ export async function updateMaterial(id, material) {
   }
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('materiales_updated'));
   return { data: updated || mapMaterial({ id, ...nextMat }), error: null };
+}
+
+export async function registrarMovimientoStock(materialId, { tipo, cantidad, motivo, origen = 'manual', usuario }) {
+  const local = (getMateriasLocal() || mockMateriasPrimas.map(mapMaterial));
+  const mat = local.find(m => m.id === materialId);
+  if (!mat) return { error: 'Material no encontrado' };
+
+  const cantidadNum = Number(cantidad) || 0;
+  if (cantidadNum <= 0) return { error: 'Cantidad inválida' };
+
+  let nextStock = Number(mat.stockActual) || 0;
+  if (tipo === 'entrada') {
+    nextStock += cantidadNum;
+  } else if (tipo === 'salida') {
+    nextStock = Math.max(0, nextStock - cantidadNum);
+  }
+
+  const nuevoMovimiento = {
+    id: `mov_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+    fecha: new Date().toISOString(),
+    tipo,
+    cantidad: cantidadNum,
+    motivo: motivo || (tipo === 'entrada' ? 'Ajuste de entrada' : 'Ajuste de salida'),
+    origen,
+    usuario: usuario || 'Desconocido'
+  };
+
+  const nextMovimientos = [nuevoMovimiento, ...(mat.movimientos || [])];
+  
+  const result = await updateMaterial(materialId, { 
+    stockActual: nextStock, 
+    movimientos: nextMovimientos 
+  });
+
+  // Registrar auditoría si está disponible
+  try {
+    const { registrarAuditoria } = await import('./dataService');
+    if (typeof registrarAuditoria === 'function') {
+      registrarAuditoria({
+        tabla: 'materias_primas',
+        registroId: materialId,
+        accion: 'MODIFICAR_STOCK',
+        cambios: { tipo, cantidad: cantidadNum, nuevoStock: nextStock, motivo: nuevoMovimiento.motivo }
+      });
+    }
+  } catch(e) {}
+
+  return result;
 }
 
 export async function deleteMaterial(id) {
