@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAppConfig } from '@/services/configService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import {

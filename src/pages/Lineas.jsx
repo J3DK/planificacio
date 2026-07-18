@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useAppConfig } from '@/services/configService';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity, Zap, AlertTriangle, Wrench, ChevronRight, RefreshCw, Plus,
