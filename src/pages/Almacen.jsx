@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Warehouse, ArrowDownToLine, MapPin, Scale, Search, Plus, ListTree, RefreshCw, Pencil, Trash2, ShieldAlert,
-  ArrowLeftRight, FileWarning, Eye, AlertTriangle, ScanBarcode, ArrowRight
+  ArrowLeftRight, FileWarning, Eye, AlertTriangle, ScanBarcode, ArrowRight, CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { 

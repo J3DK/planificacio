@@ -105,7 +105,7 @@ ON CONFLICT DO NOTHING;
 
 -- 4. TABLA: secuencia (Secuencia de Fabricación MTO)
 CREATE TABLE IF NOT EXISTS public.secuencia (
-  id INTEGER PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   secuencia INTEGER NOT NULL,
   referencia TEXT NOT NULL,
   cliente TEXT NOT NULL,
@@ -183,7 +183,7 @@ ON CONFLICT DO NOTHING;
 
 -- 7. TABLA: materias_primas (Inventario de Materiales)
 CREATE TABLE IF NOT EXISTS public.materias_primas (
-  id INTEGER PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   codigo TEXT NOT NULL,
   descripcion TEXT NOT NULL,
   unidad TEXT NOT NULL,
@@ -194,6 +194,12 @@ CREATE TABLE IF NOT EXISTS public.materias_primas (
   fecha_entrega TEXT,
   criticidad TEXT NOT NULL DEFAULT 'baja',
   proveedor TEXT,
+  imagen TEXT,
+  stock_reservado NUMERIC DEFAULT 0,
+  codigo_barras TEXT,
+  coste_unitario NUMERIC DEFAULT 0,
+  ubicacion_id TEXT,
+  movimientos JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

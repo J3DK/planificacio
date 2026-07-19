@@ -64,6 +64,9 @@ DO $$ BEGIN
   ALTER TABLE public.materias_primas ADD COLUMN IF NOT EXISTS imagen TEXT;
   ALTER TABLE public.materias_primas ADD COLUMN IF NOT EXISTS stock_reservado NUMERIC DEFAULT 0;
   ALTER TABLE public.materias_primas ADD COLUMN IF NOT EXISTS codigo_barras TEXT;
+  ALTER TABLE public.materias_primas ADD COLUMN IF NOT EXISTS coste_unitario NUMERIC DEFAULT 0;
+  ALTER TABLE public.materias_primas ADD COLUMN IF NOT EXISTS ubicacion_id TEXT;
+  ALTER TABLE public.materias_primas ADD COLUMN IF NOT EXISTS movimientos JSONB DEFAULT '[]'::jsonb;
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 
