@@ -203,7 +203,7 @@ export default function LectorCodigoBarras({ onScan, onClose }) {
                   autoFocus
                   onKeyDown={handleUsbKeyDown}
                   className="absolute opacity-0 pointer-events-none" 
-                  aria-hidden="true"
+                  aria-label="Lector de código de barras USB"
                 />
               </div>
             )}
