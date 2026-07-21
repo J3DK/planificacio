@@ -32,6 +32,8 @@ import Login from '@/pages/Login';
 import EscanerMovil from '@/pages/EscanerMovil';
 import { Loader2 } from 'lucide-react';
 
+import AsistenteMES from '@/components/shared/AsistenteMES';
+
 function Layout({ children }) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
@@ -42,6 +44,7 @@ function Layout({ children }) {
           {children}
         </div>
       </main>
+      <AsistenteMES />
     </div>
   );
 }
