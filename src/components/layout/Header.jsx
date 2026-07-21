@@ -4,6 +4,7 @@ import { Bell, RefreshCw, Clock, Cpu, ShieldCheck, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import SupabaseStatus from '@/components/shared/SupabaseStatus';
 import { getCurrentShiftInfo, fetchAlertas } from '@/services/dataService';
+import { useAppConfig } from '@/services/configService';
 
 const routeTitles = {
   '/':              { title: 'Dashboard · Resumen',           sub: 'Plan Maestro de Producción — MPS' },
@@ -31,6 +32,7 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, perfil, signOut } = useAuth();
+  const appConfig = useAppConfig();
   const route = routeTitles[location.pathname] || { title: location.pathname, sub: '' };
   const [alertas, setAlertas] = useState([]);
 
@@ -66,24 +68,28 @@ export default function Header() {
       {/* Right actions */}
       <div className="flex items-center gap-2 flex-shrink-0">
         {/* Botón rápido Terminal Operario */}
-        <Link
-          to="/panel-operario"
-          className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs px-3 py-1.5 rounded-lg shadow-md shadow-blue-900/30 transition-all active:scale-95"
-          title="Abrir Terminal de Operario (Modo Planta Independiente)"
-        >
-          <Cpu className="w-3.5 h-3.5 animate-pulse" />
-          <span className="hidden sm:inline">Modo Operario</span>
-        </Link>
+        {appConfig.habilitarModoOperario !== false && (
+          <Link
+            to="/panel-operario"
+            className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs px-3 py-1.5 rounded-lg shadow-md shadow-blue-900/30 transition-all active:scale-95"
+            title="Abrir Terminal de Operario (Modo Planta Independiente)"
+          >
+            <Cpu className="w-3.5 h-3.5 animate-pulse" />
+            <span className="hidden sm:inline">Modo Operario</span>
+          </Link>
+        )}
 
         {/* Botón rápido Terminal Calidad */}
-        <Link
-          to="/panel-calidad"
-          className="flex items-center gap-1.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs px-3 py-1.5 rounded-lg shadow-md shadow-red-900/30 transition-all active:scale-95"
-          title="Abrir Terminal de Calidad e Inspección en Planta"
-        >
-          <ShieldCheck className="w-3.5 h-3.5 animate-pulse" />
-          <span className="hidden sm:inline">Modo Calidad</span>
-        </Link>
+        {appConfig.habilitarModoCalidad !== false && (
+          <Link
+            to="/panel-calidad"
+            className="flex items-center gap-1.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs px-3 py-1.5 rounded-lg shadow-md shadow-red-900/30 transition-all active:scale-95"
+            title="Abrir Terminal de Calidad e Inspección en Planta"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 animate-pulse" />
+            <span className="hidden sm:inline">Modo Calidad</span>
+          </Link>
+        )}
 
         {/* Clock */}
         <div className="hidden sm:flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5">

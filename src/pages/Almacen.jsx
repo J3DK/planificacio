@@ -9,7 +9,8 @@ import { useAuth } from '@/context/AuthContext';
 import { 
   fetchMateriasPrimas, fetchProductos, fetchUbicaciones, fetchEntradasMercancia, 
   updateUbicacion, deleteUbicacion, insertEntradaMercancia, updateEntradaMercancia,
-  registrarMovimientoStock, calcularCosteEscandallo, updateMaterial, updateProducto 
+  registrarMovimientoStock, calcularCosteEscandallo, updateMaterial, updateProducto,
+  predecirAgotamientoStock
 } from '@/services/dataService';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
@@ -38,7 +39,12 @@ export default function Almacen() {
       fetchUbicaciones(),
       fetchEntradasMercancia()
     ]);
-    setMateriales(resMat?.data || []);
+    const rawMats = resMat?.data || [];
+    const matsConPred = await Promise.all(rawMats.map(async m => {
+      const dias = await predecirAgotamientoStock(m.id);
+      return { ...m, diasAgotamiento: dias };
+    }));
+    setMateriales(matsConPred);
     setProductos(resProd?.data || []);
     setUbicaciones(resUbi?.data || []);
     setEntradas(resEnt?.data || []);
@@ -809,7 +815,14 @@ function TabStock({ materiales, ubicaciones }) {
                   <tr key={m.id} className="hover:bg-slate-800/20">
                     <td className="p-3 font-bold text-white">{m.codigo}</td>
                     <td className="p-3 text-slate-400">{ubi ? ubi.codigo : 'Sin asignar'}</td>
-                    <td className="p-3 text-right font-mono font-bold">{m.stockActual} {m.unidad}</td>
+                    <td className="p-3 text-right font-mono font-bold">
+                      {m.stockActual} {m.unidad}
+                      {m.diasAgotamiento !== null && m.diasAgotamiento !== undefined && (
+                        <div className="text-[9px] text-blue-400 font-sans font-bold uppercase mt-1">
+                          ~{m.diasAgotamiento} días
+                        </div>
+                      )}
+                    </td>
                     <td className="p-3 text-right font-mono text-emerald-400">{valor.toFixed(2)}</td>
                   </tr>
                 );

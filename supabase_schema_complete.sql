@@ -250,3 +250,60 @@ VALUES
   ('causas_desviacion',      'Causas de Desviación',       'Top causas de desvío en el turno actual',   false, 8, null,  null,            'PieChart')
 ON CONFLICT (id) DO NOTHING;
 
+
+-- ──────────────────────────────────────────────────────────────────────────────
+-- BLOQUE A - TABLAS KAIZEN, SMED Y 5S (LEAN)
+-- ──────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.kaizen (
+  id TEXT PRIMARY KEY,
+  titulo TEXT NOT NULL,
+  descripcion TEXT,
+  linea TEXT,
+  categoria TEXT,
+  proponente TEXT,
+  fecha TIMESTAMPTZ DEFAULT now(),
+  estado TEXT DEFAULT 'propuesta',
+  "impactoEstimado" TEXT,
+  "ahorroEstimado" NUMERIC,
+  fotos JSONB DEFAULT '[]',
+  evaluador TEXT,
+  "fechaEvaluacion" TIMESTAMPTZ,
+  "comentarioEvaluacion" TEXT,
+  "fechaImplementacion" TIMESTAMPTZ
+);
+ALTER TABLE public.kaizen ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso total a kaizen" ON public.kaizen;
+CREATE POLICY "Acceso total a kaizen" ON public.kaizen FOR ALL USING (true) WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.kaizen;
+
+CREATE TABLE IF NOT EXISTS public.cambios_formato (
+  id TEXT PRIMARY KEY,
+  linea TEXT,
+  "ordenAnteriorId" TEXT,
+  "productoAnterior" TEXT,
+  "ordenNuevaId" TEXT,
+  "productoNuevo" TEXT,
+  "fechaInicio" TIMESTAMPTZ,
+  "fechaFin" TIMESTAMPTZ,
+  "duracionMinutos" NUMERIC,
+  "operarioId" TEXT,
+  "tipoCambio" TEXT
+);
+ALTER TABLE public.cambios_formato ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso total a cambios_formato" ON public.cambios_formato;
+CREATE POLICY "Acceso total a cambios_formato" ON public.cambios_formato FOR ALL USING (true) WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.cambios_formato;
+
+CREATE TABLE IF NOT EXISTS public.auditorias_5s (
+  id TEXT PRIMARY KEY,
+  linea TEXT,
+  "templateId" TEXT,
+  operario TEXT,
+  fecha TIMESTAMPTZ DEFAULT now(),
+  resultados JSONB DEFAULT '[]',
+  "puntuacionGlobal" NUMERIC
+);
+ALTER TABLE public.auditorias_5s ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso total a auditorias_5s" ON public.auditorias_5s;
+CREATE POLICY "Acceso total a auditorias_5s" ON public.auditorias_5s FOR ALL USING (true) WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.auditorias_5s;

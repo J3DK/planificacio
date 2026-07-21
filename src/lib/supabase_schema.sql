@@ -1,16 +1,16 @@
--- ==============================================================================
+﻿-- ==============================================================================
 -- SISTEMA MES BASE44 - ESQUEMA COMPLETO DE BASE DE DATOS PARA SUPABASE
 -- ==============================================================================
--- Instrucciones de ejecución:
+-- Instrucciones de ejecuciÃ³n:
 -- 1. Ve a tu proyecto en https://supabase.com -> Editor de SQL (SQL Editor).
 -- 2. Crea una nueva consulta ("New Query"), pega todo este script y pulsa "Run".
 -- 3. Este script es "idempotente" (usa CREATE TABLE IF NOT EXISTS y ADD COLUMN),
 --    por lo que puedes ejecutarlo tanto en bases de datos nuevas como existentes.
 -- ==============================================================================
 
--- ──────────────────────────────────────────────────────────────────────────────
--- 1. TABLA DE PRODUCTOS Y REFERENCIAS DE FABRICACIÓN (BOM + IMAGEN)
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- 1. TABLA DE PRODUCTOS Y REFERENCIAS DE FABRICACIÃ“N (BOM + IMAGEN)
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.productos (
   id TEXT PRIMARY KEY,
   codigo TEXT UNIQUE NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.productos (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Si la tabla ya existía anteriormente, garantizamos las columnas nuevas:
+-- Si la tabla ya existÃ­a anteriormente, garantizamos las columnas nuevas:
 DO $$ BEGIN
   ALTER TABLE public.productos ADD COLUMN IF NOT EXISTS imagen TEXT;
   ALTER TABLE public.productos ADD COLUMN IF NOT EXISTS bom JSONB DEFAULT '[]'::jsonb;
@@ -39,9 +39,9 @@ DO $$ BEGIN
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- 2. TABLA DE MATERIAS PRIMAS / COMPONENTES BOM (CON IMAGEN)
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.materias_primas (
   id TEXT PRIMARY KEY,
   codigo TEXT UNIQUE NOT NULL,
@@ -70,15 +70,15 @@ DO $$ BEGIN
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 
--- ──────────────────────────────────────────────────────────────────────────────
--- 3. TABLA DE LÍNEAS DE PRODUCCIÓN Y ESTADO OEE
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- 3. TABLA DE LÃNEAS DE PRODUCCIÃ“N Y ESTADO OEE
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.lineas (
   id TEXT PRIMARY KEY,
   nombre TEXT NOT NULL,
   descripcion TEXT,
   estado TEXT DEFAULT 'Inactiva',
-  turno TEXT DEFAULT 'Mañana',
+  turno TEXT DEFAULT 'MaÃ±ana',
   operarios INTEGER DEFAULT 0,
   oee NUMERIC DEFAULT 0,
   disponibilidad NUMERIC DEFAULT 0,
@@ -97,9 +97,9 @@ CREATE TABLE IF NOT EXISTS public.lineas (
 );
 
 
--- ──────────────────────────────────────────────────────────────────────────────
--- 4. TABLA DE SECUENCIA Y ÓRDENES DE PRODUCCIÓN
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- 4. TABLA DE SECUENCIA Y Ã“RDENES DE PRODUCCIÃ“N
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.secuencia (
   id TEXT PRIMARY KEY,
   secuencia INTEGER DEFAULT 1,
@@ -124,9 +124,9 @@ CREATE TABLE IF NOT EXISTS public.secuencia (
 );
 
 
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- 5. TABLA DE ALERTAS MES
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.alertas (
   id TEXT PRIMARY KEY,
   tipo TEXT NOT NULL,
@@ -141,9 +141,9 @@ CREATE TABLE IF NOT EXISTS public.alertas (
 );
 
 
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- 6. TABLA DE REGISTRO DE PARADAS Y MOTIVOS
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.paradas (
   id TEXT PRIMARY KEY,
   linea TEXT NOT NULL,
@@ -160,9 +160,9 @@ CREATE TABLE IF NOT EXISTS public.paradas (
 );
 
 
--- ──────────────────────────────────────────────────────────────────────────────
--- 7. TABLA DE CATÁLOGO DE PARADAS PREDETERMINADAS
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- 7. TABLA DE CATÃLOGO DE PARADAS PREDETERMINADAS
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.paradas_predeterminadas (
   id TEXT PRIMARY KEY,
   codigo TEXT UNIQUE NOT NULL,
@@ -175,9 +175,9 @@ CREATE TABLE IF NOT EXISTS public.paradas_predeterminadas (
 );
 
 
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- 8. TABLA DE CONTROL DE CALIDAD Y DEFECTOS
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.calidad (
   id TEXT PRIMARY KEY,
   codigo TEXT UNIQUE NOT NULL,
@@ -196,14 +196,14 @@ CREATE TABLE IF NOT EXISTS public.calidad (
 );
 
 
--- ──────────────────────────────────────────────────────────────────────────────
--- 9. TABLA DE HISTÓRICO DE PRODUCCIÓN POR HORA
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- 9. TABLA DE HISTÃ“RICO DE PRODUCCIÃ“N POR HORA
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.produccion (
   id TEXT PRIMARY KEY,
   linea TEXT NOT NULL,
   producto TEXT,
-  turno TEXT DEFAULT 'Mañana',
+  turno TEXT DEFAULT 'MaÃ±ana',
   hora TEXT,
   cantidad_producida NUMERIC DEFAULT 0,
   objetivo_hora NUMERIC DEFAULT 0,
@@ -218,9 +218,9 @@ CREATE TABLE IF NOT EXISTS public.produccion (
 );
 
 
--- ──────────────────────────────────────────────────────────────────────────────
--- 10. TABLA DE CONFIGURACIÓN DE MÉTRICAS / KPIS
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- 10. TABLA DE CONFIGURACIÃ“N DE MÃ‰TRICAS / KPIS
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.metricas_config (
   id TEXT PRIMARY KEY,
   nombre TEXT UNIQUE NOT NULL,
@@ -234,16 +234,16 @@ CREATE TABLE IF NOT EXISTS public.metricas_config (
 );
 
 
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- 11. TABLA DE OPERARIOS Y PLANTILLA
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.operarios (
   id TEXT PRIMARY KEY,
   nombre TEXT NOT NULL,
   apellidos TEXT,
-  puesto TEXT DEFAULT 'Operario de Línea',
+  puesto TEXT DEFAULT 'Operario de LÃ­nea',
   linea_asignada TEXT,
-  turno TEXT DEFAULT 'Mañana',
+  turno TEXT DEFAULT 'MaÃ±ana',
   eficiencia NUMERIC DEFAULT 100,
   horas_trabajadas NUMERIC DEFAULT 8,
   activo BOOLEAN DEFAULT true,
@@ -252,9 +252,9 @@ CREATE TABLE IF NOT EXISTS public.operarios (
 );
 
 
--- ──────────────────────────────────────────────────────────────────────────────
--- 12. TABLA DE ÓRDENES DE TRABAJO (MANTENIMIENTO)
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- 12. TABLA DE Ã“RDENES DE TRABAJO (MANTENIMIENTO)
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.ordenes_trabajo (
   id TEXT PRIMARY KEY,
   codigo TEXT UNIQUE NOT NULL,
@@ -272,9 +272,9 @@ CREATE TABLE IF NOT EXISTS public.ordenes_trabajo (
 );
 
 
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- 13. TABLA DE ACTIVOS DE MANTENIMIENTO (MAQUINARIA)
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.activos_mantenimiento (
   id TEXT PRIMARY KEY,
   codigo TEXT UNIQUE NOT NULL,
@@ -293,7 +293,7 @@ CREATE TABLE IF NOT EXISTS public.activos_mantenimiento (
 
 
 -- ==============================================================================
--- SEGURIDAD (ROW LEVEL SECURITY - RLS) Y POLÍTICAS DE ACCESO PÚBLICO
+-- SEGURIDAD (ROW LEVEL SECURITY - RLS) Y POLÃTICAS DE ACCESO PÃšBLICO
 -- ==============================================================================
 -- Habilitamos RLS en todas las tablas y otorgamos acceso completo (SELECT, INSERT, UPDATE, DELETE)
 -- para llamadas desde la API REST (anon / authenticated).
@@ -309,15 +309,72 @@ BEGIN
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', t);
     
-    -- Si la política ya existe la borramos y la recreamos para evitar errores:
+    -- Si la polÃ­tica ya existe la borramos y la recreamos para evitar errores:
     EXECUTE format('DROP POLICY IF EXISTS "Acceso total publico para MES %I" ON public.%I;', t, t);
     EXECUTE format('CREATE POLICY "Acceso total publico para MES %I" ON public.%I FOR ALL USING (true) WITH CHECK (true);', t, t);
   END LOOP;
 END $$;
 
--- Permisos de lectura y escritura para el rol público anon en el esquema:
+-- Permisos de lectura y escritura para el rol pÃºblico anon en el esquema:
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
 
--- ¡Listo! Esquema completo configurado y preparado para sincronización con MES Base44.
+-- Â¡Listo! Esquema completo configurado y preparado para sincronizaciÃ³n con MES Base44.
+
+-- ------------------------------------------------------------------------------
+-- BLOQUE A - TABLAS KAIZEN, SMED Y 5S (LEAN)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.kaizen (
+  id TEXT PRIMARY KEY,
+  titulo TEXT NOT NULL,
+  descripcion TEXT,
+  linea TEXT,
+  categoria TEXT,
+  proponente TEXT,
+  fecha TIMESTAMPTZ DEFAULT now(),
+  estado TEXT DEFAULT 'propuesta',
+  "impactoEstimado" TEXT,
+  "ahorroEstimado" NUMERIC,
+  fotos JSONB DEFAULT '[]',
+  evaluador TEXT,
+  "fechaEvaluacion" TIMESTAMPTZ,
+  "comentarioEvaluacion" TEXT,
+  "fechaImplementacion" TIMESTAMPTZ
+);
+ALTER TABLE public.kaizen ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso total a kaizen" ON public.kaizen;
+CREATE POLICY "Acceso total a kaizen" ON public.kaizen FOR ALL USING (true) WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.kaizen;
+
+CREATE TABLE IF NOT EXISTS public.cambios_formato (
+  id TEXT PRIMARY KEY,
+  linea TEXT,
+  "ordenAnteriorId" TEXT,
+  "productoAnterior" TEXT,
+  "ordenNuevaId" TEXT,
+  "productoNuevo" TEXT,
+  "fechaInicio" TIMESTAMPTZ,
+  "fechaFin" TIMESTAMPTZ,
+  "duracionMinutos" NUMERIC,
+  "operarioId" TEXT,
+  "tipoCambio" TEXT
+);
+ALTER TABLE public.cambios_formato ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso total a cambios_formato" ON public.cambios_formato;
+CREATE POLICY "Acceso total a cambios_formato" ON public.cambios_formato FOR ALL USING (true) WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.cambios_formato;
+
+CREATE TABLE IF NOT EXISTS public.auditorias_5s (
+  id TEXT PRIMARY KEY,
+  linea TEXT,
+  "templateId" TEXT,
+  operario TEXT,
+  fecha TIMESTAMPTZ DEFAULT now(),
+  resultados JSONB DEFAULT '[]',
+  "puntuacionGlobal" NUMERIC
+);
+ALTER TABLE public.auditorias_5s ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso total a auditorias_5s" ON public.auditorias_5s;
+CREATE POLICY "Acceso total a auditorias_5s" ON public.auditorias_5s FOR ALL USING (true) WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.auditorias_5s;

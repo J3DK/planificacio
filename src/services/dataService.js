@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+﻿import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { lineas as mockLineas } from '@/data/mockLineas';
 import { alertas as mockAlertas } from '@/data/mockAlertas';
 import { paradasTurno as mockParadas, paradasPredeterminadasIniciales } from '@/data/mockParadas';
@@ -19,18 +19,18 @@ import { mockKaizen } from '@/data/mockKaizen';
 import { mockCambiosFormato } from '@/data/mockCambiosFormato';
 import { mockTiemposCambioEstandar } from '@/data/mockTiemposCambioEstandar';
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function getCurrentShiftInfo() {
   const now = new Date();
   const hrs = now.getHours();
   const mins = now.getMinutes();
 
-  let shift = 'Mañana';
+  let shift = 'MaÃ±ana';
   let startHr = 6;
   let endHr = 14;
-  let label = 'Mañana (06:00 - 14:00)';
-  let shortLabel = 'Mañana 06:00-14:00';
+  let label = 'MaÃ±ana (06:00 - 14:00)';
+  let shortLabel = 'MaÃ±ana 06:00-14:00';
 
   if (hrs >= 14 && hrs < 22) {
     shift = 'Tarde';
@@ -55,12 +55,12 @@ export function getCurrentShiftInfo() {
   const dateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   return {
-    shift,        // 'Mañana' | 'Tarde' | 'Noche'
+    shift,        // 'MaÃ±ana' | 'Tarde' | 'Noche'
     startHr,      // 6 | 14 | 22
     endHr,        // 14 | 22 | 6
-    label,        // 'Mañana (06:00 - 14:00)' | 'Tarde (14:00 - 22:00)' | 'Noche (22:00 - 06:00)'
-    shortLabel,   // 'Mañana 06:00-14:00' | 'Tarde 14:00-22:00' | 'Noche 22:00-06:00'
-    horario: `${startHr.toString().padStart(2, '0')}:00 — ${endHr.toString().padStart(2, '0')}:00`,
+    label,        // 'MaÃ±ana (06:00 - 14:00)' | 'Tarde (14:00 - 22:00)' | 'Noche (22:00 - 06:00)'
+    shortLabel,   // 'MaÃ±ana 06:00-14:00' | 'Tarde 14:00-22:00' | 'Noche 22:00-06:00'
+    horario: `${startHr.toString().padStart(2, '0')}:00 â€” ${endHr.toString().padStart(2, '0')}:00`,
     tiempoRestante,
     tiempoRestanteLabel: `Hasta fin de turno ${endHr.toString().padStart(2, '0')}:00`,
     dateStr
@@ -134,7 +134,7 @@ export function setImagenGuardada(key, dataUrl) {
     try {
       localStorage.setItem('mes_imagenes_asociadas', JSON.stringify(map));
     } catch (e) {
-      // QuotaExceededError: Liberar espacio borrando las entradas más pesadas y antiguas (excepto la actual)
+      // QuotaExceededError: Liberar espacio borrando las entradas mÃ¡s pesadas y antiguas (excepto la actual)
       const keys = Object.keys(map).filter(k => k !== key && k !== String(key));
       keys.sort((a, b) => (map[b]?.length || 0) - (map[a]?.length || 0));
       for (let i = 0; i < Math.ceil(keys.length / 2); i++) {
@@ -186,7 +186,7 @@ export async function setImagenesGuardadas(key, arrayDataUrls) {
       }
     }
   } catch (err) {
-    console.error('Error al guardar array de imágenes:', err);
+    console.error('Error al guardar array de imÃ¡genes:', err);
   }
 }
 
@@ -316,20 +316,20 @@ function secuenciaToDb(s) {
   };
 }
 
-// ─── DEFAULT METRICAS ────────────────────────────────────────────────────────
+// â”€â”€â”€ DEFAULT METRICAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const DEFAULT_METRICAS = [
   { id: 'cumplimiento_plan',      widget_nombre: 'Cumplimiento Plan',          descripcion: 'Porcentaje de cumplimiento del plan maestro', activo: true,  orden: 1, umbral: 98.0,  umbral_label: '% objetivo',   icono: 'TrendingUp' },
-  { id: 'produccion_vs_plan',     widget_nombre: 'Producción vs Plan',         descripcion: 'Gráfico de producción real vs planificada',  activo: true,  orden: 2, umbral: null,  umbral_label: null,           icono: 'BarChart2' },
-  { id: 'oee_planta',             widget_nombre: 'OEE Planta',                 descripcion: 'OEE agregado de todas las líneas activas',  activo: true,  orden: 3, umbral: 85.0,  umbral_label: '% mínimo OEE', icono: 'Activity' },
-  { id: 'alertas_criticas',       widget_nombre: 'Alertas Críticas',           descripcion: 'Número de alertas críticas activas',         activo: true,  orden: 4, umbral: null,  umbral_label: null,           icono: 'AlertTriangle' },
-  { id: 'velocidad_linea',        widget_nombre: 'Velocidad de Línea',         descripcion: 'Ritmo real vs ritmo objetivo (uds/h)',       activo: true,  orden: 5, umbral: null,  umbral_label: null,           icono: 'Zap' },
-  { id: 'produccion_por_hora',    widget_nombre: 'Producción por Hora',        descripcion: 'Gráfico de cadencia horaria del turno',     activo: true,  orden: 6, umbral: null,  umbral_label: null,           icono: 'LineChart' },
-  { id: 'cumplimiento_por_linea', widget_nombre: 'Cumplimiento por Línea',     descripcion: 'Tabla de cumplimiento % por cada línea',    activo: true,  orden: 7, umbral: 95.0,  umbral_label: '% mínimo',     icono: 'Factory' },
-  { id: 'causas_desviacion',      widget_nombre: 'Causas de Desviación',       descripcion: 'Top causas de desvío en el turno actual',   activo: false, orden: 8, umbral: null,  umbral_label: null,           icono: 'PieChart' },
+  { id: 'produccion_vs_plan',     widget_nombre: 'ProducciÃ³n vs Plan',         descripcion: 'GrÃ¡fico de producciÃ³n real vs planificada',  activo: true,  orden: 2, umbral: null,  umbral_label: null,           icono: 'BarChart2' },
+  { id: 'oee_planta',             widget_nombre: 'OEE Planta',                 descripcion: 'OEE agregado de todas las lÃ­neas activas',  activo: true,  orden: 3, umbral: 85.0,  umbral_label: '% mÃ­nimo OEE', icono: 'Activity' },
+  { id: 'alertas_criticas',       widget_nombre: 'Alertas CrÃ­ticas',           descripcion: 'NÃºmero de alertas crÃ­ticas activas',         activo: true,  orden: 4, umbral: null,  umbral_label: null,           icono: 'AlertTriangle' },
+  { id: 'velocidad_linea',        widget_nombre: 'Velocidad de LÃ­nea',         descripcion: 'Ritmo real vs ritmo objetivo (uds/h)',       activo: true,  orden: 5, umbral: null,  umbral_label: null,           icono: 'Zap' },
+  { id: 'produccion_por_hora',    widget_nombre: 'ProducciÃ³n por Hora',        descripcion: 'GrÃ¡fico de cadencia horaria del turno',     activo: true,  orden: 6, umbral: null,  umbral_label: null,           icono: 'LineChart' },
+  { id: 'cumplimiento_por_linea', widget_nombre: 'Cumplimiento por LÃ­nea',     descripcion: 'Tabla de cumplimiento % por cada lÃ­nea',    activo: true,  orden: 7, umbral: 95.0,  umbral_label: '% mÃ­nimo',     icono: 'Factory' },
+  { id: 'causas_desviacion',      widget_nombre: 'Causas de DesviaciÃ³n',       descripcion: 'Top causas de desvÃ­o en el turno actual',   activo: false, orden: 8, umbral: null,  umbral_label: null,           icono: 'PieChart' },
 ];
 
-// ─── READ ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ READ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getLineasLocal() { try { const r = localStorage.getItem('mes_lineas'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
 function setLineasLocal(d) { try { localStorage.setItem('mes_lineas', JSON.stringify(d)); } catch (_) {} }
@@ -470,7 +470,7 @@ export async function fetchMetricas() {
   return { data: DEFAULT_METRICAS, fromSupabase: false };
 }
 
-// ─── WRITE — Lineas ──────────────────────────────────────────────────────────
+// â”€â”€â”€ WRITE â€” Lineas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function insertLinea(linea) {
   if (isSupabaseConfigured()) {
@@ -523,7 +523,7 @@ export async function deleteLinea(id) {
   return { error: null };
 }
 
-// ─── WRITE — Alertas ─────────────────────────────────────────────────────────
+// â”€â”€â”€ WRITE â€” Alertas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function insertAlerta(alerta) {
   if (isSupabaseConfigured()) {
@@ -586,7 +586,7 @@ export async function generarAlertasAutomaticas() {
     const { data: currentAlerts } = await fetchAlertas();
     const alertas = currentAlerts || [];
 
-    // 1. Stock crítico (materias_primas)
+    // 1. Stock crÃ­tico (materias_primas)
     const { data: materiales } = await fetchMateriasPrimas();
     if (materiales && Array.isArray(materiales)) {
       for (const mat of materiales) {
@@ -598,8 +598,8 @@ export async function generarAlertasAutomaticas() {
         if (stockActual < stockMinimo) {
           const isCritica = stockActual <= 0;
           const targetTipo = isCritica ? 'critica' : 'advertencia';
-          const targetTitulo = `Stock bajo mínimo: ${mat.codigo || mat.descripcion || 'Componente'}`;
-          const targetDesc = `El stock actual de "${mat.descripcion || mat.codigo}" es de ${stockActual} ${mat.unidad || 'uds'} (Mínimo: ${stockMinimo}).`;
+          const targetTitulo = `Stock bajo mÃ­nimo: ${mat.codigo || mat.descripcion || 'Componente'}`;
+          const targetDesc = `El stock actual de "${mat.descripcion || mat.codigo}" es de ${stockActual} ${mat.unidad || 'uds'} (MÃ­nimo: ${stockMinimo}).`;
 
           if (!alertaExistente) {
             await insertAlerta({
@@ -607,7 +607,7 @@ export async function generarAlertasAutomaticas() {
               titulo: targetTitulo,
               descripcion: targetDesc,
               modulo: 'materias_primas',
-              linea: 'Almacén',
+              linea: 'AlmacÃ©n',
               icono: 'Package',
               timestamp: new Date().toISOString(),
               leida: false,
@@ -626,7 +626,7 @@ export async function generarAlertasAutomaticas() {
       }
     }
 
-    // 2. OT crítica abierta (mantenimiento)
+    // 2. OT crÃ­tica abierta (mantenimiento)
     const { data: ots } = await fetchOrdenesTrabajo();
     if (ots && Array.isArray(ots)) {
       for (const ot of ots) {
@@ -639,8 +639,8 @@ export async function generarAlertasAutomaticas() {
           if (!alertaExistente) {
             await insertAlerta({
               tipo: 'critica',
-              titulo: `OT Crítica en Mantenimiento: ${ot.codigo || 'Orden'}`,
-              descripcion: ot.titulo || ot.causaRaiz || 'Intervención crítica urgente requerida en línea',
+              titulo: `OT CrÃ­tica en Mantenimiento: ${ot.codigo || 'Orden'}`,
+              descripcion: ot.titulo || ot.causaRaiz || 'IntervenciÃ³n crÃ­tica urgente requerida en lÃ­nea',
               modulo: 'mantenimiento',
               linea: ot.linea || 'Planta',
               icono: 'Wrench',
@@ -655,7 +655,7 @@ export async function generarAlertasAutomaticas() {
       }
     }
 
-    // 3. Desviación de plan / retraso (secuencia)
+    // 3. DesviaciÃ³n de plan / retraso (secuencia)
     const { data: ordenes } = await fetchSecuencia();
     if (ordenes && Array.isArray(ordenes)) {
       for (const o of ordenes) {
@@ -669,8 +669,8 @@ export async function generarAlertasAutomaticas() {
           if (!alertaExistente) {
             await insertAlerta({
               tipo: 'advertencia',
-              titulo: `Desviación en Secuencia: ${o.codigo || o.producto || 'Orden'}`,
-              descripcion: `La orden ${o.codigo || ''} en ${o.linea || 'Línea'} muestra un retraso o desviación de ${desv} uds respecto al objetivo.`,
+              titulo: `DesviaciÃ³n en Secuencia: ${o.codigo || o.producto || 'Orden'}`,
+              descripcion: `La orden ${o.codigo || ''} en ${o.linea || 'LÃ­nea'} muestra un retraso o desviaciÃ³n de ${desv} uds respecto al objetivo.`,
               modulo: 'secuencia',
               linea: o.linea || 'Planta',
               icono: 'Clock',
@@ -685,7 +685,7 @@ export async function generarAlertasAutomaticas() {
       }
     }
 
-    // 4. Formaciones caducadas o próximas a caducar (operarios)
+    // 4. Formaciones caducadas o prÃ³ximas a caducar (operarios)
     const { data: operariosActivos } = await fetchOperarios();
     if (operariosActivos && Array.isArray(operariosActivos)) {
       const hoy = new Date();
@@ -705,10 +705,10 @@ export async function generarAlertasAutomaticas() {
           const alertaExistente = alertas.find(a => a.origenId === origenId && !a.leida && !a.resuelta);
 
           if (diffDays < 0) {
-            // Caducada -> crítica
+            // Caducada -> crÃ­tica
             const targetTipo = 'critica';
-            const targetTitulo = `Formación caducada: ${form.nombre} — ${op.nombre}`;
-            const targetDesc = `La formación "${form.nombre}" de ${op.nombre} venció el ${form.fechaCaducidad}. Se requiere reciclaje o renovación de certificado.`;
+            const targetTitulo = `FormaciÃ³n caducada: ${form.nombre} â€” ${op.nombre}`;
+            const targetDesc = `La formaciÃ³n "${form.nombre}" de ${op.nombre} venciÃ³ el ${form.fechaCaducidad}. Se requiere reciclaje o renovaciÃ³n de certificado.`;
 
             if (!alertaExistente) {
               await insertAlerta({
@@ -716,7 +716,7 @@ export async function generarAlertasAutomaticas() {
                 titulo: targetTitulo,
                 descripcion: targetDesc,
                 modulo: 'operarios',
-                linea: op.lineaActualId ? `Línea ${op.lineaActualId}` : 'Planta',
+                linea: op.lineaActualId ? `LÃ­nea ${op.lineaActualId}` : 'Planta',
                 icono: 'GraduationCap',
                 timestamp: new Date().toISOString(),
                 leida: false,
@@ -731,10 +731,10 @@ export async function generarAlertasAutomaticas() {
               });
             }
           } else if (diffDays <= 30) {
-            // Próxima a caducar -> advertencia
+            // PrÃ³xima a caducar -> advertencia
             const targetTipo = 'advertencia';
-            const targetTitulo = `Formación próxima a caducar: ${form.nombre} — ${op.nombre}`;
-            const targetDesc = `La formación "${form.nombre}" de ${op.nombre} caducará en ${diffDays} días (${form.fechaCaducidad}). Programar sesión de reciclaje.`;
+            const targetTitulo = `FormaciÃ³n prÃ³xima a caducar: ${form.nombre} â€” ${op.nombre}`;
+            const targetDesc = `La formaciÃ³n "${form.nombre}" de ${op.nombre} caducarÃ¡ en ${diffDays} dÃ­as (${form.fechaCaducidad}). Programar sesiÃ³n de reciclaje.`;
 
             if (!alertaExistente) {
               await insertAlerta({
@@ -742,7 +742,7 @@ export async function generarAlertasAutomaticas() {
                 titulo: targetTitulo,
                 descripcion: targetDesc,
                 modulo: 'operarios',
-                linea: op.lineaActualId ? `Línea ${op.lineaActualId}` : 'Planta',
+                linea: op.lineaActualId ? `LÃ­nea ${op.lineaActualId}` : 'Planta',
                 icono: 'GraduationCap',
                 timestamp: new Date().toISOString(),
                 leida: false,
@@ -757,21 +757,21 @@ export async function generarAlertasAutomaticas() {
               });
             }
           } else if (alertaExistente) {
-            // Si ya se renovó (diffDays > 30) o no procede -> marcar como leída y resuelta automáticamente
+            // Si ya se renovÃ³ (diffDays > 30) o no procede -> marcar como leÃ­da y resuelta automÃ¡ticamente
             await updateAlerta(alertaExistente.id, { leida: true, resuelta: true });
           }
         }
       }
     }
   } catch (e) {
-    console.error('Error generando alertas automáticas:', e);
+    console.error('Error generando alertas automÃ¡ticas:', e);
   } finally {
     isGeneratingAlerts = false;
   }
 }
 
 
-// ─── WRITE — Paradas ─────────────────────────────────────────────────────────
+// â”€â”€â”€ WRITE â€” Paradas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function insertParada(parada, isOfflineReplay = false) {
   if (typeof window !== 'undefined' && !navigator.onLine && !isOfflineReplay) {
@@ -880,7 +880,7 @@ export async function deleteParadaPredeterminada(id) {
   return { error: null };
 }
 
-// ─── WRITE — Secuencia ───────────────────────────────────────────────────────
+// â”€â”€â”€ WRITE â€” Secuencia â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function insertSecuencia(orden) {
   if (isSupabaseConfigured()) {
@@ -951,7 +951,7 @@ export async function deleteSecuencia(id) {
   return { error: null };
 }
 
-// ─── WRITE — Materias Primas ─────────────────────────────────────────────────
+// â”€â”€â”€ WRITE â€” Materias Primas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function insertMaterial(material) {
   let img = material.imagen;
@@ -1050,9 +1050,9 @@ export async function registrarMovimientoStock(materialId, { tipo, cantidad, mot
 
   let cantidadNum = Number(cantidad) || 0;
   // Permitimos cantidadNum negativa o cero si es un ajuste, pero la cantidad del movimiento debe reflejar el cambio.
-  // En realidad la función asume que cantidadNum siempre es positivo y el "tipo" define la operación.
-  // Excepción: en 'ajuste', cantidadNum puede ser la diferencia (positiva o negativa).
-  if (tipo !== 'ajuste' && cantidadNum <= 0) return { error: 'Cantidad inválida' };
+  // En realidad la funciÃ³n asume que cantidadNum siempre es positivo y el "tipo" define la operaciÃ³n.
+  // ExcepciÃ³n: en 'ajuste', cantidadNum puede ser la diferencia (positiva o negativa).
+  if (tipo !== 'ajuste' && cantidadNum <= 0) return { error: 'Cantidad invÃ¡lida' };
 
   let nextStock = Number(mat.stockActual) || 0;
   if (tipo === 'entrada') {
@@ -1060,7 +1060,7 @@ export async function registrarMovimientoStock(materialId, { tipo, cantidad, mot
   } else if (tipo === 'salida') {
     nextStock = Math.max(0, nextStock - cantidadNum);
   } else if (tipo === 'ajuste') {
-    // cantidadNum aquí representa la diferencia a aplicar (+ o -)
+    // cantidadNum aquÃ­ representa la diferencia a aplicar (+ o -)
     nextStock = Math.max(0, nextStock + cantidadNum);
   }
 
@@ -1069,7 +1069,7 @@ export async function registrarMovimientoStock(materialId, { tipo, cantidad, mot
     fecha: new Date().toISOString(),
     tipo,
     cantidad: cantidadNum,
-    motivo: motivo || (tipo === 'entrada' ? 'Ajuste de entrada' : (tipo === 'salida' ? 'Ajuste de salida' : 'Regularización de stock')),
+    motivo: motivo || (tipo === 'entrada' ? 'Ajuste de entrada' : (tipo === 'salida' ? 'Ajuste de salida' : 'RegularizaciÃ³n de stock')),
     origen,
     usuario: usuario || 'Desconocido',
     entradaMercanciaId
@@ -1082,7 +1082,7 @@ export async function registrarMovimientoStock(materialId, { tipo, cantidad, mot
     movimientos: nextMovimientos 
   });
 
-  // Registrar auditoría si está disponible
+  // Registrar auditorÃ­a si estÃ¡ disponible
   try {
     const { registrarAuditoria } = await import('./dataService');
     if (typeof registrarAuditoria === 'function') {
@@ -1113,7 +1113,7 @@ export function calcularCosteEscandallo(producto, materiales = []) {
   return Number(total.toFixed(2));
 }
 
-// ─── ALMACÉN: UBICACIONES Y ENTRADAS DE MERCANCÍA ──────────────────────────
+// â”€â”€â”€ ALMACÃ‰N: UBICACIONES Y ENTRADAS DE MERCANCÃA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ubicacionToDb(u) {
   return {
@@ -1287,7 +1287,7 @@ export async function deleteMaterial(id) {
   return { error: null };
 }
 
-// ─── BOM Y DISPONIBILIDAD DE MATERIALES PARA PLANIFICACIÓN / SECUENCIA ──────
+// â”€â”€â”€ BOM Y DISPONIBILIDAD DE MATERIALES PARA PLANIFICACIÃ“N / SECUENCIA â”€â”€â”€â”€â”€â”€
 
 export const BOM_PRODUCTOS = {
   'BAT-48V-100Ah': [
@@ -1297,11 +1297,11 @@ export const BOM_PRODUCTOS = {
   ],
   'BAT-12V-100Ah': [
     { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.20, unidad: 'par' },
-    { codigo: 'CAB-1MM-RJ', descripcion: 'Cable señal 1mm² trenzado', factor: 0.02, unidad: 'rollo' }
+    { codigo: 'CAB-1MM-RJ', descripcion: 'Cable seÃ±al 1mmÂ² trenzado', factor: 0.02, unidad: 'rollo' }
   ],
   'BAT-24V-100Ah': [
     { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.30, unidad: 'par' },
-    { codigo: 'ETI-LBL-A4', descripcion: 'Etiquetas identificación A4', factor: 0.005, unidad: 'caja' }
+    { codigo: 'ETI-LBL-A4', descripcion: 'Etiquetas identificaciÃ³n A4', factor: 0.005, unidad: 'caja' }
   ],
   'BAT-24V-200Ah': [
     { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.15, unidad: 'ud' },
@@ -1317,16 +1317,16 @@ export const BOM_PRODUCTOS = {
     { codigo: 'BMS-48V-100', descripcion: 'BMS 48V 100A con balanceo', factor: 0.05, unidad: 'ud' }
   ],
   'BAT-24V-150Ah-MAR': [
-    { codigo: 'TER-CAL-025', descripcion: 'Terminal calibre 25mm²', factor: 0.02, unidad: 'caja' },
+    { codigo: 'TER-CAL-025', descripcion: 'Terminal calibre 25mmÂ²', factor: 0.02, unidad: 'caja' },
     { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.20, unidad: 'par' }
   ],
   'BAT-12V-50Ah-ULTRA': [
-    { codigo: 'CAB-6MM-001', descripcion: 'Cable 6mm² negro (rollo 100m)', factor: 0.004, unidad: 'rollo' },
+    { codigo: 'CAB-6MM-001', descripcion: 'Cable 6mmÂ² negro (rollo 100m)', factor: 0.004, unidad: 'rollo' },
     { codigo: 'CON-MC4-001', descripcion: 'Conector MC4 macho-hembra', factor: 0.15, unidad: 'par' }
   ],
   'BAT-48V-100Ah-RACK': [
     { codigo: 'CEL-LFP-48V', descripcion: 'Celda LFP 48V 50Ah', factor: 0.16, unidad: 'ud' },
-    { codigo: 'CAB-1MM-RJ', descripcion: 'Cable señal 1mm² trenzado', factor: 0.03, unidad: 'rollo' }
+    { codigo: 'CAB-1MM-RJ', descripcion: 'Cable seÃ±al 1mmÂ² trenzado', factor: 0.03, unidad: 'rollo' }
   ]
 };
 
@@ -1404,12 +1404,12 @@ export function calcularDisponibilidadOrden(orden, listaMateriales = [], listaPr
   }
   const prod = (prods && Array.isArray(prods)) ? prods.find(p => p.codigo === ref) : null;
 
-  // Si el producto está marcado con bomPendiente o su BOM está vacío explícitamente:
+  // Si el producto estÃ¡ marcado con bomPendiente o su BOM estÃ¡ vacÃ­o explÃ­citamente:
   if (prod && (prod.bomPendiente || (Array.isArray(prod.bom) && prod.bom.length === 0))) {
     return {
       estado: 'gris',
       colorBadge: 'bg-slate-700 text-slate-300 border-slate-500 font-bold shadow-sm',
-      label: '⚪ Sin datos de material (BOM)',
+      label: 'âšª Sin datos de material (BOM)',
       esCritico: false,
       sinBom: true,
       componentes: []
@@ -1438,7 +1438,7 @@ export function calcularDisponibilidadOrden(orden, listaMateriales = [], listaPr
       stockActual: 100,
       stockReservado: 0,
       criticidad: 'media',
-      proveedor: 'Proveedor Estándar'
+      proveedor: 'Proveedor EstÃ¡ndar'
     };
 
     const compTotal = (consumoTotalMap && typeof consumoTotalMap[mat.codigo] === 'number')
@@ -1487,7 +1487,7 @@ export function calcularDisponibilidadOrden(orden, listaMateriales = [], listaPr
     return {
       estado: 'rojo',
       colorBadge: 'bg-red-500/20 text-red-400 border-red-500/40 font-black animate-pulse shadow-sm shadow-red-900/50',
-      label: '🔴 Falta Crítico',
+      label: 'ðŸ”´ Falta CrÃ­tico',
       esCritico: true,
       componentes
     };
@@ -1497,7 +1497,7 @@ export function calcularDisponibilidadOrden(orden, listaMateriales = [], listaPr
     return {
       estado: 'ambar',
       colorBadge: 'bg-amber-500/20 text-amber-400 border-amber-500/40 font-black',
-      label: '🟡 Stock Parcial',
+      label: 'ðŸŸ¡ Stock Parcial',
       esCritico: false,
       componentes
     };
@@ -1506,7 +1506,7 @@ export function calcularDisponibilidadOrden(orden, listaMateriales = [], listaPr
   return {
     estado: 'verde',
     colorBadge: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 font-black',
-    label: '🟢 Stock OK',
+    label: 'ðŸŸ¢ Stock OK',
     esCritico: false,
     componentes
   };
@@ -1547,7 +1547,7 @@ export async function updateReservaMaterialesOrden(orden, accion = 'reservar') {
   window.dispatchEvent(new CustomEvent('materiales_updated', { detail: { ordenId: orden.id, accion } }));
 }
 
-// ─── WRITE — Calidad ─────────────────────────────────────────────────────────
+// â”€â”€â”€ WRITE â€” Calidad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function insertCalidad(defecto, isOfflineReplay = false) {
   if (typeof window !== 'undefined' && !navigator.onLine && !isOfflineReplay) {
@@ -1555,27 +1555,27 @@ export async function insertCalidad(defecto, isOfflineReplay = false) {
     return { data: { id: 'PENDING-' + Date.now() }, error: null, offline: true };
   }
 
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
+  if (!isSupabaseConfigured()) return { error: 'Sin conexiÃ³n' };
   const { data, error } = await supabase.from('calidad').insert([defecto]).select().single();
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('calidad_updated'));
   return { data, error };
 }
 
 export async function updateCalidad(id, defecto) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
+  if (!isSupabaseConfigured()) return { error: 'Sin conexiÃ³n' };
   const { data, error } = await supabase.from('calidad').update(defecto).eq('id', id).select().single();
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('calidad_updated'));
   return { data, error };
 }
 
 export async function deleteCalidad(id) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
+  if (!isSupabaseConfigured()) return { error: 'Sin conexiÃ³n' };
   const { error } = await supabase.from('calidad').delete().eq('id', id);
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('calidad_updated'));
   return { error };
 }
 
-// ─── WRITE — Produccion ──────────────────────────────────────────────────────
+// â”€â”€â”€ WRITE â€” Produccion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function insertProduccion(item, isOfflineReplay = false) {
   if (typeof window !== 'undefined' && !navigator.onLine && !isOfflineReplay) {
@@ -1596,10 +1596,10 @@ export async function insertProduccion(item, isOfflineReplay = false) {
   return { data: item, error: null };
 }
 
-// ─── WRITE — Métricas Config ─────────────────────────────────────────────────
+// â”€â”€â”€ WRITE â€” MÃ©tricas Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function updateMetrica(id, changes) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
+  if (!isSupabaseConfigured()) return { error: 'Sin conexiÃ³n' };
   const { data, error } = await supabase
     .from('metricas_config')
     .update({ ...changes, updated_at: new Date().toISOString() })
@@ -1610,7 +1610,7 @@ export async function updateMetrica(id, changes) {
 }
 
 export async function updateOrdenMetricas(metricas) {
-  if (!isSupabaseConfigured()) return { error: 'Sin conexión' };
+  if (!isSupabaseConfigured()) return { error: 'Sin conexiÃ³n' };
   const updates = metricas.map(m =>
     supabase.from('metricas_config').update({ orden: m.orden, updated_at: new Date().toISOString() }).eq('id', m.id)
   );
@@ -1618,7 +1618,7 @@ export async function updateOrdenMetricas(metricas) {
   return { error: null };
 }
 
-// ─── READ — Historial de Producción ─────────────────────────────────────────
+// â”€â”€â”€ READ â€” Historial de ProducciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchHistorial() {
   if (isSupabaseConfigured()) {
@@ -1633,7 +1633,7 @@ export async function fetchHistorial() {
   return { data: mockHistorial, fromSupabase: false };
 }
 
-// ─── READ/WRITE — Productos / Referencias de Fabricación ─────────────────────
+// â”€â”€â”€ READ/WRITE â€” Productos / Referencias de FabricaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const LS_KEY_PRODUCTOS = 'mes_productos_catalogo';
 
@@ -1757,15 +1757,15 @@ export async function deleteProducto(id) {
   return { error: null };
 }
 
-// ─── READ/WRITE — Familias de Productos ──────────────────────────────────────
+// â”€â”€â”€ READ/WRITE â€” Familias de Productos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const LS_KEY_FAMILIAS = 'mes_familias_productos';
 
 export const mockFamilias = [
-  { id: 'fam-1', nombre: 'Baterías 48V', descripcion: 'Sistemas de acumulación LFP de 48 Voltios', color: '#3b82f6' },
-  { id: 'fam-2', nombre: 'Baterías 24V', descripcion: 'Módulos compactos de 24 Voltios para AGV y solar', color: '#10b981' },
-  { id: 'fam-3', nombre: 'Cargadores', descripcion: 'Sistemas inteligentes de carga rápida y balanceo', color: '#f59e0b' },
+  { id: 'fam-1', nombre: 'BaterÃ­as 48V', descripcion: 'Sistemas de acumulaciÃ³n LFP de 48 Voltios', color: '#3b82f6' },
+  { id: 'fam-2', nombre: 'BaterÃ­as 24V', descripcion: 'MÃ³dulos compactos de 24 Voltios para AGV y solar', color: '#10b981' },
+  { id: 'fam-3', nombre: 'Cargadores', descripcion: 'Sistemas inteligentes de carga rÃ¡pida y balanceo', color: '#f59e0b' },
   { id: 'fam-4', nombre: 'Accesorios', descripcion: 'Kits de cableado, BMS y conectores de potencia', color: '#8b5cf6' },
-  { id: 'fam-5', nombre: 'General', descripcion: 'Productos de uso general y componentes estándar', color: '#64748b' }
+  { id: 'fam-5', nombre: 'General', descripcion: 'Productos de uso general y componentes estÃ¡ndar', color: '#64748b' }
 ];
 
 function getFamiliasLocal() {
@@ -1874,7 +1874,7 @@ export async function deleteFamilia(id) {
   return { error: null };
 }
 
-// ─── CRUD genérico para catálogos de Calidad (localStorage + Supabase) ────────
+// â”€â”€â”€ CRUD genÃ©rico para catÃ¡logos de Calidad (localStorage + Supabase) â”€â”€â”€â”€â”€â”€â”€â”€
 
 function makeCrudLocal(lsKey, mockData) {
   const get = () => { try { const r = localStorage.getItem(lsKey); return r ? JSON.parse(r) : null; } catch (_) { return null; } };
@@ -1983,7 +1983,7 @@ export const insertScrap         = scrapCRUD.insertFn;
 export const updateScrap         = scrapCRUD.updateFn;
 export const deleteScrap         = scrapCRUD.deleteFn;
 
-// ─── RETENCIONES DE CALIDAD (QUALITY HOLD) ───────────────────────────────────
+// â”€â”€â”€ RETENCIONES DE CALIDAD (QUALITY HOLD) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function getRetencionesCalidadLocal() {
   try { const r = localStorage.getItem('mes_retenciones_calidad'); return r ? JSON.parse(r) : null; } catch (_) { return null; }
 }
@@ -2008,7 +2008,7 @@ export async function insertRetencionCalidad(item) {
     id: item.id || `RET-${Date.now()}`,
     codigo: item.codigo || `HOLD-${Math.floor(100 + Math.random() * 900)}`,
     linea: item.linea || 'L1',
-    motivo: item.motivo || 'Defecto crítico detectado en inspección',
+    motivo: item.motivo || 'Defecto crÃ­tico detectado en inspecciÃ³n',
     gravedad: item.gravedad || 'critica',
     estado: item.estado || 'abierta',
     fechaApertura: new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -2043,7 +2043,7 @@ export async function deleteRetencionCalidad(id) {
   return { error: null };
 }
 
-// Helper común para registrar incidencias de calidad rápidas desde Planta (PanelOperario & PanelCalidad)
+// Helper comÃºn para registrar incidencias de calidad rÃ¡pidas desde Planta (PanelOperario & PanelCalidad)
 export async function registrarIncidenciaCalidad({ tipo, causa, cantidad, pct, lineaId, lineaActiva, operarioNombre }) {
   const qty = Number(cantidad) || 1;
   const motivoStr = `${causa} (${lineaActiva?.nombre || lineaId} - ${operarioNombre || 'Planta'})`;
@@ -2063,7 +2063,7 @@ export async function registrarIncidenciaCalidad({ tipo, causa, cantidad, pct, l
   } else if (tipo === 'defecto') {
     await insertDefecto({
       causa: motivoStr,
-      categoria: 'Inspección Planta',
+      categoria: 'InspecciÃ³n Planta',
       cantidad: qty,
       pct: pct || 5,
       linea: lineaActiva?.nombre || lineaId,
@@ -2071,7 +2071,7 @@ export async function registrarIncidenciaCalidad({ tipo, causa, cantidad, pct, l
     });
   }
 
-  // Ajuste de calidad en la línea si se indica
+  // Ajuste de calidad en la lÃ­nea si se indica
   if (lineaId && lineaActiva) {
     const castigo = tipo === 'scrap' ? 0.6 : 0.3;
     const nuevaCalidad = Math.max(70, Number(lineaActiva.calidad || 98) - castigo);
@@ -2087,25 +2087,25 @@ export async function registrarIncidenciaCalidad({ tipo, causa, cantidad, pct, l
   }
 }
 
-// ─── PLANIFICACIÓN (GANTT) & SINCRONIZACIÓN CON EL RESTO DE LA APP ────────────
+// â”€â”€â”€ PLANIFICACIÃ“N (GANTT) & SINCRONIZACIÃ“N CON EL RESTO DE LA APP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const ordenesGanttDefault = [
-  { id: 'G1', codigo: 'OF-2024-001', linea: 'L1', dia: 0, horaInicio: 6, duracion: 4, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', cantidad: 500, materiales: 'Celdas LFP 100Ah (x16), BMS 48V (x1), Carcasa Metálica', fechaCompromiso: '31/05/2024', prioridad: 'normal', color: '#2563eb' },
+  { id: 'G1', codigo: 'OF-2024-001', linea: 'L1', dia: 0, horaInicio: 6, duracion: 4, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', cantidad: 500, materiales: 'Celdas LFP 100Ah (x16), BMS 48V (x1), Carcasa MetÃ¡lica', fechaCompromiso: '31/05/2024', prioridad: 'normal', color: '#2563eb' },
   { id: 'G2', codigo: 'OF-2024-002', linea: 'L1', dia: 0, horaInicio: 10, duracion: 6, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', cantidad: 800, materiales: 'Celdas LFP 200Ah (x16), BMS Smart 48V, Cableado de potencia', fechaCompromiso: '31/05/2024', prioridad: 'alta', color: '#7c3aed' },
-  { id: 'G3', codigo: 'OF-2024-003', linea: 'L2', dia: 0, horaInicio: 6, duracion: 8, ref: 'BAT-24V-200Ah', cliente: 'Cliente B', cantidad: 1200, materiales: 'Celdas NMC 200Ah (x8), BMS 24V, Aislante térmico', fechaCompromiso: '31/05/2024', prioridad: 'normal', color: '#0891b2' },
+  { id: 'G3', codigo: 'OF-2024-003', linea: 'L2', dia: 0, horaInicio: 6, duracion: 8, ref: 'BAT-24V-200Ah', cliente: 'Cliente B', cantidad: 1200, materiales: 'Celdas NMC 200Ah (x8), BMS 24V, Aislante tÃ©rmico', fechaCompromiso: '31/05/2024', prioridad: 'normal', color: '#0891b2' },
   { id: 'G4', codigo: 'OF-2024-004', linea: 'L3', dia: 0, horaInicio: 8, duracion: 5, ref: 'BAT-12V-100Ah', cliente: 'Cliente C', cantidad: 600, materiales: 'Celdas LFP 100Ah (x4), BMS Compact 12V, Terminales cobre', fechaCompromiso: '31/05/2024', prioridad: 'normal', color: '#dc2626' },
   { id: 'G5', codigo: 'OF-2024-005', linea: 'L4', dia: 0, horaInicio: 6, duracion: 10, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', cantidad: 1000, materiales: 'Celdas LFP 200Ah (x16), BMS Smart 48V, Carcasa estanca IP67', fechaCompromiso: '31/05/2024', prioridad: 'urgente', color: '#059669' },
   { id: 'G6', codigo: 'OF-2024-006', linea: 'L5', dia: 0, horaInicio: 6, duracion: 8, ref: 'BAT-24V-100Ah', cliente: 'Cliente E', cantidad: 900, materiales: 'Celdas LFP 100Ah (x8), BMS 24V (x1), Conectores Anderson', fechaCompromiso: '31/05/2024', prioridad: 'normal', color: '#d97706' },
-  { id: 'G7', codigo: 'OF-2024-007', linea: 'L1', dia: 1, horaInicio: 6, duracion: 8, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', cantidad: 600, materiales: 'Celdas LFP 100Ah (x16), BMS 48V, Carcasa Metálica', fechaCompromiso: '01/06/2024', prioridad: 'normal', color: '#2563eb' },
-  { id: 'G8', codigo: 'OF-2024-008', linea: 'L2', dia: 1, horaInicio: 6, duracion: 6, ref: 'BAT-24V-100Ah', cliente: 'Cliente E', cantidad: 750, materiales: 'Celdas LFP 100Ah (x8), BMS 24V, Tornillería M6', fechaCompromiso: '01/06/2024', prioridad: 'alta', color: '#0891b2' },
+  { id: 'G7', codigo: 'OF-2024-007', linea: 'L1', dia: 1, horaInicio: 6, duracion: 8, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', cantidad: 600, materiales: 'Celdas LFP 100Ah (x16), BMS 48V, Carcasa MetÃ¡lica', fechaCompromiso: '01/06/2024', prioridad: 'normal', color: '#2563eb' },
+  { id: 'G8', codigo: 'OF-2024-008', linea: 'L2', dia: 1, horaInicio: 6, duracion: 6, ref: 'BAT-24V-100Ah', cliente: 'Cliente E', cantidad: 750, materiales: 'Celdas LFP 100Ah (x8), BMS 24V, TornillerÃ­a M6', fechaCompromiso: '01/06/2024', prioridad: 'alta', color: '#0891b2' },
   { id: 'G9', codigo: 'OF-2024-009', linea: 'L3', dia: 1, horaInicio: 7, duracion: 9, ref: 'BAT-12V-200Ah', cliente: 'Cliente C', cantidad: 1100, materiales: 'Celdas NMC 200Ah (x4), BMS 12V High-Cur, Soporte celda', fechaCompromiso: '01/06/2024', prioridad: 'normal', color: '#dc2626' },
   { id: 'G10', codigo: 'OF-2024-010', linea: 'L4', dia: 1, horaInicio: 6, duracion: 8, ref: 'BAT-48V-100Ah', cliente: 'Cliente A', cantidad: 500, materiales: 'Celdas LFP 100Ah (x16), BMS 48V, Cable flexible 35mm2', fechaCompromiso: '01/06/2024', prioridad: 'normal', color: '#059669' },
   { id: 'G11', codigo: 'OF-2024-011', linea: 'L5', dia: 2, horaInicio: 6, duracion: 7, ref: 'BAT-24V-200Ah', cliente: 'Cliente B', cantidad: 850, materiales: 'Celdas NMC 200Ah (x8), BMS 24V Smart, Aislante Nomex', fechaCompromiso: '02/06/2024', prioridad: 'normal', color: '#d97706' },
   { id: 'G12', codigo: 'OF-2024-012', linea: 'L1', dia: 2, horaInicio: 6, duracion: 6, ref: 'BAT-48V-200Ah', cliente: 'Cliente D', cantidad: 650, materiales: 'Celdas LFP 200Ah (x16), BMS Smart 48V, Chasis Rack 19"', fechaCompromiso: '02/06/2024', prioridad: 'normal', color: '#2563eb' },
-  // ── BACKLOG / SIN ASIGNAR A LÍNEA ──────────────────────────────────────────
-  { id: 'BK1', codigo: 'OF-2024-101', linea: null, dia: null, horaInicio: 6, duracion: 6, ref: 'BAT-48V-300Ah-PRO', cliente: 'Iberia Energy Corp', cantidad: 450, materiales: 'Celdas LFP 300Ah Prismatic (x16), BMS CAN-Bus 48V, Sensor térmico PT100 (x4), Carcasa Acero Inox', fechaCompromiso: '05/06/2024', prioridad: 'urgente', color: '#dc2626' },
-  { id: 'BK2', codigo: 'OF-2024-102', linea: null, dia: null, horaInicio: 6, duracion: 8, ref: 'BAT-24V-150Ah-MAR', cliente: 'Naval & Marine Systems', cantidad: 600, materiales: 'Celdas LFP 150Ah Grado Marino (x8), BMS IP68 Estanco, Bornes latón niquelado, Gel de silicona', fechaCompromiso: '06/06/2024', prioridad: 'alta', color: '#7c3aed' },
-  { id: 'BK3', codigo: 'OF-2024-103', linea: null, dia: null, horaInicio: 6, duracion: 5, ref: 'BAT-12V-50Ah-ULTRA', cliente: 'AgriTech Automation', cantidad: 1500, materiales: 'Celdas Cilindricas 21700 (x40), BMS 12V 50A, Carcasa ABS Ignífugo V0, Cableado AWG10', fechaCompromiso: '07/06/2024', prioridad: 'normal', color: '#0891b2' },
+  // â”€â”€ BACKLOG / SIN ASIGNAR A LÃNEA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  { id: 'BK1', codigo: 'OF-2024-101', linea: null, dia: null, horaInicio: 6, duracion: 6, ref: 'BAT-48V-300Ah-PRO', cliente: 'Iberia Energy Corp', cantidad: 450, materiales: 'Celdas LFP 300Ah Prismatic (x16), BMS CAN-Bus 48V, Sensor tÃ©rmico PT100 (x4), Carcasa Acero Inox', fechaCompromiso: '05/06/2024', prioridad: 'urgente', color: '#dc2626' },
+  { id: 'BK2', codigo: 'OF-2024-102', linea: null, dia: null, horaInicio: 6, duracion: 8, ref: 'BAT-24V-150Ah-MAR', cliente: 'Naval & Marine Systems', cantidad: 600, materiales: 'Celdas LFP 150Ah Grado Marino (x8), BMS IP68 Estanco, Bornes latÃ³n niquelado, Gel de silicona', fechaCompromiso: '06/06/2024', prioridad: 'alta', color: '#7c3aed' },
+  { id: 'BK3', codigo: 'OF-2024-103', linea: null, dia: null, horaInicio: 6, duracion: 5, ref: 'BAT-12V-50Ah-ULTRA', cliente: 'AgriTech Automation', cantidad: 1500, materiales: 'Celdas Cilindricas 21700 (x40), BMS 12V 50A, Carcasa ABS IgnÃ­fugo V0, Cableado AWG10', fechaCompromiso: '07/06/2024', prioridad: 'normal', color: '#0891b2' },
   { id: 'BK4', codigo: 'OF-2024-104', linea: null, dia: null, horaInicio: 6, duracion: 7, ref: 'BAT-48V-100Ah-RACK', cliente: 'Telecom Networks S.A.', cantidad: 300, materiales: 'Celdas LFP 100Ah (x16), BMS 48V Telecom RS485, Chasis Rack 3U 19", Frontal con display LCD', fechaCompromiso: '08/06/2024', prioridad: 'normal', color: '#059669' },
 ];
 
@@ -2123,7 +2123,7 @@ function setPlanificacionLocal(d) {
   } catch (_) {}
 }
 
-// Mapa auxiliar: ID de línea → nombre legible
+// Mapa auxiliar: ID de lÃ­nea â†’ nombre legible
 function getLineasNombresMap() {
   try {
     const lineas = getLineasLocal() || mockLineas;
@@ -2135,7 +2135,7 @@ function syncGanttToRestOfApp(ganttOrders) {
   if (!Array.isArray(ganttOrders)) return;
   const lineasNombres = getLineasNombresMap();
 
-  // 1. Sincronizar hacia las Líneas de producción (mes_lineas)
+  // 1. Sincronizar hacia las LÃ­neas de producciÃ³n (mes_lineas)
   try {
     const currentLineas = getLineasLocal() || mockLineas;
     const updatedLineas = currentLineas.map(l => {
@@ -2170,7 +2170,7 @@ function syncGanttToRestOfApp(ganttOrders) {
           fechaCompromiso: fechaComp,
         };
       } else if (go.linea) {
-        // Solo añadir a Secuencia si tiene línea asignada
+        // Solo aÃ±adir a Secuencia si tiene lÃ­nea asignada
         updatedSecuencia.push({
           id: Date.now() + Math.floor(Math.random() * 10000),
           secuencia: nextSeq++,
@@ -2188,7 +2188,7 @@ function syncGanttToRestOfApp(ganttOrders) {
       }
     });
 
-    // Limpiar lineaAsignada de órdenes que pasaron al backlog (linea === null)
+    // Limpiar lineaAsignada de Ã³rdenes que pasaron al backlog (linea === null)
     const backlogGanttIds = new Set(ganttOrders.filter(o => !o.linea).map(o => o.id));
     const finalSecuencia = updatedSecuencia.map(s =>
       s.ganttId && backlogGanttIds.has(s.ganttId)
@@ -2240,15 +2240,15 @@ export async function setAllPlanificacion(ordenes) {
   return { data: ordenes, error: null };
 }
 
-// ─── REORDENAMIENTO DE SECUENCIA → GANTT ─────────────────────────────────────
-// Cuando Secuencia reordena órdenes, compacta las barras del Gantt
-// dentro de cada línea siguiendo la nueva prioridad.
+// â”€â”€â”€ REORDENAMIENTO DE SECUENCIA â†’ GANTT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Cuando Secuencia reordena Ã³rdenes, compacta las barras del Gantt
+// dentro de cada lÃ­nea siguiendo la nueva prioridad.
 export function reordenarSecuenciaEnGantt(secuenciaOrdenada) {
   try {
     const ganttOrders = getPlanificacionLocal() || ordenesGanttDefault;
     const updated = [...ganttOrders];
 
-    // Agrupar órdenes del Gantt asignadas por línea
+    // Agrupar Ã³rdenes del Gantt asignadas por lÃ­nea
     const porLinea = {};
     updated.forEach(o => {
       if (o.linea) {
@@ -2257,7 +2257,7 @@ export function reordenarSecuenciaEnGantt(secuenciaOrdenada) {
       }
     });
 
-    // Para cada línea, reordenar sus órdenes según su posición en secuenciaOrdenada
+    // Para cada lÃ­nea, reordenar sus Ã³rdenes segÃºn su posiciÃ³n en secuenciaOrdenada
     Object.keys(porLinea).forEach(lineaId => {
       const ordenesLinea = porLinea[lineaId];
       ordenesLinea.sort((a, b) => {
@@ -2284,7 +2284,7 @@ export function reordenarSecuenciaEnGantt(secuenciaOrdenada) {
   }
 }
 
-// ─── INCIDENCIAS DE SECUENCIA (histórico en localStorage) ────────────────────
+// â”€â”€â”€ INCIDENCIAS DE SECUENCIA (histÃ³rico en localStorage) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const LS_KEY_INCIDENCIAS_SEQ = 'mes_incidencias_secuencia';
 
 export function getIncidenciasSecuencia() {
@@ -2303,33 +2303,33 @@ export function saveIncidenciaSecuencia(incidencia) {
   } catch (e) { return { data: null, error: e.message }; }
 }
 
-// ─── OT CORRECTIVA DESDE SECUENCIA ───────────────────────────────────────────
+// â”€â”€â”€ OT CORRECTIVA DESDE SECUENCIA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function insertOrdenTrabajoDesdeSecuencia(orden, motivo, descripcion) {
   const nuevaOt = {
     id: `OT-SEC-${Math.floor(100 + Math.random() * 900)}`,
     codigo: `OT-${Math.floor(100 + Math.random() * 900)}`,
-    titulo: `Correctivo desde Secuencia: ${orden.referencia} — ${motivo}`,
+    titulo: `Correctivo desde Secuencia: ${orden.referencia} â€” ${motivo}`,
     activoId: 'COMP-GEN',
-    activoNombre: `Línea: ${orden.lineaNombre || orden.lineaAsignada || 'Sin línea'}`,
-    linea: orden.lineaNombre || orden.lineaAsignada || 'Línea 1',
+    activoNombre: `LÃ­nea: ${orden.lineaNombre || orden.lineaAsignada || 'Sin lÃ­nea'}`,
+    linea: orden.lineaNombre || orden.lineaAsignada || 'LÃ­nea 1',
     tipo: 'correctivo',
     prioridad: 'critica',
     estado: 'abierta',
-    tecnico: 'Técnico Asignado MTO',
+    tecnico: 'TÃ©cnico Asignado MTO',
     turno: 'Turno Actual',
     fechaApertura: new Date().toISOString().slice(0, 16).replace('T', ' '),
     fechaCierre: '',
     tiempoEst: 60,
     tiempoReal: 0,
     repuestos: [],
-    causaRaiz: `SECUENCIA — ${motivo}: ${descripcion || 'Sin descripción'}`,
+    causaRaiz: `SECUENCIA â€” ${motivo}: ${descripcion || 'Sin descripciÃ³n'}`,
     paradaId: null,
     costeTotal: 0,
   };
   return await insertOrdenTrabajo(nuevaOt);
 }
 
-// ─── CRUD — Operarios ────────────────────────────────────────────────────────
+// â”€â”€â”€ CRUD â€” Operarios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const LS_KEY_OPERARIOS = 'mes_operarios_catalogo';
 
 function getOperariosLocal() {
@@ -2459,7 +2459,7 @@ export async function registrarHistorialOperario(operarioId, entrada) {
   return await updateOperario(operarioId, { historial: nuevoHistorial });
 }
 
-// ─── CATÁLOGO MAESTRO DE CUALIFICACIONES, SKILLS, FORMACIONES Y PERMISOS ────
+// â”€â”€â”€ CATÃLOGO MAESTRO DE CUALIFICACIONES, SKILLS, FORMACIONES Y PERMISOS â”€â”€â”€â”€
 export function getCatalogoSkills() {
   try {
     const r = localStorage.getItem('mes_catalogo_skills');
@@ -2525,7 +2525,7 @@ export function saveCatalogoAutorizaciones(lista) {
   } catch (_) {}
 }
 
-// ─── MANTENIMIENTO INTEGRAL (GMAO / OTs / Activos / Repuestos) ───────────────
+// â”€â”€â”€ MANTENIMIENTO INTEGRAL (GMAO / OTs / Activos / Repuestos) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getOrdenesTrabajoLocal() { try { const r = localStorage.getItem('mes_ordenes_trabajo'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
 function setOrdenesTrabajoLocal(d) { try { localStorage.setItem('mes_ordenes_trabajo', JSON.stringify(d)); } catch (_) {} }
@@ -2601,27 +2601,27 @@ export async function deleteOrdenTrabajo(id) {
 
 export async function generarOtDesdeParada(parada) {
   if (!parada || parada.estado === 'cerrada') {
-    alert('⚠️ No se puede generar ni asignar una Orden de Trabajo a una parada que ya se encuentra cerrada.');
+    alert('âš ï¸ No se puede generar ni asignar una Orden de Trabajo a una parada que ya se encuentra cerrada.');
     return { data: null, error: 'Parada cerrada' };
   }
   const nuevaOt = {
     id: `OT-2026-${Math.floor(100 + Math.random() * 900)}`,
     codigo: `OT-${Math.floor(100 + Math.random() * 900)}`,
-    titulo: `OT Correctiva generada desde Parada: ${parada.causa || 'Incidencia de línea'}`,
+    titulo: `OT Correctiva generada desde Parada: ${parada.causa || 'Incidencia de lÃ­nea'}`,
     activoId: 'COMP-GEN',
-    activoNombre: `Activo Principal en ${parada.linea || 'Línea'}`,
-    linea: parada.linea || 'Línea 1',
+    activoNombre: `Activo Principal en ${parada.linea || 'LÃ­nea'}`,
+    linea: parada.linea || 'LÃ­nea 1',
     tipo: 'correctivo',
     prioridad: 'critica',
     estado: 'abierta',
-    tecnico: 'Técnico Asignado MTO',
+    tecnico: 'TÃ©cnico Asignado MTO',
     turno: 'Turno Actual',
     fechaApertura: new Date().toISOString().slice(0, 16).replace('T', ' '),
     fechaCierre: '',
     tiempoEst: Number(parada.duracion) || 45,
     tiempoReal: 0,
     repuestos: [],
-    causaRaiz: `PARADA-REF (${parada.id}) — ${parada.causa}`,
+    causaRaiz: `PARADA-REF (${parada.id}) â€” ${parada.causa}`,
     paradaId: parada.id,
     costeTotal: 95
   };
@@ -2694,7 +2694,7 @@ export async function updatePlanPreventivo(id, plan) {
   return { data: updated.find(i => i.id === id), error: null };
 }
 
-// ─── SENSORES PREDICTIVOS ────────────────────────────────────────────────────
+// â”€â”€â”€ SENSORES PREDICTIVOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getSensoresLocal() { try { const r = localStorage.getItem('mes_sensores_predictivos'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
 function setSensoresLocal(d) { try { localStorage.setItem('mes_sensores_predictivos', JSON.stringify(d)); } catch (_) {} }
@@ -2730,7 +2730,7 @@ export async function deleteSensorPredictivo(id) {
   return { error: null };
 }
 
-// ─── PLANES PREVENTIVOS CRUD COMPLETO ────────────────────────────────────────
+// â”€â”€â”€ PLANES PREVENTIVOS CRUD COMPLETO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function insertPlanPreventivo(plan) {
   const current = getPlanesPreventivosLocal() || planesPreventivosIniciales;
@@ -2790,7 +2790,7 @@ export async function removeChecklistItem(planId, index) {
   return { data: updated.find(p => p.id === planId), error: null };
 }
 
-// ─── ÁRBOL DE ACTIVOS / EQUIPOS DE LÍNEA ─────────────────────────────────────
+// â”€â”€â”€ ÃRBOL DE ACTIVOS / EQUIPOS DE LÃNEA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getActivosLocal() { try { const r = localStorage.getItem('mes_activos_jerarquia'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
 function setActivosLocal(d) { try { localStorage.setItem('mes_activos_jerarquia', JSON.stringify(d)); } catch (_) {} }
@@ -2824,7 +2824,7 @@ export function getEquiposPlanos(arbol) {
   return result;
 }
 
-// Añadir un equipo (máquina) a una línea específica del árbol
+// AÃ±adir un equipo (mÃ¡quina) a una lÃ­nea especÃ­fica del Ã¡rbol
 export async function insertEquipoEnLinea(lineaId, equipo) {
   const { data: arbol } = await fetchActivosMantenimientoEditable();
   const newEquipo = {
@@ -2850,7 +2850,7 @@ export async function insertEquipoEnLinea(lineaId, equipo) {
   return { data: newEquipo, error: null };
 }
 
-// Editar un equipo/componente por ID en cualquier nivel del árbol
+// Editar un equipo/componente por ID en cualquier nivel del Ã¡rbol
 export async function updateEquipoEnArbol(equipoId, cambios) {
   const { data: arbol } = await fetchActivosMantenimientoEditable();
 
@@ -2868,7 +2868,7 @@ export async function updateEquipoEnArbol(equipoId, cambios) {
   return { data: updated, error: null };
 }
 
-// Eliminar un equipo/componente por ID de cualquier nivel del árbol
+// Eliminar un equipo/componente por ID de cualquier nivel del Ã¡rbol
 export async function deleteEquipoEnArbol(equipoId) {
   const { data: arbol } = await fetchActivosMantenimientoEditable();
 
@@ -2887,7 +2887,7 @@ export async function deleteEquipoEnArbol(equipoId) {
   return { error: null };
 }
 
-// Añadir un componente hijo a un equipo (máquina) del árbol
+// AÃ±adir un componente hijo a un equipo (mÃ¡quina) del Ã¡rbol
 export async function insertComponenteEnEquipo(equipoId, componente) {
   const { data: arbol } = await fetchActivosMantenimientoEditable();
   const newComp = {
@@ -2912,9 +2912,9 @@ export async function insertComponenteEnEquipo(equipoId, componente) {
   return { data: newComp, error: null };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ─── CHECKLISTS TEMPLATES (PLANTILLAS REUTILIZABLES: CALIDAD, CIL, MTO) ───
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â”€â”€â”€ CHECKLISTS TEMPLATES (PLANTILLAS REUTILIZABLES: CALIDAD, CIL, MTO) â”€â”€â”€
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 const CHECKLISTS_TEMPLATES_KEY = 'mes_checklists_templates';
 const CHECKLISTS_EJECUCIONES_KEY = 'mes_checklists_ejecuciones';
@@ -3029,7 +3029,7 @@ export async function deleteChecklistTemplate(id) {
   return { data: { id }, error: null };
 }
 
-// ─── Gestión de items de plantilla ──────────────────────────────────────────
+// â”€â”€â”€ GestiÃ³n de items de plantilla â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function addChecklistTemplateItem(templateId, item) {
   const list = getChecklistTemplatesLocal();
@@ -3038,7 +3038,7 @@ export async function addChecklistTemplateItem(templateId, item) {
 
   const newItem = {
     id: item.id || `IT-${Date.now().toString().slice(-4)}`,
-    texto: item.texto || (typeof item === 'string' ? item : 'Nuevo ítem'),
+    texto: item.texto || (typeof item === 'string' ? item : 'Nuevo Ã­tem'),
     orden: (tpl.items || []).length + 1,
     critico: item.critico || false
   };
@@ -3075,7 +3075,7 @@ export async function reordenarChecklistTemplateItems(templateId, nuevoOrdenItem
   return updateChecklistTemplate(templateId, { items: nuevoOrdenItems });
 }
 
-// ─── REGISTRO DE EJECUCIONES (EN PLANTA) ────────────────────────────────────
+// â”€â”€â”€ REGISTRO DE EJECUCIONES (EN PLANTA) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function insertChecklistEjecucion(ejecucion) {
   const nuevo = {
@@ -3149,7 +3149,7 @@ export async function getChecklistEjecuciones() {
   return { data: getChecklistEjecucionesLocal(), error: null };
 }
 
-// ─── CÁLCULO DE OEE ────────────────────────────────────────────────────────
+// â”€â”€â”€ CÃLCULO DE OEE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function calcularOEEPorLinea() {
   try {
     const [{ data: lineas }, { data: paradas }, { data: produccion }, { data: calidad }] = await Promise.all([
@@ -3238,7 +3238,7 @@ export async function calcularOEEPorLinea() {
 
 
 
-// ─── AUDITORÍA / CHANGELOG ──────────────────────────────────────────────────
+// â”€â”€â”€ AUDITORÃA / CHANGELOG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function getAuditLocal() { try { const r = localStorage.getItem('mes_audit_log'); return r ? JSON.parse(r) : []; } catch (_) { return []; } }
 function setAuditLocal(d) { try { localStorage.setItem('mes_audit_log', JSON.stringify(d)); } catch (_) {} }
 
@@ -3288,7 +3288,7 @@ export async function fetchAuditoria() {
 }
 
 
-// ─── PWA OFFLINE QUEUE ───────────────────────────────────────────────────────
+// â”€â”€â”€ PWA OFFLINE QUEUE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function getPendingWrites() { try { const r = localStorage.getItem('mes_pending_writes'); return r ? JSON.parse(r) : []; } catch (_) { return []; } }
 function setPendingWrites(d) { try { localStorage.setItem('mes_pending_writes', JSON.stringify(d)); window.dispatchEvent(new CustomEvent('offline_queue_updated')); } catch (_) {} }
 
@@ -3334,7 +3334,7 @@ export function getOfflineQueueCount() {
   return getPendingWrites().length;
 }
 
-// ─── SÍNTESIS AUTOMÁTICA (IA Simulada basada en reglas) ─────────────────────
+// â”€â”€â”€ SÃNTESIS AUTOMÃTICA (IA Simulada basada en reglas) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generarSintesisAutomatica(modulo) {
   try {
     switch (modulo) {
@@ -3342,7 +3342,7 @@ export async function generarSintesisAutomatica(modulo) {
         const [{ data: ots }, { data: repuestos }] = await Promise.all([fetchOrdenesTrabajo(), fetchRepuestos()]);
         const correctivas = (ots || []).filter(o => o.tipo === 'correctivo' && o.estado !== 'completada').length;
         const bajoStock = (repuestos || []).filter(r => Number(r.stock_actual) < Number(r.stock_minimo)).length;
-        return `Actualmente hay ${correctivas} averías correctivas en curso. Se detectan ${bajoStock} repuestos por debajo del stock de seguridad crítico. Priorice las tareas de línea principal.`;
+        return `Actualmente hay ${correctivas} averÃ­as correctivas en curso. Se detectan ${bajoStock} repuestos por debajo del stock de seguridad crÃ­tico. Priorice las tareas de lÃ­nea principal.`;
       }
       case 'produccion': {
         const [{ data: lineas }, { data: paradas }] = await Promise.all([fetchLineas(), fetchParadas()]);
@@ -3355,7 +3355,7 @@ export async function generarSintesisAutomatica(modulo) {
           return l;
         });
         const baja = lineaData.filter(l => Number(l.oee) < 70).length;
-        return `El turno actual avanza con ${baja} líneas rindiendo por debajo del 70% OEE. El principal cuello de botella está en la ${maxParadas.linea} con ${maxParadas.mins} mins perdidos.`;
+        return `El turno actual avanza con ${baja} lÃ­neas rindiendo por debajo del 70% OEE. El principal cuello de botella estÃ¡ en la ${maxParadas.linea} con ${maxParadas.mins} mins perdidos.`;
       }
       case 'calidad': {
         const { data: calidad } = await fetchCalidad();
@@ -3368,17 +3368,17 @@ export async function generarSintesisAutomatica(modulo) {
         const [{ data: lineas }, { data: alertas }] = await Promise.all([fetchLineas(), fetchAlertas()]);
         const oeePromedio = lineas?.length ? lineas.reduce((a, b) => a + Number(b.oee), 0) / lineas.length : 0;
         const criticas = (alertas || []).filter(a => a.tipo === 'critica' && !a.leida).length;
-        return `Rendimiento de planta estable al ${oeePromedio.toFixed(1)}% OEE global. Hay ${criticas} alertas críticas sin atender. El suministro de materia prima para la L1 está garantizado para el próximo turno.`;
+        return `Rendimiento de planta estable al ${oeePromedio.toFixed(1)}% OEE global. Hay ${criticas} alertas crÃ­ticas sin atender. El suministro de materia prima para la L1 estÃ¡ garantizado para el prÃ³ximo turno.`;
       }
       default:
         return 'Sintetizando datos operativos...';
     }
   } catch (e) {
-    return 'No se pudo generar la síntesis automática en este momento.';
+    return 'No se pudo generar la sÃ­ntesis automÃ¡tica en este momento.';
   }
 }
 
-// ─── LEAN (KAIZEN, SMED) ──────────────────────────────────────────────────
+// â”€â”€â”€ LEAN (KAIZEN, SMED) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getKaizenLocal() { try { const r = localStorage.getItem('mes_kaizen'); return r ? JSON.parse(r) : null; } catch (_) { return null; } }
 function setKaizenLocal(d) { try { localStorage.setItem('mes_kaizen', JSON.stringify(d)); } catch (_) {} }
@@ -3497,4 +3497,167 @@ export async function fetchTiemposCambioEstandar() {
   if (local) return { data: local, fromSupabase: false };
   setTiemposCambioEstandarLocal(mockTiemposCambioEstandar);
   return { data: mockTiemposCambioEstandar, fromSupabase: false };
+}
+
+// --- AGREGADORES PARA PRODUCCION.JSX ------------------------------------------
+
+export function agregarProduccionPorHora(registros) {
+  if (!registros || registros.length === 0) return [];
+  const hoy = new Date().toISOString().split('T')[0];
+  const recsHoy = registros.filter(r => r.fecha === hoy);
+  
+  const map = {};
+  recsHoy.forEach(r => {
+    if (!map[r.hora]) map[r.hora] = { hora: r.hora, plan: 0, real: 0 };
+    map[r.hora].plan += Number(r.objetivo_hora || 0);
+    map[r.hora].real += Number(r.cantidad_producida || 0);
+  });
+  
+  return Object.values(map).sort((a, b) => a.hora.localeCompare(b.hora));
+}
+
+export function agregarProduccionDiaria(registros) {
+  if (!registros || registros.length === 0) return [];
+  const map = {};
+  // Simplify to just group by date (last 7 days or so, or just what's in the records)
+  // For simplicity, we just aggregate all records by fecha and format as day name.
+  const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  registros.forEach(r => {
+    if (!r.fecha) return;
+    const d = new Date(r.fecha);
+    const dayName = isNaN(d.getDay()) ? r.fecha : days[d.getDay()];
+    // To keep it sorted, we could use the raw date as key
+    if (!map[r.fecha]) map[r.fecha] = { dateStr: r.fecha, dia: dayName, plan: 0, real: 0 };
+    map[r.fecha].plan += Number(r.objetivo_hora || 0);
+    map[r.fecha].real += Number(r.cantidad_producida || 0);
+  });
+  
+  return Object.values(map).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+}
+
+export function agregarProduccionSemanal(registros) {
+  if (!registros || registros.length === 0) return [];
+  const map = {};
+  // Simple grouping by week. We can just use the ISO week or simple chunking.
+  // We'll group by year-week.
+  const getWeek = (d) => {
+    const date = new Date(d);
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+    const week1 = new Date(date.getFullYear(), 0, 4);
+    return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  };
+  
+  registros.forEach(r => {
+    if (!r.fecha) return;
+    const date = new Date(r.fecha);
+    if(isNaN(date.getTime())) return;
+    const wk = 'S' + getWeek(date);
+    if (!map[wk]) map[wk] = { semana: wk, plan: 0, real: 0 };
+    map[wk].plan += Number(r.objetivo_hora || 0);
+    map[wk].real += Number(r.cantidad_producida || 0);
+  });
+  
+  return Object.values(map).sort((a, b) => a.semana.localeCompare(b.semana));
+}
+
+export function agregarVelocidadPorLinea(registros) {
+  if (!registros || registros.length === 0) return [];
+  const hoy = new Date().toISOString().split('T')[0];
+  const recsHoy = registros.filter(r => r.fecha === hoy);
+  
+  const map = {};
+  recsHoy.forEach(r => {
+    if (!map[r.hora]) map[r.hora] = { hora: r.hora, l1: 0, l2: 0, l3: 0, l4: 0, l5: 0 };
+    const lKey = (r.linea || '').toLowerCase();
+    if (map[r.hora][lKey] !== undefined) {
+      map[r.hora][lKey] += Number(r.velocidad_media || r.cantidad_producida || 0);
+    }
+  });
+  
+  return Object.values(map).sort((a, b) => a.hora.localeCompare(b.hora));
+}
+
+export function agregarKpisProduccion(registros) {
+  const hoy = new Date().toISOString().split('T')[0];
+  const recsHoy = registros.filter(r => r.fecha === hoy);
+  
+  let real = 0;
+  let plan = 0;
+  recsHoy.forEach(r => {
+    real += Number(r.cantidad_producida || 0);
+    plan += Number(r.objetivo_hora || 0);
+  });
+  
+  const desv = real - plan;
+  const pct = plan > 0 ? ((desv / plan) * 100).toFixed(1) : 0;
+  
+  return {
+    produccionReal: real,
+    produccionPlanificada: plan,
+    desviacionAcumulada: desv > 0 ? '+' + desv : String(desv),
+    desviacionPct: desv > 0 ? '+' + pct : String(pct),
+    ritmoReal: real > 0 ? Math.round(real / (recsHoy.length || 1)) : 0,
+    ritmoObjetivo: plan > 0 ? Math.round(plan / (recsHoy.length || 1)) : 0
+  };
+}
+
+
+// ─── BLOQUE 1: ANALÍTICA PREDICTIVA LIGERA ────────────────────────────────────
+
+export async function predecirAgotamientoStock(materialId) {
+  try {
+    const { data: materias } = await supabase.from('materias_primas').select('*');
+    const list = materias || JSON.parse(localStorage.getItem('mes_materias_primas') || '[]');
+    const mat = list.find(m => m.id === materialId);
+    
+    if (!mat || !mat.movimientos || !Array.isArray(mat.movimientos) || mat.movimientos.length === 0) return null;
+    
+    const hace30 = new Date();
+    hace30.setDate(hace30.getDate() - 30);
+    
+    let totalSalidas = 0;
+    mat.movimientos.forEach(mov => {
+      const fecha = new Date(mov.fecha);
+      if (fecha >= hace30 && mov.tipo === 'salida') {
+        totalSalidas += Math.abs(Number(mov.cantidad || 0));
+      }
+    });
+    
+    const consumoMedioDiario = totalSalidas / 30;
+    if (consumoMedioDiario <= 0) return null;
+    
+    return Math.max(0, Math.round(Number(mat.stock_actual) / consumoMedioDiario));
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function predecirRiesgoAveria(activoId) {
+  try {
+    const { data: ots } = await supabase.from('mantenimiento_ots').select('*');
+    const otsList = ots || JSON.parse(localStorage.getItem('mes_mantenimiento_ots') || '[]');
+    if (!otsList) return false;
+    
+    const hace30 = new Date();
+    hace30.setDate(hace30.getDate() - 30);
+    
+    const otsActivo = otsList
+      .filter(o => o.equipo_id === activoId && o.tipo === 'correctivo' && new Date(o.fecha_creacion) >= hace30)
+      .sort((a, b) => new Date(a.fecha_creacion) - new Date(b.fecha_creacion));
+      
+    if (otsActivo.length < 2) return false;
+    
+    let intervalos = [];
+    for (let i = 1; i < otsActivo.length; i++) {
+      intervalos.push(new Date(otsActivo[i].fecha_creacion) - new Date(otsActivo[i-1].fecha_creacion));
+    }
+    
+    if (intervalos.length >= 2) {
+      if (intervalos[intervalos.length - 1] < intervalos[0]) return true;
+    } else {
+      if (intervalos[0] < 7 * 24 * 3600 * 1000) return true;
+    }
+    return false;
+  } catch(e) { return false; }
 }

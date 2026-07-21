@@ -610,6 +610,46 @@ export default function Configuracion() {
                 </select>
               </div>
             </div>
+
+            {/* ─── TERMINALES RÁPIDOS ─── */}
+            <div className="pt-6 border-t border-slate-800">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-wider block mb-3">
+                Accesos Rápidos a Terminales (Cabecera)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="flex items-center justify-between bg-slate-950/60 border border-slate-800 rounded-xl p-3 cursor-pointer hover:border-indigo-500 transition-colors">
+                  <div>
+                    <span className="text-sm font-bold text-white block">Terminal Operario</span>
+                    <span className="text-[10px] text-slate-400">Mostrar botón en la cabecera superior</span>
+                  </div>
+                  <div className={`w-10 h-5 flex items-center bg-slate-800 rounded-full p-1 transition-colors ${config.habilitarModoOperario !== false ? 'bg-indigo-600' : ''}`}>
+                    <div className={`bg-white w-3 h-3 rounded-full shadow-md transform transition-transform ${config.habilitarModoOperario !== false ? 'translate-x-5' : ''}`}></div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={config.habilitarModoOperario !== false}
+                    onChange={(e) => handleChange('habilitarModoOperario', e.target.checked)}
+                    className="hidden"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between bg-slate-950/60 border border-slate-800 rounded-xl p-3 cursor-pointer hover:border-rose-500 transition-colors">
+                  <div>
+                    <span className="text-sm font-bold text-white block">Terminal Calidad</span>
+                    <span className="text-[10px] text-slate-400">Mostrar botón en la cabecera superior</span>
+                  </div>
+                  <div className={`w-10 h-5 flex items-center bg-slate-800 rounded-full p-1 transition-colors ${config.habilitarModoCalidad !== false ? 'bg-rose-600' : ''}`}>
+                    <div className={`bg-white w-3 h-3 rounded-full shadow-md transform transition-transform ${config.habilitarModoCalidad !== false ? 'translate-x-5' : ''}`}></div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={config.habilitarModoCalidad !== false}
+                    onChange={(e) => handleChange('habilitarModoCalidad', e.target.checked)}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
             {/* ─── ZONAS 5S ─── */}
             <div className="pt-6 border-t border-slate-800">
               <div className="flex items-center justify-between mb-4">

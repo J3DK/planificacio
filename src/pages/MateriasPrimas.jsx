@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchMateriasPrimas, fetchProductos, insertMaterial, updateMaterial, deleteMaterial, calcularTodosConsumosComprometidos, registrarMovimientoStock, fetchUbicaciones } from '@/services/dataService';
+import { fetchMateriasPrimas, fetchProductos, insertMaterial, updateMaterial, deleteMaterial, calcularTodosConsumosComprometidos, registrarMovimientoStock, fetchUbicaciones, predecirAgotamientoStock } from '@/services/dataService';
 import { consumoPorDia } from '@/data/mockMaterias';
 import { AlertTriangle, CheckCircle2, TrendingDown, Search, Plus, Pencil, Trash2, RefreshCw, Layers3, ScanBarcode, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import CrudModal from '@/components/shared/CrudModal';
@@ -69,7 +69,12 @@ export default function MateriasPrimas() {
       ubiField.options.unshift({ value: '', label: 'Sin asignar' });
     }
 
-    setMateriales(resMat?.data || []);
+    const rawMats = resMat?.data || [];
+    const matsConPred = await Promise.all(rawMats.map(async m => {
+      const dias = await predecirAgotamientoStock(m.id);
+      return { ...m, diasAgotamiento: dias };
+    }));
+    setMateriales(matsConPred);
     setProductos(resProd?.data || []);
     setLoading(false);
   };
@@ -333,6 +338,17 @@ export default function MateriasPrimas() {
                       </div>
                       <div className="w-24 h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
                         <div className={`h-full rounded-full ${clr.bar}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="mt-2">
+                        {m.diasAgotamiento !== null && m.diasAgotamiento !== undefined ? (
+                          <span className="text-[10px] text-blue-400 font-bold bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded">
+                            Agotamiento en ~{m.diasAgotamiento} días
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 font-bold bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded">
+                            Histórico insuficiente
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="table-cell py-3 px-4">

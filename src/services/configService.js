@@ -39,6 +39,8 @@ export const DEFAULT_APP_CONFIG = {
   moneda: 'EUR',
   defaultViewMode: 'grid',
   objetivoOEEPlanta: 85,
+  habilitarModoOperario: true,
+  habilitarModoCalidad: true,
   menuOrder: DEFAULT_MENU_ITEMS,
   rolesOperario: [
     'Operario Especialista', 'Jefe de Línea', 'Técnico de Mantenimiento',
@@ -62,6 +64,9 @@ export function getAppConfig() {
     const raw = localStorage.getItem(LS_KEY_APP_CONFIG);
     if (raw) {
       const parsed = JSON.parse(raw);
+      // Ensure defaults for new properties if missing
+      if (typeof parsed.habilitarModoOperario === 'undefined') parsed.habilitarModoOperario = true;
+      if (typeof parsed.habilitarModoCalidad === 'undefined') parsed.habilitarModoCalidad = true;
       // Asegurar que menuOrder contenga una lista válida o reconciliar si se agregaron nuevas rutas
       let currentMenu = Array.isArray(parsed.menuOrder) && parsed.menuOrder.length > 0
         ? parsed.menuOrder
